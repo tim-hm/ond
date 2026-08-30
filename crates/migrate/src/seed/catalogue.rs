@@ -119,7 +119,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             &[
                 "The long breath out makes the very slow pace easier to maintain.",
                 "The hold and the counting keep your attention on three simple tasks.",
-                "Shorten every part if the hold feels strained; a comfortable rhythm matters more than the exact count.",
+                "Shorten every part if the hold feels strained. A comfortable rhythm matters more than the exact count.",
             ],
         ),
         evidence: bullets(
@@ -159,7 +159,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             &[
                 "A four-in, six-out cycle gives you six breaths per minute.",
                 "The longer breath out is often the easiest part of the cycle to stretch comfortably.",
-                "The simple ratio can meet you whether you feel wound up or nearly asleep.",
+                "The simple ratio suits you whether you feel wound up or nearly asleep.",
             ],
         ),
         evidence: bullets(
@@ -293,7 +293,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             &[
                 "The narrow opening at your lips creates gentle pressure as you breathe out.",
                 "That pressure can help trapped air leave before the next breath in.",
-                "Let the air move steadily rather than blowing hard; the slower breath out is the useful part.",
+                "Let the air move steadily rather than blowing hard. The slower breath out is the useful part.",
             ],
         ),
         evidence: bullets(
@@ -431,7 +431,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             &[
                 "Fast, forceful breathing can raise heart rate and adrenaline.",
                 "It also lowers carbon dioxide quickly, which can cause tingling or lightheadedness.",
-                "Keep the bout brief and stay seated; continuing longer adds risk rather than useful energy.",
+                "Keep the bout brief and stay seated. Continuing longer adds risk without adding energy.",
             ],
         ),
         evidence: bullets(
@@ -468,7 +468,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             &[
                 "Thirty quick breaths lower carbon dioxide, which delays the urge to breathe.",
                 "The same fast pace can raise adrenaline and cause a bright or tingling sensation.",
-                "End every hold while it is still comfortable; a longer hold is not a better result.",
+                "End every hold while it is still comfortable. A longer hold is not a better result.",
             ],
         ),
         evidence: bullets(
@@ -482,9 +482,9 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         evidence_grade: EvidenceGrade::Limited,
         preparation: prose(""),
         safety_note: "Sitting or lying down, always. Never in water, never in the bath, never \
-                      driving or standing — fast breathing can make you faint with no warning. \
+                      driving or standing. Fast breathing can make you faint with no warning. \
                       Tingling in the hands and face is ordinary; dizziness means stop. Never \
-                      push a hold to the limit: this app does not measure one.",
+                      push a hold to the limit. This app does not measure one.",
         goal: TechniqueGoal::Energy,
         stages: &[
             stage(
@@ -625,12 +625,12 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
 pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
     FoundationSeed {
         slug: "what-matters-most",
-        question: "Practice matters more than perfect",
+        question: "How exact does it need to be?",
         answer: bullets(
             "A comfortable exercise you repeat is more useful than a perfect pattern you avoid.",
             &[
                 "Choose a well-studied exercise that feels easy enough to return to.",
-                "Nose breathing, belly movement and exact counts are refinements, not pass-or-fail rules.",
+                "Nose breathing, belly movement and exact counts are refinements you can add later.",
                 "Treat fast breathing and long holds with extra care.",
             ],
         ),
@@ -639,7 +639,7 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
         slug: "what-a-good-breath-feels-like",
         question: "What should a good breath feel like?",
         answer: bullets(
-            "A good breath feels quiet and comfortable, not as large as possible.",
+            "A good breath feels quiet and comfortable. It does not need to be large.",
             &[
                 "Let your ribs and belly move without forcing them.",
                 "Make the breath smaller if you feel air hunger, tingling or dizziness.",
@@ -663,11 +663,11 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
         slug: "why-it-works",
         question: "Why can slow breathing help?",
         answer: bullets(
-            "Slow breathing can give your body's settling systems more room to work.",
+            "Slow breathing supports the body systems that settle you.",
             &[
                 "Your heart speeds up as you breathe in and slows as you breathe out.",
                 "A slower cycle increases heart rate variability (HRV) while you practise.",
-                "Many people feel calmer, but the effect is usually a nudge rather than a switch.",
+                "Many people feel calmer, but the effect is usually small.",
             ],
         ),
     },
@@ -694,7 +694,7 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
         slug: "how-slow",
         question: "How slow?",
         answer: prose(
-            "Aim for slower than usual without straining. Five or six breaths per minute is common in research, not a test to pass. Shorten the count or breathe normally if the guide leaves you short of air.",
+            "Aim for slower than usual without straining. Five or six breaths per minute is the pace most often used in research. Shorten the count or breathe normally if the guide leaves you short of air.",
         ),
     },
     FoundationSeed {
@@ -725,7 +725,7 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
         slug: "how-long",
         question: "How long and how often?",
         answer: bullets(
-            "Start with a length you can repeat comfortably; more is not automatically better.",
+            "Start with a length you can repeat comfortably. A longer session is not automatically better.",
             &[
                 "One minute may help with a momentary spike.",
                 "Studies of change over time often use five-to-ten-minute sessions on most days.",
@@ -756,10 +756,10 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
         slug: "why-no-scores",
         question: "Why doesn't önd score you?",
         answer: bullets(
-            "A breathing number is not a verdict on your health.",
+            "A breathing number describes one measurement, taken once.",
             &[
                 "Comfortable-pause targets, coherence scores and breathing ages are not established measures of improvement.",
-                "önd keeps what it can support: what you practised, for how long and how it felt.",
+                "önd records what you practised, for how long, and how it felt.",
                 "Your resting breathing rate is compared only with your own earlier measurements.",
             ],
         ),
@@ -795,7 +795,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "ten-quiet-minutes",
         name: "Ten quiet minutes",
-        summary: "Give a smooth, count-free rhythm ten quiet minutes to deepen at its own pace.",
+        summary: "Follow a smooth, count-free rhythm for ten quiet minutes.",
         technique_slug: "coherent-breathing",
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::FullScreen,
@@ -874,7 +874,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "when-youre-winded",
         name: "When you're winded",
-        summary: "Use gentle breaths out through pursed lips to help your breathing catch up.",
+        summary: "Use gentle breaths out through pursed lips to help your breathing settle.",
         technique_slug: "pursed-lip-breathing",
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::FullScreen,
@@ -884,7 +884,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         // somebody practising on a calm afternoon needs the first sentence and
         // none of the second.
         safety_note: "Practise this while you are comfortable rather than meeting it for the \
-                      first time out of breath — a shape you already know is far easier to find. \
+                      first time out of breath. A shape you already know is far easier to find. \
                       Breathlessness that is new, that is severe, or that is not settling is a \
                       matter for a doctor rather than an app, and breathlessness that arrives \
                       suddenly or alongside chest pain is a matter for an emergency number.",
@@ -1000,7 +1000,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "winding-down",
         name: "Winding down",
-        summary: "Let long, slow breaths out mark the change from the day into rest.",
+        summary: "Use long, slow breaths out to settle at the end of the day.",
         technique_slug: "extended-exhale",
         goal: TechniqueGoal::Sleep,
         surface: DeliverySurface::FullScreen,
@@ -1036,8 +1036,8 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         // Extended Exhale as a standalone exercise.
         phase_durations_ms: &[3000, 5000],
         safety_note: "This is for breathing alongside a child, not for teaching one to hold \
-                      their breath. There are no holds here and none should be added — \
-                      breath-holding and fast breathing are not for children. Stop if they feel \
+                      their breath. There are no holds here and none should be added. \
+                      Breath-holding and fast breathing are not for children. Stop if they feel \
                       dizzy, or if they have stopped enjoying it.",
         // Ninety seconds — eleven cycles of the eight-second rhythm. Long enough
         // to settle, short enough to finish before a child is finished with it.
@@ -1084,7 +1084,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
 pub(super) const PROGRESSION: &[ProgressionStepSeed] = &[
     ProgressionStepSeed {
         technique_slug: "box-breathing",
-        note: "Start with four even counts: simple enough to follow on your first try.",
+        note: "Start with four even counts, which are simple to follow on your first try.",
     },
     ProgressionStepSeed {
         technique_slug: "physiological-sigh",

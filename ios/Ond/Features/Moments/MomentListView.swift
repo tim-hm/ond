@@ -67,7 +67,7 @@ struct MomentListView: View {
             ContentUnavailableView {
                 Label("No moments yet", systemImage: "checklist")
             } description: {
-                Text("They arrive with the catalogue, the first time this phone can reach it.")
+                Text("They download with the catalogue, the first time this phone can reach it.")
             } actions: {
                 Button("Try again") {
                     Task {
@@ -101,7 +101,7 @@ struct MomentListView: View {
             LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                 // Moments and Exercises are when and what. The line says which
                 // axis this screen is, because the tab name alone cannot.
-                Text("Start from what's happening, not from a technique.")
+                Text("Choose by what is happening right now.")
                     .font(.subheadline)
                     .foregroundStyle(Theme.Ink.secondary)
                     .padding(.horizontal, Theme.Spacing.page)
@@ -116,7 +116,7 @@ struct MomentListView: View {
                         }
 
                         if stops.isEmpty {
-                            Text("Nothing here is for that yet.")
+                            Text("No moments match that yet.")
                                 .font(.callout)
                                 .foregroundStyle(Theme.Ink.secondary)
                         }

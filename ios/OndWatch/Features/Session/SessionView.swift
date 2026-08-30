@@ -350,7 +350,7 @@ struct SessionView: View {
 
         let length = target.formatted(.time(pattern: .minuteSecond))
         let aim = model.holdElapsed >= target
-            ? "Past \(length) — end whenever you like"
+            ? "Past \(length). End it when you want."
             : "Aim for \(length)"
         return "\(count), \(aim)"
     }

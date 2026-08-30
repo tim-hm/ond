@@ -33,7 +33,7 @@ struct HealthSettingsSection: View {
                 settingsLabel(
                     "Ask how you feel before and after",
                     description: "Saves your responses as State of Mind in Apple Health. "
-                        + "önd never sees them."
+                        + "önd does not read them."
                 )
             }
             .accessibilityIdentifier("settings-health-check-ins")
@@ -57,7 +57,7 @@ struct HealthSettingsSection: View {
                     "Read my heart data",
                     description: "Your coach uses sleeping breathing, resting heart rate and "
                         + "heart-rate variability when needed, and Home draws your heart rate "
-                        + "around each session you practise. Nothing read is stored or sent."
+                        + "around each session you practise. What it reads is not stored or sent."
                 )
             }
             .accessibilityIdentifier("settings-health-watch-trends")

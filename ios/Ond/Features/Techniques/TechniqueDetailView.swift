@@ -124,7 +124,7 @@ struct TechniqueDetailView: View {
         ) {
             Button("Delete", role: .destructive) { Task { await delete() } }
         } message: {
-            Text("It goes from every device. The sessions you have already done stay.")
+            Text("It goes from every device. The sessions you have already done are kept.")
         }
         .alert(
             "Couldn't delete it",

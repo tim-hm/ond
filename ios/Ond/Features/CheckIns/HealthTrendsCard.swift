@@ -117,8 +117,8 @@ struct HealthTrendsCard: View {
                     "Sleeping breathing rate",
                     breathing,
                     unit: HealthUnit(one: "breath per minute", many: "breaths per minute"),
-                    note: "Slower than your waking rate for everybody — a separate number "
-                        + "from the one you count, not a better version of it."
+                    note: "Slower than your waking rate for everybody. It is a separate "
+                        + "number from the one you count yourself."
                 )
             }
             if let resting = context.restingHeartRate {
@@ -128,7 +128,7 @@ struct HealthTrendsCard: View {
                 metric("Heart rate variability", variability, unit: .flat("ms"))
             }
 
-            Text("Weekly averages, read when you open this. Never stored.")
+            Text("Weekly averages, read when you open this. They are never stored.")
                 .font(.caption)
                 .foregroundStyle(Theme.Ink.tertiary)
         }

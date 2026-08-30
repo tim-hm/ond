@@ -46,7 +46,7 @@ struct BoltTestView: View {
             step(
                 title: "Breathe normally",
                 detail: "A few easy breaths through your nose. When you're ready, "
-                    + "breathe out gently — not fully — and start the timer."
+                    + "breathe out gently, but not fully, and start the timer."
             )
         case let .holding(since):
             holding(since: since)
@@ -57,7 +57,8 @@ struct BoltTestView: View {
 
     private var instructions: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
-            Text("This measures how settled your breathing is, not how long you can hold on.")
+            Text("This measures how settled your breathing is. It is not a test of how long "
+                + "you can hold your breath.")
                 .font(.title3.weight(.semibold))
 
             VStack(alignment: .leading, spacing: Theme.Spacing.close) {
@@ -65,7 +66,8 @@ struct BoltTestView: View {
                 bullet("Breathe normally through your nose for a few breaths.")
                 bullet("Breathe out gently, then start the timer.")
                 bullet(
-                    "Stop at the first definite urge to breathe — not before, and nowhere near your limit."
+                    "Stop at the first definite urge to breathe. Do not stop before it, and do "
+                        + "not push near your limit."
                 )
                 bullet("Your next breath should be calm. If you gasp, you held too long.")
             }
@@ -132,7 +134,7 @@ struct BoltTestView: View {
 
             Text(
                 "This moves with sleep, stress, and how you've been breathing all day. "
-                    + "One reading says less than the shape of a few over a month."
+                    + "One reading tells you less than several readings over a month."
             )
             .font(.callout)
             .foregroundStyle(Theme.Ink.secondary)
@@ -144,7 +146,7 @@ struct BoltTestView: View {
     private var action: some View {
         switch stage {
         case .explain:
-            button("I'm sitting down — begin") { stage = .settle }
+            button("I'm sitting down") { stage = .settle }
         case .settle:
             button("Start the timer") { stage = .holding(since: .now) }
         case let .holding(since):

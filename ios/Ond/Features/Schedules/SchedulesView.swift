@@ -25,7 +25,7 @@ struct SchedulesView: View {
                 ContentUnavailableView {
                     Label("No schedules yet", systemImage: "clock.badge")
                 } description: {
-                    Text("A schedule rings as a notification — box breathing "
+                    Text("A schedule rings as a notification. For example, box breathing "
                         + "every weekday at 8, or winding down on Sunday nights.")
                 }
                 .listRowBackground(Color.clear)

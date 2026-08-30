@@ -36,11 +36,11 @@ public enum SessionCueMode: String, Sendable, CaseIterable, Identifiable {
     public var screenOffNote: String {
         switch self {
         case .hapticsAndAudio:
-            "iPhone haptics aren't supported when the screen is off — you'll hear the session but not feel it."
+            "iPhone haptics stop when the screen is off. You will hear the session but not feel it."
         case .haptics:
-            "iPhone haptics aren't supported when the screen is off, so the session pauses and says so."
+            "iPhone haptics stop when the screen is off, so the session pauses and tells you."
         case .visualOnly:
-            "The session pauses when you leave the app, and says so."
+            "The session pauses when you leave the app, and tells you."
         }
     }
 }

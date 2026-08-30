@@ -192,7 +192,7 @@ struct SessionWords: View {
     private func aim(of target: Duration, after held: Duration) -> String {
         let length = target.formatted(.time(pattern: .minuteSecond))
         return held >= target
-            ? "Past \(length) — end whenever you like"
+            ? "Past \(length). End it when you want."
             : "Aim for \(length)"
     }
 }

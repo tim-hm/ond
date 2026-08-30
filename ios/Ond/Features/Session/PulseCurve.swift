@@ -22,7 +22,7 @@ struct PulseCurve: View {
             // a start and an end — exactly backwards for a settling, with the
             // smaller number under a line that begins at the top.
             VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-                Text("Your heart, while your watch was sharing")
+                Text("Your heart rate while your watch was sharing it")
                     .font(.caption)
 
                 Text("\(range.upperBound) bpm")

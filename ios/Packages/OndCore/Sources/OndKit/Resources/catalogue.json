@@ -158,13 +158,13 @@
       "slug": "four-seven-eight",
       "name": "4-7-8 Breathing",
       "summary": "A very slow 4-7-8 rhythm can give a busy mind something simple to follow as you wind down.",
-      "mechanism": "4-7-8 breathing can help you slow down at the end of the day by stretching each round to about 19 seconds.\n\n• The long breath out makes the very slow pace easier to maintain.\n• The hold and the counting keep your attention on three simple tasks.\n• Shorten every part if the hold feels strained; a comfortable rhythm matters more than the exact count.",
+      "mechanism": "4-7-8 breathing can help you slow down at the end of the day by stretching each round to about 19 seconds.\n\n• The long breath out makes the very slow pace easier to maintain.\n• The hold and the counting keep your attention on three simple tasks.\n• Shorten every part if the hold feels strained. A comfortable rhythm matters more than the exact count.",
       "mechanismContent": {
         "lead": "4-7-8 breathing can help you slow down at the end of the day by stretching each round to about 19 seconds.",
         "items": [
           "The long breath out makes the very slow pace easier to maintain.",
           "The hold and the counting keep your attention on three simple tasks.",
-          "Shorten every part if the hold feels strained; a comfortable rhythm matters more than the exact count."
+          "Shorten every part if the hold feels strained. A comfortable rhythm matters more than the exact count."
         ],
         "listStyle": "BULLETS"
       },
@@ -235,13 +235,13 @@
       "slug": "extended-exhale",
       "name": "Extended Exhale",
       "summary": "A gentle four-in, six-out rhythm can make slow breathing easy to follow without a hold.",
-      "mechanism": "Extended Exhale can help you settle into a slow rhythm without the effort of a breath hold.\n\n• A four-in, six-out cycle gives you six breaths per minute.\n• The longer breath out is often the easiest part of the cycle to stretch comfortably.\n• The simple ratio can meet you whether you feel wound up or nearly asleep.",
+      "mechanism": "Extended Exhale can help you settle into a slow rhythm without the effort of a breath hold.\n\n• A four-in, six-out cycle gives you six breaths per minute.\n• The longer breath out is often the easiest part of the cycle to stretch comfortably.\n• The simple ratio suits you whether you feel wound up or nearly asleep.",
       "mechanismContent": {
         "lead": "Extended Exhale can help you settle into a slow rhythm without the effort of a breath hold.",
         "items": [
           "A four-in, six-out cycle gives you six breaths per minute.",
           "The longer breath out is often the easiest part of the cycle to stretch comfortably.",
-          "The simple ratio can meet you whether you feel wound up or nearly asleep."
+          "The simple ratio suits you whether you feel wound up or nearly asleep."
         ],
         "listStyle": "BULLETS"
       },
@@ -455,13 +455,13 @@
       "slug": "pursed-lip-breathing",
       "name": "Pursed-Lip Breathing",
       "summary": "A gentle breath out through pursed lips can help you recover when you are already short of breath.",
-      "mechanism": "Pursed-Lip Breathing can make each breath feel more effective by keeping small airways open for longer.\n\n• The narrow opening at your lips creates gentle pressure as you breathe out.\n• That pressure can help trapped air leave before the next breath in.\n• Let the air move steadily rather than blowing hard; the slower breath out is the useful part.",
+      "mechanism": "Pursed-Lip Breathing can make each breath feel more effective by keeping small airways open for longer.\n\n• The narrow opening at your lips creates gentle pressure as you breathe out.\n• That pressure can help trapped air leave before the next breath in.\n• Let the air move steadily rather than blowing hard. The slower breath out is the useful part.",
       "mechanismContent": {
         "lead": "Pursed-Lip Breathing can make each breath feel more effective by keeping small airways open for longer.",
         "items": [
           "The narrow opening at your lips creates gentle pressure as you breathe out.",
           "That pressure can help trapped air leave before the next breath in.",
-          "Let the air move steadily rather than blowing hard; the slower breath out is the useful part."
+          "Let the air move steadily rather than blowing hard. The slower breath out is the useful part."
         ],
         "listStyle": "BULLETS"
       },
@@ -656,13 +656,13 @@
       "slug": "bellows-breath",
       "name": "Bellows Breath",
       "summary": "A short round of quick nose breathing can give you a sharp lift in energy and focus.",
-      "mechanism": "Bellows Breath can create a quick, bright sense of energy by copying the breathing pattern of exertion.\n\n• Fast, forceful breathing can raise heart rate and adrenaline.\n• It also lowers carbon dioxide quickly, which can cause tingling or lightheadedness.\n• Keep the bout brief and stay seated; continuing longer adds risk rather than useful energy.",
+      "mechanism": "Bellows Breath can create a quick, bright sense of energy by copying the breathing pattern of exertion.\n\n• Fast, forceful breathing can raise heart rate and adrenaline.\n• It also lowers carbon dioxide quickly, which can cause tingling or lightheadedness.\n• Keep the bout brief and stay seated. Continuing longer adds risk without adding energy.",
       "mechanismContent": {
         "lead": "Bellows Breath can create a quick, bright sense of energy by copying the breathing pattern of exertion.",
         "items": [
           "Fast, forceful breathing can raise heart rate and adrenaline.",
           "It also lowers carbon dioxide quickly, which can cause tingling or lightheadedness.",
-          "Keep the bout brief and stay seated; continuing longer adds risk rather than useful energy."
+          "Keep the bout brief and stay seated. Continuing longer adds risk without adding energy."
         ],
         "listStyle": "BULLETS"
       },
@@ -722,13 +722,13 @@
       "slug": "wim-hof-rounds",
       "name": "Wim Hof-style Rounds",
       "summary": "Three rounds of fast breathing and gentle holds can feel intense and focused when done safely.",
-      "mechanism": "Wim Hof-style rounds can feel vivid and absorbing because fast breathing changes the signals that normally end a breath hold.\n\n• Thirty quick breaths lower carbon dioxide, which delays the urge to breathe.\n• The same fast pace can raise adrenaline and cause a bright or tingling sensation.\n• End every hold while it is still comfortable; a longer hold is not a better result.",
+      "mechanism": "Wim Hof-style rounds can feel vivid and absorbing because fast breathing changes the signals that normally end a breath hold.\n\n• Thirty quick breaths lower carbon dioxide, which delays the urge to breathe.\n• The same fast pace can raise adrenaline and cause a bright or tingling sensation.\n• End every hold while it is still comfortable. A longer hold is not a better result.",
       "mechanismContent": {
         "lead": "Wim Hof-style rounds can feel vivid and absorbing because fast breathing changes the signals that normally end a breath hold.",
         "items": [
           "Thirty quick breaths lower carbon dioxide, which delays the urge to breathe.",
           "The same fast pace can raise adrenaline and cause a bright or tingling sensation.",
-          "End every hold while it is still comfortable; a longer hold is not a better result."
+          "End every hold while it is still comfortable. A longer hold is not a better result."
         ],
         "listStyle": "BULLETS"
       },
@@ -743,7 +743,7 @@
         "listStyle": "BULLETS"
       },
       "evidenceGrade": "LIMITED",
-      "safetyNote": "Sitting or lying down, always. Never in water, never in the bath, never driving or standing — fast breathing can make you faint with no warning. Tingling in the hands and face is ordinary; dizziness means stop. Never push a hold to the limit: this app does not measure one.",
+      "safetyNote": "Sitting or lying down, always. Never in water, never in the bath, never driving or standing. Fast breathing can make you faint with no warning. Tingling in the hands and face is ordinary; dizziness means stop. Never push a hold to the limit. This app does not measure one.",
       "preparation": "",
       "preparationContent": {
         "lead": "",
@@ -1051,13 +1051,13 @@
   "foundations": [
     {
       "slug": "what-matters-most",
-      "question": "Practice matters more than perfect",
-      "answer": "A comfortable exercise you repeat is more useful than a perfect pattern you avoid.\n\n• Choose a well-studied exercise that feels easy enough to return to.\n• Nose breathing, belly movement and exact counts are refinements, not pass-or-fail rules.\n• Treat fast breathing and long holds with extra care.",
+      "question": "How exact does it need to be?",
+      "answer": "A comfortable exercise you repeat is more useful than a perfect pattern you avoid.\n\n• Choose a well-studied exercise that feels easy enough to return to.\n• Nose breathing, belly movement and exact counts are refinements you can add later.\n• Treat fast breathing and long holds with extra care.",
       "answerContent": {
         "lead": "A comfortable exercise you repeat is more useful than a perfect pattern you avoid.",
         "items": [
           "Choose a well-studied exercise that feels easy enough to return to.",
-          "Nose breathing, belly movement and exact counts are refinements, not pass-or-fail rules.",
+          "Nose breathing, belly movement and exact counts are refinements you can add later.",
           "Treat fast breathing and long holds with extra care."
         ],
         "listStyle": "BULLETS"
@@ -1066,9 +1066,9 @@
     {
       "slug": "what-a-good-breath-feels-like",
       "question": "What should a good breath feel like?",
-      "answer": "A good breath feels quiet and comfortable, not as large as possible.\n\n• Let your ribs and belly move without forcing them.\n• Make the breath smaller if you feel air hunger, tingling or dizziness.\n• Stop if those feelings do not settle.",
+      "answer": "A good breath feels quiet and comfortable. It does not need to be large.\n\n• Let your ribs and belly move without forcing them.\n• Make the breath smaller if you feel air hunger, tingling or dizziness.\n• Stop if those feelings do not settle.",
       "answerContent": {
-        "lead": "A good breath feels quiet and comfortable, not as large as possible.",
+        "lead": "A good breath feels quiet and comfortable. It does not need to be large.",
         "items": [
           "Let your ribs and belly move without forcing them.",
           "Make the breath smaller if you feel air hunger, tingling or dizziness.",
@@ -1094,13 +1094,13 @@
     {
       "slug": "why-it-works",
       "question": "Why can slow breathing help?",
-      "answer": "Slow breathing can give your body's settling systems more room to work.\n\n• Your heart speeds up as you breathe in and slows as you breathe out.\n• A slower cycle increases heart rate variability (HRV) while you practise.\n• Many people feel calmer, but the effect is usually a nudge rather than a switch.",
+      "answer": "Slow breathing supports the body systems that settle you.\n\n• Your heart speeds up as you breathe in and slows as you breathe out.\n• A slower cycle increases heart rate variability (HRV) while you practise.\n• Many people feel calmer, but the effect is usually small.",
       "answerContent": {
-        "lead": "Slow breathing can give your body's settling systems more room to work.",
+        "lead": "Slow breathing supports the body systems that settle you.",
         "items": [
           "Your heart speeds up as you breathe in and slows as you breathe out.",
           "A slower cycle increases heart rate variability (HRV) while you practise.",
-          "Many people feel calmer, but the effect is usually a nudge rather than a switch."
+          "Many people feel calmer, but the effect is usually small."
         ],
         "listStyle": "BULLETS"
       }
@@ -1132,9 +1132,9 @@
     {
       "slug": "how-slow",
       "question": "How slow?",
-      "answer": "Aim for slower than usual without straining. Five or six breaths per minute is common in research, not a test to pass. Shorten the count or breathe normally if the guide leaves you short of air.",
+      "answer": "Aim for slower than usual without straining. Five or six breaths per minute is the pace most often used in research. Shorten the count or breathe normally if the guide leaves you short of air.",
       "answerContent": {
-        "lead": "Aim for slower than usual without straining. Five or six breaths per minute is common in research, not a test to pass. Shorten the count or breathe normally if the guide leaves you short of air.",
+        "lead": "Aim for slower than usual without straining. Five or six breaths per minute is the pace most often used in research. Shorten the count or breathe normally if the guide leaves you short of air.",
         "items": [],
         "listStyle": "NONE"
       }
@@ -1170,9 +1170,9 @@
     {
       "slug": "how-long",
       "question": "How long and how often?",
-      "answer": "Start with a length you can repeat comfortably; more is not automatically better.\n\n• One minute may help with a momentary spike.\n• Studies of change over time often use five-to-ten-minute sessions on most days.\n• Research has not settled on one best dose.",
+      "answer": "Start with a length you can repeat comfortably. A longer session is not automatically better.\n\n• One minute may help with a momentary spike.\n• Studies of change over time often use five-to-ten-minute sessions on most days.\n• Research has not settled on one best dose.",
       "answerContent": {
-        "lead": "Start with a length you can repeat comfortably; more is not automatically better.",
+        "lead": "Start with a length you can repeat comfortably. A longer session is not automatically better.",
         "items": [
           "One minute may help with a momentary spike.",
           "Studies of change over time often use five-to-ten-minute sessions on most days.",
@@ -1208,12 +1208,12 @@
     {
       "slug": "why-no-scores",
       "question": "Why doesn't önd score you?",
-      "answer": "A breathing number is not a verdict on your health.\n\n• Comfortable-pause targets, coherence scores and breathing ages are not established measures of improvement.\n• önd keeps what it can support: what you practised, for how long and how it felt.\n• Your resting breathing rate is compared only with your own earlier measurements.",
+      "answer": "A breathing number describes one measurement, taken once.\n\n• Comfortable-pause targets, coherence scores and breathing ages are not established measures of improvement.\n• önd records what you practised, for how long, and how it felt.\n• Your resting breathing rate is compared only with your own earlier measurements.",
       "answerContent": {
-        "lead": "A breathing number is not a verdict on your health.",
+        "lead": "A breathing number describes one measurement, taken once.",
         "items": [
           "Comfortable-pause targets, coherence scores and breathing ages are not established measures of improvement.",
-          "önd keeps what it can support: what you practised, for how long and how it felt.",
+          "önd records what you practised, for how long, and how it felt.",
           "Your resting breathing rate is compared only with your own earlier measurements."
         ],
         "listStyle": "BULLETS"
@@ -1236,7 +1236,7 @@
     {
       "slug": "ten-quiet-minutes",
       "name": "Ten quiet minutes",
-      "summary": "Give a smooth, count-free rhythm ten quiet minutes to deepen at its own pace.",
+      "summary": "Follow a smooth, count-free rhythm for ten quiet minutes.",
       "techniqueSlug": "coherent-breathing",
       "goal": "CALM",
       "surface": "FULL_SCREEN",
@@ -1296,13 +1296,13 @@
     {
       "slug": "when-youre-winded",
       "name": "When you're winded",
-      "summary": "Use gentle breaths out through pursed lips to help your breathing catch up.",
+      "summary": "Use gentle breaths out through pursed lips to help your breathing settle.",
       "techniqueSlug": "pursed-lip-breathing",
       "goal": "CALM",
       "surface": "FULL_SCREEN",
       "register": "PLAIN",
       "phaseDurationsMs": [],
-      "safetyNote": "Practise this while you are comfortable rather than meeting it for the first time out of breath — a shape you already know is far easier to find. Breathlessness that is new, that is severe, or that is not settling is a matter for a doctor rather than an app, and breathlessness that arrives suddenly or alongside chest pain is a matter for an emergency number.",
+      "safetyNote": "Practise this while you are comfortable rather than meeting it for the first time out of breath. A shape you already know is far easier to find. Breathlessness that is new, that is severe, or that is not settling is a matter for a doctor rather than an app, and breathlessness that arrives suddenly or alongside chest pain is a matter for an emergency number.",
       "durationMs": 120000
     },
     {
@@ -1371,7 +1371,7 @@
     {
       "slug": "winding-down",
       "name": "Winding down",
-      "summary": "Let long, slow breaths out mark the change from the day into rest.",
+      "summary": "Use long, slow breaths out to settle at the end of the day.",
       "techniqueSlug": "extended-exhale",
       "goal": "SLEEP",
       "surface": "FULL_SCREEN",
@@ -1404,7 +1404,7 @@
         3000,
         5000
       ],
-      "safetyNote": "This is for breathing alongside a child, not for teaching one to hold their breath. There are no holds here and none should be added — breath-holding and fast breathing are not for children. Stop if they feel dizzy, or if they have stopped enjoying it.",
+      "safetyNote": "This is for breathing alongside a child, not for teaching one to hold their breath. There are no holds here and none should be added. Breath-holding and fast breathing are not for children. Stop if they feel dizzy, or if they have stopped enjoying it.",
       "durationMs": 90000
     },
     {
@@ -1435,7 +1435,7 @@
   "progression": [
     {
       "techniqueSlug": "box-breathing",
-      "note": "Start with four even counts: simple enough to follow on your first try."
+      "note": "Start with four even counts, which are simple to follow on your first try."
     },
     {
       "techniqueSlug": "physiological-sigh",

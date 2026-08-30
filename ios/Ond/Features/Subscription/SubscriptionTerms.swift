@@ -19,7 +19,7 @@ struct SubscriptionTerms: View {
     var body: some View {
         VStack(spacing: Theme.Spacing.close) {
             if store.isAwaitingApproval {
-                Text("Waiting for approval. You'll get it as soon as that comes through.")
+                Text("Waiting for approval. This starts as soon as approval arrives.")
                     .font(.footnote)
                     .foregroundStyle(Theme.Ink.secondary)
                     .multilineTextAlignment(.center)

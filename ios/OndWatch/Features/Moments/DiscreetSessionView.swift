@@ -124,7 +124,7 @@ struct DiscreetSessionView: View {
             Button("End", role: .destructive) {
                 model.end()
             }
-            .accessibilityHint("Ends the session and keeps what was breathed")
+            .accessibilityHint("Ends the session and records what you practised")
         }
     }
 }

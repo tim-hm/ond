@@ -12,7 +12,7 @@ The line has one job: say what this week holds, and give the reader nothing to b
 
 **When there is nothing true to say, it says nothing.** The line is absent, not blank: the layout closes up and the button moves nearer the breath. Nothing yet is the case that does this, and it is a real option in the matrix rather than a fallback — broken week is a second, softer form of the same rule, saying nothing of its own.
 
-**An early end is said as an early end.** The record distinguishes a session the timeline finished from one a person stopped, and the line volunteers that rather than rounding it up. `recorded as it happened` is the register the whole matrix is written in: the app states the shape of the record and passes no verdict on it.
+**An early end is said as an early end.** The record distinguishes a session the timeline finished from one a person stopped, and the line volunteers that rather than rounding it up. It states the fact and stops there: `ended early`, with no clause after it. The app states the shape of the record and passes no verdict on it.
 
 ## The matrix
 
@@ -20,8 +20,8 @@ The line has one job: say what this week holds, and give the reader nothing to b
 | :-------------------- | :--------------------------------------------------------------------- | :------------------------------------------------------- |
 | Nothing yet           | No session has ever been recorded                                      | none — the layout closes up                              |
 | Nothing this week     | Sessions exist, none of them in the current week                       | `Nothing this week yet.`                                 |
-| First session         | The week's one session, with nothing recorded before it                | `Your first session is on the record.`                   |
-| Returning after a gap | The week's one session, at least 14 whole days after the one before it | `Your first session back is on the record.`              |
+| First session         | The week's one session, with nothing recorded before it                | `Your first session is recorded.`                        |
+| Returning after a gap | The week's one session, at least 14 whole days after the one before it | `Your first session back is recorded.`                   |
 | First week            | The week holds the whole history, and holds more than one session      | `Three sessions in your first week.`                     |
 | Normal week           | Anything else                                                          | `One session this week.` · `Three sessions this week.`   |
 | Broken week           | A week whose practised days are not consecutive                        | none of its own — it reads as the normal week it also is |
@@ -30,10 +30,10 @@ Counts one to nine are spelled as words and capitalised, because each one opens 
 
 Whichever sentence wins, an early end is added to it rather than replacing it:
 
-| Selected sentence | One early end                                                                                 | Two or more                                                                  |
-| :---------------- | :-------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------- |
-| A week's count    | `Four sessions this week. One you ended early — recorded as it happened.`                     | `Three sessions this week. Two you ended early — recorded as they happened.` |
-| A single session  | folded into the one sentence: `One session this week, ended early — recorded as it happened.` | not possible — one session cannot end early twice                            |
+| Selected sentence | One early end                                                       | Two or more                                       |
+| :---------------- | :------------------------------------------------------------------ | :------------------------------------------------ |
+| A week's count    | `Four sessions this week. One you ended early.`                     | `Three sessions this week. Two you ended early.`  |
+| A single session  | folded into the one sentence: `One session this week, ended early.` | not possible — one session cannot end early twice |
 
 A week of one session takes the folded form because `One session this week. One you ended early` is two sentences about one thing.
 
@@ -55,11 +55,11 @@ This is a decision, not an omission, so it is tested: a gapped week asserts the 
 
 **Why 14.** Fourteen days is the smallest gap that guarantees a whole calendar week passed with nothing in it, whatever weekdays the two sessions fell on. Thirteen does not: two sessions thirteen days apart can leave every calendar week touched. So the threshold is not a taste; it is the point at which "this week" stops being able to tell the story on its own. A skipped week is ordinary — a holiday, a cold, a bad fortnight at work — and an app that treats one of them as an absence is applying pressure.
 
-**The copy.** `Your first session back is on the record.`
+**The copy.** `Your first session back is recorded.`
 
-It deliberately mirrors `Your first session is on the record.`, because a return is a first session of a new stretch and deserves the same sentence. It says nothing about how long the gap was, congratulates nobody, and welcomes nobody back. A `Welcome back!` line is pressure wearing a friendly face: it tells the reader the app noticed they were gone, which makes the next gap something to be noticed for.
+It deliberately mirrors `Your first session is recorded.`, because a return is a first session of a new stretch and deserves the same sentence. It says nothing about how long the gap was, congratulates nobody, and welcomes nobody back. A `Welcome back!` line is pressure wearing a friendly face: it tells the reader the app noticed they were gone, which makes the next gap something to be noticed for.
 
-Its early-end form follows the first-session pattern: `Your first session back, ended early — recorded as it happened.`
+Its early-end form follows the first-session pattern: `Your first session back, ended early.`
 
 **Boundary with first session.** A first session has nothing recorded before it, so no gap can be measured from it. The two cases are mutually exclusive by definition, not by ordering — a person cannot return before they have arrived.
 
@@ -77,7 +77,7 @@ Seven cases share one sentence, so they collide. The order they are tested in:
 
 The order runs from the emptiest fact to the fullest, and each step needs what the step above it ruled out. Only one step is a genuine contest.
 
-**Returning beats the count.** `One session this week.` and `Your first session back is on the record.` are both true of the same record. The return wins because it carries the count as well — one session back is one session — while the count carries nothing about the return. It is strictly more informative at no cost in pressure.
+**Returning beats the count.** `One session this week.` and `Your first session back is recorded.` are both true of the same record. The return wins because it carries the count as well — one session back is one session — while the count carries nothing about the return. It is strictly more informative at no cost in pressure.
 
 **Early ending never loses.** It is a clause, never a case, so it survives every sentence above it. This is the one thing in the matrix that is a promise rather than a preference: the app said it would not round an abandoned session up, and a case that could swallow the clause would break that promise quietly.
 

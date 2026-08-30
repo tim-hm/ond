@@ -28,9 +28,9 @@ struct ProfileView: View {
             } header: {
                 Text("What we call you")
             } footer: {
-                Text("Onboarding asked for this, and this is where it changes — "
-                    + "clear it and the app stops using it. Nobody else ever sees "
-                    + "it; the leaderboard name at the bottom is the one they do.")
+                Text("Onboarding asked for this, and this is where it changes. Clear "
+                    + "it and the app stops using it. Nobody else ever sees it. The "
+                    + "leaderboard name at the bottom is the one they do see.")
             }
             .listRowBackground(Theme.Surface.raised)
 
@@ -70,8 +70,7 @@ struct ProfileView: View {
             } footer: {
                 Text("Your decade and gender let your coach read a breath-test "
                     + "score against the right baseline, and your decade decides "
-                    + "which age-band leaderboard you can compare within. That's "
-                    + "everything they're used for.")
+                    + "which age-band leaderboard you can compare within.")
             }
             .listRowBackground(Theme.Surface.raised)
 
@@ -85,7 +84,7 @@ struct ProfileView: View {
             } header: {
                 Text("Note for your coach")
             } footer: {
-                Text("Why you're here, in your own words. Nothing else reads it.")
+                Text("Why you are here, in your own words. Only your coach reads it.")
             }
             .listRowBackground(Theme.Surface.raised)
 
@@ -96,9 +95,9 @@ struct ProfileView: View {
             } header: {
                 Text("Display name")
             } footer: {
-                Text("The only thing other people see on a leaderboard — no "
-                    + "goals, no notes, no history. Empty means invisible, which "
-                    + "is where every profile starts.")
+                Text("The only thing other people see on a leaderboard. Your "
+                    + "goals, notes and history stay private. Leave it empty to "
+                    + "stay invisible, which is where every profile starts.")
             }
             .listRowBackground(Theme.Surface.raised)
         }

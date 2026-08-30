@@ -76,8 +76,8 @@ struct RestingRateTestView: View {
                 bullet("Breathe through your nose, however you were already breathing.")
                 bullet("Tap once for each breath out. A minute, then it stops itself.")
                 bullet(
-                    "Noticing your breath changes it. That's normal — let it be whatever it is "
-                        + "and count that."
+                    "Noticing your breath changes it. That is normal. Count the breaths you "
+                        + "take, whatever they are."
                 )
                 bullet("Best taken at the same time of day, before you practise rather than after.")
             }
@@ -139,8 +139,8 @@ struct RestingRateTestView: View {
 
             Text(
                 "Twelve to twenty is the usual range at rest, and slow breathing practice "
-                    + "tends to bring it down over weeks rather than days. One reading says "
-                    + "less than the shape of a few over a month."
+                    + "tends to bring it down over weeks rather than days. One reading tells "
+                    + "you less than several readings over a month."
             )
             .font(.callout)
             .foregroundStyle(Theme.Ink.secondary)
@@ -159,7 +159,7 @@ struct RestingRateTestView: View {
                 breaths < Self.plausible.lowerBound
                     ? "\(breaths) in a minute is slower than resting breathing goes, so this "
                     + "one isn't recorded. If you were practising rather than resting, "
-                    + "that's the reason — take it before you practise instead."
+                    + "that is the reason. Take it before you practise instead."
                     : "\(breaths) in a minute is faster than resting breathing goes. Settle "
                     + "for a few minutes and take it again."
             )
@@ -173,7 +173,7 @@ struct RestingRateTestView: View {
     private var action: some View {
         switch stage {
         case .explain:
-            button("I'm settled — start counting") {
+            button("Start counting") {
                 breaths = 0
                 stage = .counting(until: .now + Self.window)
             }

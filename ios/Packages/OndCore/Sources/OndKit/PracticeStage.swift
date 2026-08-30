@@ -35,18 +35,18 @@ public enum PracticeStage: Int, Sendable, CaseIterable, Comparable {
         }
     }
 
-    /// What is said on the session that crosses into it, once. Warm, short and
-    /// past tense. Nothing here names the rung above or how far off it is: a
-    /// ladder that always shows the next rung always says "not yet".
+    /// What is said on the session that crosses into it, once. It states the
+    /// count and stops. Nothing here names the rung above or how far off it is:
+    /// a ladder that always shows the next rung always says "not yet".
     public var arrival: String {
         switch self {
-        case .firstBreaths: "Your first session. That's the hardest one done."
-        case .findingTheRhythm: "Five sessions in — you're finding the rhythm."
-        case .habitForming: "Fifteen sessions. Something is taking hold."
-        case .aPractice: "Thirty sessions. This is a practice now."
-        case .partOfTheDay: "Sixty sessions — this is part of your day."
-        case .wellPractised: "A hundred and twenty sessions in. Well practised."
-        case .secondNature: "Two hundred and fifty. Second nature."
+        case .firstBreaths: "That was your first session."
+        case .findingTheRhythm: "You have practised five times."
+        case .habitForming: "You have practised fifteen times."
+        case .aPractice: "You have practised thirty times."
+        case .partOfTheDay: "You have practised sixty times."
+        case .wellPractised: "You have practised a hundred and twenty times."
+        case .secondNature: "You have practised two hundred and fifty times."
         }
     }
 

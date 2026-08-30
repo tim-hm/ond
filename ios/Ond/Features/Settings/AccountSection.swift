@@ -183,8 +183,8 @@ struct AccountSection: View {
             + "erased from this iPhone, from a paired Apple Watch, and from "
             + "our servers. It cannot be undone.\n\n"
             + confirmation
-            + "Deleting your account does not cancel your subscription — "
-            + "only Apple can do that, under Manage Subscription."
+            + "Deleting your account does not cancel your subscription. "
+            + "Only Apple can do that, under Manage Subscription."
     }
 
     /// Erases the account, confirming with Apple first where it is bound to an
