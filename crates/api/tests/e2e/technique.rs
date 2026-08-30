@@ -108,25 +108,37 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
                     "`{slug}` has a hold shaped {}",
                     phase.manner
                 );
-
-                // Nothing authors a cadence yet, so every phase asks the
-                // client to derive one. Absence rather than a zero or an
-                // empty key: a client reading an authored zero would drop the
-                // derived turn from every phase in the catalogue.
-                assert_eq!(
-                    (
-                        phase.turn_gap_ms,
-                        phase.haptic_pattern.as_deref(),
-                        phase.voice_script.as_deref()
-                    ),
-                    (None, None, None),
-                    "`{slug}` authors a cadence nobody has designed"
-                );
             }
         }
     }
 
+    assert_cadence_survives_the_wire(&response);
     assert_known_techniques(&response);
+}
+
+/// An authored zero and an absent value are different instructions, and proto3
+/// tells them apart only because the field is optional. A wire that flattened
+/// one into the other would put the derived turn back into every continuous
+/// rhythm in the catalogue. The sigh's sip authors all three columns, and its
+/// gap is a zero.
+fn assert_cadence_survives_the_wire(response: &pb::ListTechniquesResponse) {
+    let phase = |slug: &str, index: usize| &find(response, slug).stages[0].phases[index];
+
+    let sip = phase("physiological-sigh", 1);
+    assert_eq!(sip.turn_gap_ms, Some(0));
+    assert_eq!(sip.haptic_pattern.as_deref(), Some("sip"));
+    assert_eq!(sip.voice_script.as_deref(), Some("sigh-and-in"));
+
+    let opening = phase("box-breathing", 0);
+    assert_eq!(
+        (
+            opening.turn_gap_ms,
+            opening.haptic_pattern.as_deref(),
+            opening.voice_script.as_deref()
+        ),
+        (None, None, None),
+        "box breathing's inhale authors nothing and asks the client to derive"
+    );
 }
 
 /// Pin representative structured copy, passages, phases, and cycle counts.

@@ -206,8 +206,7 @@ public enum CatalogueExport {
         let durationMs: Int
         let minDurationMs: Int
         let maxDurationMs: Int
-        /// The authored cadence, absent wherever the client derives it — which
-        /// is every phase the seed writes today.
+        /// The authored cadence, absent wherever the client derives it.
         let turnGapMs: Int?
         let hapticPattern: String?
         let voiceScript: String?

@@ -93,7 +93,11 @@ struct SessionTurnGapTests {
         #expect(timeline.totalDuration == .milliseconds(7500))
     }
 
-    @Test("Both shipped sighs use the full stacked pause")
+    /// The derived stacked pause is 200 ms, and both shipped sighs author 250
+    /// over the top of it — the real motor turn between a full breath and
+    /// finding more on top of it. The table wins, and it widens the pause
+    /// rather than narrowing it.
+    @Test("Both shipped sighs author a wider pause than the stacked rule")
     func pausesBothShippedSighs() throws {
         for slug: TechniqueSlug in ["physiological-sigh", "cyclic-sighing"] {
             let technique = SeededCatalogue.technique(slug)
@@ -102,7 +106,8 @@ struct SessionTurnGapTests {
             try #require(stacked.id > 0)
             let preceding = timeline.beats[stacked.id - 1]
 
-            #expect(preceding.turnGap == .milliseconds(200), "\(slug)")
+            #expect(preceding.turnGap == .milliseconds(250), "\(slug)")
+            #expect(preceding.turnGap > SessionTurnGap.stackedBreath, "\(slug)")
         }
     }
 

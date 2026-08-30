@@ -9,10 +9,10 @@ private func beat(of phase: Phase) -> SessionTimeline.Beat? {
 }
 
 /// A phase can carry its own turn gap and its own spoken line instead of
-/// letting the app work both out from the clock. Nothing in the catalogue
-/// carries either yet, so the whole point of these tests is the fallback: an
-/// absent value has to leave the session exactly as it played before, and an
-/// authored one has to win everywhere the derived one used to.
+/// letting the app work both out from the clock. Both halves are load-bearing
+/// now that the catalogue authors tables: an authored value has to win
+/// everywhere the derived one used to, and an absent one has to leave the
+/// session exactly as it played before.
 @Suite("A phase's authored cadence")
 struct SessionCadenceTests {
     /// The rule the whole change rests on. Both halves in one test, because
@@ -113,20 +113,52 @@ struct SessionCadenceTests {
         #expect(timeline.totalDuration == .seconds(30))
     }
 
-    /// The state the app actually ships in. Every derived value in the session
-    /// stays the one it has always been while this holds, so a table arriving
-    /// in the seed is what should make somebody read the tests above.
-    @Test("The seeded catalogue authors no cadence at all")
-    func seedsNoCadence() {
+    /// The condition that makes the seeded promise worth measuring. Alternate
+    /// nostril authors a gap on all four of its phases, so it is where a gap
+    /// inserted rather than borrowed would show first.
+    /// `SessionTurnGapTests.keepsEverySeededDose` does the measuring.
+    @Test("One seeded exercise authors a gap on every phase")
+    func authorsAGapOnEveryPhaseOfOneTechnique() {
+        let phases = SeededCatalogue.technique("alternate-nostril").stages.flatMap(\.phases)
+
+        #expect(phases.count == 4)
+        #expect(phases.allSatisfy { $0.turnGap != nil })
+    }
+
+    /// The seed writes this column as text and the client resolves it to a
+    /// closed set, falling back to `standard` on anything else. That fallback
+    /// is a quietly changed tap rather than a failure anybody sees, so a
+    /// misspelling in the catalogue has to cost a test.
+    @Test("Every seeded tap is one the client resolves")
+    func seedsOnlyKnownHapticPatterns() {
+        let patterns = SeededCatalogue.techniques
+            .flatMap(\.stages)
+            .flatMap(\.phases)
+            .compactMap(\.hapticPattern)
+
+        #expect(!patterns.isEmpty)
+        #expect(patterns.allSatisfy { HapticPattern(rawValue: $0) != nil })
+    }
+
+    /// No table may ask for more of a phase than `maximumAuthoredShare`, or
+    /// the beat is more stillness than breath. The layout caps a gap that
+    /// does, so a table over the share plays as something other than what it
+    /// says. Checked at the curated durations, which is where the app ships.
+    @Test("No seeded gap takes more of its phase than a table may")
+    func seedsGapsWithinTheAuthoredShare() {
+        var checked = 0
         for technique in SeededCatalogue.techniques {
-            for stage in technique.stages {
-                for phase in stage.phases {
-                    #expect(phase.turnGap == nil, "\(technique.slug)")
-                    #expect(phase.hapticPattern == nil, "\(technique.slug)")
-                    #expect(phase.voiceScript == nil, "\(technique.slug)")
-                }
+            for phase in technique.stages.flatMap(\.phases) {
+                guard let gap = phase.turnGap else { continue }
+                checked += 1
+                #expect(
+                    gap <= phase.duration * SessionTurnGap.maximumAuthoredShare,
+                    "\(technique.slug)"
+                )
             }
         }
+
+        #expect(checked > 0, "a catalogue that failed to decode checks nothing")
     }
 }
 
@@ -181,14 +213,31 @@ struct SessionVoiceScriptTests {
         #expect(opening.spokenCue == .full)
     }
 
-    /// The sigh reaches its connected lines through the cue role it is laid
-    /// out with, and it still does. Nothing in the seed names a line, so this
-    /// is the derivation the fallback protects.
-    @Test("The seeded sigh still speaks its connected lines")
-    func keepsTheSighsDerivedScript() {
-        let timeline = SeededCatalogue.timeline("physiological-sigh")
-        let stems = timeline.beats.prefix(3).map(\.clipStem)
+    /// The sigh's three connected lines are named by its table now, not
+    /// inferred from where each phase sits in the cycle. The lines are the
+    /// same ones, which is the point: authoring them changed nothing a person
+    /// hears, and it took the one script the app held out of the layout.
+    @Test("The seeded sigh names its connected lines")
+    func keepsTheSighsAuthoredScript() {
+        let phases = SeededCatalogue.technique("physiological-sigh").stages.flatMap(\.phases)
+        let stems = SeededCatalogue.timeline("physiological-sigh").beats.prefix(3).map(\.clipStem)
 
+        #expect(phases.map(\.voiceScript) == ["sigh-in", "sigh-and-in", "sigh-and-out"])
         #expect(stems == ["sigh-in", "sigh-and-in", "sigh-and-out"])
+    }
+
+    /// Bellows breath says nothing at any cycle. Its one-second phases have
+    /// room for the short word — a second rhythm competing with the first at
+    /// thirty breaths a minute — so silence here is authored and not what the
+    /// fit rule would have left behind.
+    @Test("The seeded bellows breath speaks nothing")
+    func keepsBellowsSilent() {
+        let technique = SeededCatalogue.technique("bellows-breath")
+        let phases = technique.stages.flatMap(\.phases)
+        let beats = SessionTimeline(technique: technique).beats
+
+        #expect(phases.allSatisfy { $0.voiceScript == VoiceClips.silentScript })
+        #expect(beats.allSatisfy { $0.clipStem == nil })
+        #expect(beats.allSatisfy { $0.spokenCue == .tone })
     }
 }

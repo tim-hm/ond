@@ -228,8 +228,9 @@ struct PhaseSeed {
     min_duration_ms: i32,
     max_duration_ms: i32,
     /// The stillness closing this phase, the tap it plays and the line it
-    /// speaks. Nothing authors any of them yet: a cadence is one deliverable
-    /// per exercise, and that design does not exist.
+    /// speaks. `None` on each means the app works it out: the tempo gap, the
+    /// `standard` tap, and the cue this phase's place implies. A table authors
+    /// one only where the derived answer is wrong for the exercise.
     turn_gap_ms: Option<i32>,
     haptic_pattern: Option<&'static str>,
     voice_script: Option<&'static str>,
@@ -380,6 +381,87 @@ const fn hold(kind: PhaseKind, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed 
         turn_gap_ms: None,
         haptic_pattern: None,
         voice_script: None,
+    }
+}
+
+/// The tap a phase plays where the derived one is wrong for it. Four names
+/// rather than the client's five: a phase naming nothing already plays
+/// `standard`, so the fifth is the absence. Stated as cases because the client
+/// takes free text here and falls back silently on a name it does not know.
+enum HapticPattern {
+    /// The second, stacked breath of a sigh.
+    Sip,
+    /// A breath out against resistance — pursed lips, or a hum.
+    Press,
+    /// The mark alone, for a phase too short to carry an envelope.
+    Drum,
+    /// The mark, then a reminder while a long hold runs.
+    LongHold,
+}
+
+impl HapticPattern {
+    /// Every id the client resolves, including the `standard` this set has no
+    /// case for. A phase naming nothing already plays `standard`, so nothing
+    /// authors it, and only the test checking an id against the set needs it.
+    #[cfg(test)]
+    const RESOLVED: [&'static str; 5] = [
+        "standard",
+        Self::Sip.id(),
+        Self::Press.id(),
+        Self::Drum.id(),
+        Self::LongHold.id(),
+    ];
+
+    const fn id(self) -> &'static str {
+        match self {
+            Self::Sip => "sip",
+            Self::Press => "press",
+            Self::Drum => "drum",
+            Self::LongHold => "long-hold",
+        }
+    }
+}
+
+/// The reserved `voice_script` meaning "say nothing at any cycle". The client
+/// holds the same word, and the column's 1-64 character check admits it. A
+/// phase that speaks nothing keeps its tone. The form cue is the one line the
+/// word does not silence, where the phase has room to say it.
+const SILENT_SCRIPT: &str = "silent";
+
+/// What a phase authors on top of its shape, chained onto the constructors
+/// above so a phase that authors nothing stays one line.
+impl PhaseSeed {
+    /// The stillness closing this phase, in milliseconds, where the body's turn
+    /// is longer than tempo assumes: out of a full-lung hold, into a stacked
+    /// breath, or through a mechanical change. Zero is a value and not an
+    /// absence — a continuous rhythm turns without a pause on purpose. The gap
+    /// is borrowed from the phase, so authoring one never lengthens a session.
+    const fn with_gap(mut self, milliseconds: i32) -> Self {
+        self.turn_gap_ms = Some(milliseconds);
+        self
+    }
+
+    const fn with_haptic(mut self, pattern: HapticPattern) -> Self {
+        self.haptic_pattern = Some(pattern.id());
+        self
+    }
+
+    /// The clip this phase speaks, where its place in the session implies none
+    /// or implies the wrong one. `SILENT_SCRIPT` is how a phase says nothing.
+    const fn with_script(mut self, script: &'static str) -> Self {
+        self.voice_script = Some(script);
+        self
+    }
+
+    /// A phase of a rhythm that turns without a pause and says nothing. The
+    /// derived 25 ms would put a stutter in a rhythm whose whole physiology is
+    /// that it has none, an envelope under 1.5 s is noise with a tap buried in
+    /// it, and at this rate a spoken cue is a second rhythm competing with the
+    /// first. Bellows breath and the Wim Hof round breathing are the two.
+    const fn continuous(self) -> Self {
+        self.with_gap(0)
+            .with_haptic(HapticPattern::Drum)
+            .with_script(SILENT_SCRIPT)
     }
 }
 
@@ -861,11 +943,20 @@ mod tests {
         }
     }
 
+    /// Where `slug` sits in the export, which is where it sits in
+    /// `TECHNIQUES`. Looked up rather than written down: curation reorders the
+    /// catalogue and a fixed index would go on asserting about its neighbour.
+    fn technique_index(slug: &str) -> usize {
+        TECHNIQUES
+            .iter()
+            .position(|technique| technique.slug == slug)
+            .unwrap_or_else(|| panic!("the catalogue seeds `{slug}`"))
+    }
+
     /// The bound the `turn_gap_ms` column states, checked where the export
     /// cannot reach it: the export reads these constants and never opens the
     /// database, so a gap outside the bound would ship to the app, which
-    /// refuses the whole catalogue over one. Vacuous until a table is written,
-    /// which is when it starts earning its place.
+    /// refuses the whole catalogue over one.
     #[test]
     fn every_seeded_turn_gap_is_within_its_column_bound() {
         for technique in TECHNIQUES {
@@ -877,6 +968,49 @@ mod tests {
                     assert!(
                         (0..=600).contains(&gap),
                         "`{}` authors a {gap} ms turn gap",
+                        technique.slug
+                    );
+                }
+            }
+        }
+    }
+
+    /// The tap the client resolves, restated here because the column takes
+    /// free text and the client falls back to `standard` on a name it does not
+    /// know. That fallback is a changed tap rather than a failure anybody
+    /// sees, so a typo has to cost a test instead.
+    #[test]
+    fn every_seeded_haptic_pattern_is_one_the_client_resolves() {
+        for technique in TECHNIQUES {
+            for stage in technique.stages {
+                for phase in stage.phases {
+                    let Some(pattern) = phase.haptic_pattern else {
+                        continue;
+                    };
+                    assert!(
+                        HapticPattern::RESOLVED.contains(&pattern),
+                        "`{}` authors the tap `{pattern}`",
+                        technique.slug
+                    );
+                }
+            }
+        }
+    }
+
+    /// The `voice_script` column's own check, out of the database's reach for
+    /// the same reason the gap bound is. An empty script is the one the client
+    /// refuses outright; `SILENT_SCRIPT` is how a phase says nothing.
+    #[test]
+    fn every_seeded_voice_script_fits_its_column() {
+        for technique in TECHNIQUES {
+            for stage in technique.stages {
+                for phase in stage.phases {
+                    let Some(script) = phase.voice_script else {
+                        continue;
+                    };
+                    assert!(
+                        (1..=64).contains(&script.chars().count()),
+                        "`{}` authors the line `{script}`",
                         technique.slug
                     );
                 }
@@ -914,21 +1048,31 @@ mod tests {
             serde_json::Value::Null
         );
         // The three cadence keys on the same terms, and null for the same
-        // reason: nothing authors a cadence, and a reader taking an absent key
-        // for an authored zero would drop the derived turn from every phase.
+        // reason: box breathing's inhale authors none of them, and a reader
+        // taking an absent key for an authored zero would drop the derived
+        // turn from every phase.
         for key in ["turnGapMs", "hapticPattern", "voiceScript"] {
             assert_eq!(
                 json["techniques"][0]["stages"][0]["phases"][0].get(key),
                 Some(&serde_json::Value::Null)
             );
         }
+        // And the same three where a table authored them, so the keys are
+        // checked carrying a value and not only carrying null. The sigh's sip
+        // authors all three, and its gap is an authored zero.
+        assert_eq!(
+            json["techniques"][0]["stages"][0]["phases"][1]["turnGapMs"],
+            150
+        );
+        let sigh = technique_index("physiological-sigh");
+        let sip = &json["techniques"][sigh]["stages"][0]["phases"][1];
+        assert_eq!(sip["turnGapMs"], 0);
+        assert_eq!(sip["hapticPattern"], "sip");
+        assert_eq!(sip["voiceScript"], "sigh-and-in");
         // And one that is shaped, so the label is checked and not only the
         // absence of one — a serialiser that emitted every manner as null would
         // satisfy the line above.
-        let cooling = TECHNIQUES
-            .iter()
-            .position(|technique| technique.slug == "cooling-breath")
-            .expect("the catalogue seeds a cooling breath");
+        let cooling = technique_index("cooling-breath");
         assert_eq!(
             json["techniques"][cooling]["stages"][0]["phases"][0]["manner"],
             "CURLED_TONGUE"
