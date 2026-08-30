@@ -22,10 +22,18 @@ struct MoodCheckView: View {
                     .font(.largeTitle.weight(.medium))
                     .multilineTextAlignment(.center)
 
-                MoodScale(selection: check.before) { mood in
-                    Task { await check.answerBefore(mood) { await recorder.note($0) } }
+                VStack(spacing: Theme.Spacing.close) {
+                    MoodScale(selection: check.before) { mood in
+                        Task { await check.answerBefore(mood) { await recorder.note($0) } }
+                    }
+                    .disabled(check.before != nil)
+
+                    // It stands before the answer and stays after it. Stating
+                    // what the check is for is cheaper than correcting a
+                    // reading, and the pair it captions is what invites one.
+                    Text(MoodCheckModel.caption)
+                        .font(.footnote)
                 }
-                .disabled(check.before != nil)
 
                 Button("Not now", action: check.skipBefore)
                     .font(.subheadline)

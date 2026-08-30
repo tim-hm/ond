@@ -44,47 +44,7 @@ struct SessionPlayerView: View {
         // Set once for the screen: everything under here is text on the deep
         // ground, and the buttons carry their own tint over it.
         .foregroundStyle(Theme.Ink.primary)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background {
-            ZStack {
-                Self.deepGround.ignoresSafeArea()
-                ambience.ignoresSafeArea()
-            }
-        }
-        // The ground above is this colour in both appearances, but every ink
-        // and material on it still adapts — in the light appearance that is
-        // near-black words on near-black air, a screen with no visible text.
-        // Forcing the subtree dark keeps the tokens on the variants the deep
-        // ground was measured against.
-        .environment(\.colorScheme, .dark)
-    }
-
-    /// The session's ground — the one screen that goes darker than the app,
-    /// so the field and the glyph have black air to sit in. A local constant
-    /// rather than a catalogue token: the spec defines no light variant,
-    /// because a live session is this colour in both appearances, and a token
-    /// would oblige the integrity tests to invent one.
-    private static let deepGround = Color(red: 0x05 / 255, green: 0x09 / 255, blue: 0x0B / 255)
-
-    /// The drifting light behind the whole screen. On the restful cap — the
-    /// ambience is not the breath — frozen with the session, and handed one
-    /// unmoving instant under Reduce Motion.
-    @ViewBuilder
-    private var ambience: some View {
-        if reduceMotion {
-            // The reference instant, not `.distantPast`: the phase comes off
-            // a truncating remainder, which keeps a negative dividend's sign
-            // and would hold the field at an arbitrary pose outside its own
-            // swell band. Zero is the pose the field was tuned at.
-            AmbientField(date: Date(timeIntervalSinceReferenceDate: 0))
-        } else {
-            TimelineView(.animation(
-                minimumInterval: AmbientField.frameInterval,
-                paused: model.status != .running
-            )) { context in
-                AmbientField(date: context.date)
-            }
-        }
+        .sessionGround(stilled: model.status != .running)
     }
 
     /// How slowly the guide may redraw, or nil where it is the breath itself

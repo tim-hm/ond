@@ -3,17 +3,21 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// What you did, said once and warmly: celebrate what happened, never grade
-/// it — a session ended early is still a session. Progression is met here
-/// rather than on the Progress tab: a rung is worth saying on the session
-/// that earned it, and here it reaches somebody who never opens Progress.
-/// Nothing is said on the sessions between, so the ladder cannot nag.
+/// The session with the breathing removed: the same ground, the same three
+/// slots the phase words stood in, and the figures where the orb was. It says
+/// the session happened, says what it was, and offers one way out. The cases,
+/// the strings and the reserved heights are in docs/product/session-summary.md.
 struct SessionSummaryView: View {
     let record: SessionRecord
-    let title: String
+
+    /// The exercise's own name, never the occasion's. The note holds one line,
+    /// and an occasion title is a sentence — it would be cut short there and
+    /// would read as the wrong noun in the sentence around it.
+    let exercise: String
 
     /// The stage this session earned, if it earned one. Arrives a moment after
-    /// the screen does — see `SessionModel.reachedStage`.
+    /// the screen does — see `SessionModel.reachedStage` — which is why the
+    /// mark slot below holds its height whether or not it has a sentence.
     let reached: PracticeStage?
 
     /// Both halves of "how do you feel" — the answer given before the
@@ -30,41 +34,8 @@ struct SessionSummaryView: View {
         VStack(spacing: Theme.Spacing.loose) {
             Spacer()
 
-            VStack(spacing: Theme.Spacing.close) {
-                Text(record.headline)
-                    .font(.largeTitle.weight(.medium))
-                // Naming the exercise is for a session that ran to its end; a
-                // rung below is said either way — it was earned either way.
-                // Primary ink: secondary measures 3.26:1 against the wash and
-                // this line is `.body`, so it gets no large-text allowance.
-                if record.completed {
-                    Text("That's \(title) done.")
-                        .font(.body)
-                        .multilineTextAlignment(.center)
-                }
-
-                if let reached {
-                    Text(reached.arrival)
-                        .font(.callout.weight(.medium))
-                        .multilineTextAlignment(.center)
-                        .transition(.opacity)
-                }
-            }
-            .animation(.easeIn(duration: 0.4), value: reached)
-
-            HStack(spacing: Theme.Spacing.loose) {
-                stat(record.cyclesLabel, "\(record.cyclesCompleted)")
-                stat("minutes", record.duration.formatted(.time(pattern: .minuteSecond)))
-                stat(record.breathsLabel, "\(record.breathCount)")
-            }
-            .frame(maxWidth: .infinity)
-            .padding(Theme.Spacing.standard)
-            // Glass, so the accent wash the session was drawn in still shows
-            // through the one thing left on the screen — and the material,
-            // not a hand-tuned opacity, decides what stays legible on it.
-            // Unraised for exactly that: the fill every other card sits on
-            // would occlude the wash this one is here to keep.
-            .glassCard(raised: false)
+            slots
+            figures
 
             // Above the mood row, so the two answers to "did that do anything"
             // sit together: what the sensor saw, then what the person says.
@@ -75,10 +46,70 @@ struct SessionSummaryView: View {
             Spacer()
 
             Button("Done", action: onDone)
-                .buttonStyle(.capsuleAction(Theme.Accent.brand))
+                .buttonStyle(.inkAction)
         }
-        .padding(Theme.Spacing.loose)
+        .padding(.horizontal, Theme.Spacing.page)
+        .padding(.vertical, Theme.Spacing.loose)
         .foregroundStyle(Theme.Ink.primary)
+        // Stilled: the breathing has stopped, so the field holds where the
+        // session left it rather than repainting the screen while it is read.
+        .sessionGround(stilled: true)
+    }
+
+    /// What happened, what it was, and the rung it crossed, in the heights
+    /// `SessionSlots` reserves. Capped with the session's words, and for their
+    /// reason: an accessibility size would spill the words out of them.
+    private var slots: some View {
+        VStack(spacing: 0) {
+            Text(SessionSummaryLines.headline(for: record))
+                .displaySerif(size: SessionSlots.actionSize)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .frame(height: SessionSlots.actionHeight)
+
+            Text(SessionSummaryLines.note(for: record, exercise: exercise))
+                .font(.body)
+                .foregroundStyle(Theme.Ink.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(height: SessionSlots.qualifierHeight)
+
+            mark
+                .frame(height: SessionSlots.countHeight)
+                .animation(.easeIn(duration: 0.4), value: reached)
+        }
+        .multilineTextAlignment(.center)
+        .dynamicTypeSize(...SessionWords.mostGrowth)
+    }
+
+    @ViewBuilder private var mark: some View {
+        if let reached {
+            Text(reached.arrival)
+                .font(.subheadline)
+                .foregroundStyle(Theme.Ink.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .transition(.opacity)
+        }
+    }
+
+    /// The evidence, in Progress's own treatment. A figure with a zero in it
+    /// is absent rather than empty — the rule is `SessionSummaryLines.figures`.
+    private var figures: some View {
+        HStack(alignment: .top, spacing: Theme.Spacing.standard) {
+            ForEach(SessionSummaryLines.figures(for: record)) { figure in
+                VStack(spacing: Theme.Spacing.tight) {
+                    Text(figure.value)
+                        .font(.title2.weight(.semibold).monospacedDigit())
+
+                    Text(figure.label)
+                        .font(.caption)
+                        .foregroundStyle(Theme.Ink.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .accessibilityElement(children: .combine)
+            }
+        }
     }
 
     /// The "after" half of the mood check, inline: the summary is already the
@@ -90,32 +121,23 @@ struct SessionSummaryView: View {
             VStack(spacing: Theme.Spacing.close) {
                 if let note = mood.note {
                     Text(note)
-                        .font(.callout)
-                        .multilineTextAlignment(.center)
+                        .font(.body)
                         .transition(.opacity)
                 } else {
                     Text("How do you feel now?")
-                        .font(.callout)
+                        .font(.body)
+
                     MoodScale { tapped in
                         Task { await mood.answerAfter(tapped) { await moodRecorder.note($0) } }
                     }
                 }
+
+                Text(MoodCheckModel.caption)
+                    .font(.footnote)
+                    .foregroundStyle(Theme.Ink.secondary)
             }
+            .multilineTextAlignment(.center)
             .animation(.easeIn(duration: 0.3), value: mood.after)
         }
-    }
-
-    private func stat(_ label: String, _ value: String) -> some View {
-        VStack(spacing: Theme.Spacing.tight) {
-            Text(value)
-                .font(.title.weight(.medium))
-                .monospacedDigit()
-            // Primary, like everything else on `accentGround(_:)`: hierarchy
-            // here is the step from `.title` to `.caption`, not a tone the
-            // wash would spend.
-            Text(label)
-                .font(.caption)
-        }
-        .accessibilityElement(children: .combine)
     }
 }
