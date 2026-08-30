@@ -78,6 +78,6 @@ struct AccountCredentialTests {
         #expect(account.state == .localOnly)
         #expect(identity.userId() != bound)
         #expect(identity.sessionCredential() == nil)
-        #expect(account.failure == nil, "nothing here is the person's problem to read")
+        #expect(account.progress == .idle, "nothing here is the person's problem to read")
     }
 }

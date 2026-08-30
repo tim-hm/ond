@@ -31,7 +31,7 @@ struct AccountModelTests {
 
         #expect(identity.userId() == history)
         #expect(account.state == .signedIn)
-        #expect(account.failure == nil)
+        #expect(account.progress == .idle)
         #expect(told.withLock { $0 } == 1, "the watch and the restore both hold the old id")
     }
 
@@ -84,7 +84,7 @@ struct AccountModelTests {
         await account.signOut()
         await account.signIn(identityToken: "apple-b")
 
-        #expect(account.failure == nil)
+        #expect(account.progress == .idle)
         #expect(account.state == .signedIn)
         #expect(identity.userId() == theirs)
         #expect(
@@ -110,7 +110,7 @@ struct AccountModelTests {
         await account.signOut()
         await account.signIn(identityToken: "apple-b")
 
-        #expect(account.failure == nil)
+        #expect(account.progress == .idle)
         #expect(account.state == .signedIn)
     }
 
@@ -161,12 +161,12 @@ struct AccountModelTests {
         await account.signIn(identityToken: "apple-b")
 
         #expect(account.state == .signedIn)
-        #expect(account.failure != nil)
+        #expect(account.progress.reason != nil)
 
         await account.signOut()
         await account.signIn(identityToken: "apple-b")
 
-        #expect(account.failure == nil)
+        #expect(account.progress == .idle)
         #expect(account.state == .signedIn)
     }
 
@@ -248,7 +248,7 @@ struct AccountModelTests {
         #expect(nonce.nonce == "nonce-1")
         #expect(model.state == .signedIn)
         #expect(model.userId == account, "the Apple account hands back the identity it already had")
-        #expect(model.failure == nil)
+        #expect(model.progress == .idle)
     }
 
     /// Token rejection happens after challenge prefetch, so it cannot trigger
@@ -267,7 +267,7 @@ struct AccountModelTests {
 
         #expect(model.state == .localOnly)
         #expect(model.userId == mine, "a healthy anonymous identity survives a bad token")
-        #expect(model.failure != nil)
+        #expect(model.progress.reason != nil)
     }
 
     @Test("Apple authorization preserves the action's purpose")
@@ -316,6 +316,6 @@ struct AccountModelTests {
         )
 
         #expect(account.state == .localOnly)
-        #expect(account.failure == nil)
+        #expect(account.progress == .idle)
     }
 }
