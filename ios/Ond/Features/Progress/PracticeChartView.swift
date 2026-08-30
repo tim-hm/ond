@@ -6,7 +6,7 @@ import SwiftUI
 /// not five: the goal accents separate by as little as Delta E 7.1 against a
 /// floor of 15, so they fail as adjacent unlabelled fills. A missed day is
 /// drawn as a hairline stub, never skipped — a gap reads as the end of the
-/// data. Hand-drawn because a Swift Charts `BarMark` of zero draws nothing.
+/// data, and the stubs alone are what an untouched install draws.
 struct PracticeChartView: View {
     let rhythm: PracticeRhythm
 
@@ -24,16 +24,16 @@ struct PracticeChartView: View {
                     .foregroundStyle(Theme.Ink.tertiary)
             }
 
-            if rhythm.isWorthCharting {
-                plot
+            plot
 
+            if rhythm.sessions == 0 {
+                Text(Self.zeroLine)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.Ink.secondary)
+            } else {
                 Text(caption)
                     .font(.caption)
                     .foregroundStyle(Theme.Ink.tertiary)
-            } else {
-                Text(emptyDetail)
-                    .font(.callout)
-                    .foregroundStyle(Theme.Ink.secondary)
             }
         }
         .accessibilityIdentifier("practice-chart")
@@ -57,7 +57,7 @@ struct PracticeChartView: View {
         .frame(height: Self.height, alignment: .bottom)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Last four weeks")
-        .accessibilityValue(caption)
+        .accessibilityValue(summary)
     }
 
     private func bar(for day: PracticeRhythm.Day, under ceiling: Int) -> some View {
@@ -95,21 +95,19 @@ struct PracticeChartView: View {
     /// width and the bar is what should get it.
     private static let gap: CGFloat = 2
 
+    /// What an untouched install reads under its twenty-eight stubs.
+    private static let zeroLine = "Your first session starts this chart."
+
+    /// What the bars say, in the words printed under them.
+    private var summary: String {
+        rhythm.sessions == 0 ? Self.zeroLine : caption
+    }
+
     /// How many of the four weeks carried practice, and what most of it was for.
     private var caption: String {
         let days = "\(rhythm.daysPractised) of the last \(PracticeRhythm.window) days"
 
         guard let goal = rhythm.leadingGoal else { return days }
         return "\(days) · mostly \(goal.title.lowercased())"
-    }
-
-    /// The threshold stated as progress, without drawing a chart whose only
-    /// information is that this person has started.
-    private var emptyDetail: String {
-        if rhythm.daysPractised == 1 {
-            "Your first practice day is recorded. A four-week rhythm appears after a second."
-        } else {
-            "Your four-week rhythm will appear after sessions on two different days."
-        }
     }
 }
