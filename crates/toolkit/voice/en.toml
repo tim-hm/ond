@@ -151,3 +151,47 @@ text = "Smell the flower"
 
 [cues.exhale-playful]
 text = "Blow out the candle"
+
+# The form cues, one per exercise, named `form-<slug>`. They teach rather than
+# instruct, so the schedule speaks one on the longest phase of every fourth
+# cycle and nowhere else. `Technique.formCue` names the stem and
+# `SessionTimeline.Beat.formCue` puts it on the phase that has room for it.
+
+[cues.form-box-breathing]
+text = "Same count each side."
+
+[cues.form-long-box-breathing]
+text = "Nothing forced at the top."
+
+[cues.form-coherent-breathing]
+text = "Let it be smooth — no edges."
+
+[cues.form-four-seven-eight]
+text = "Loosen the jaw."
+
+[cues.form-extended-exhale]
+text = "Let the out-breath be longer, not bigger."
+
+[cues.form-physiological-sigh]
+text = "The second one is small."
+
+[cues.form-cyclic-sighing]
+text = "Small sip on top."
+
+[cues.form-pursed-lip-breathing]
+text = "Lips as if you were cooling soup."
+
+[cues.form-humming-breath]
+text = "Let the hum do the work."
+
+[cues.form-cooling-breath]
+text = "Curl the tongue, draw the air over it."
+
+[cues.form-bellows-breath]
+text = "From the belly, not the shoulders."
+
+[cues.form-wim-hof-rounds]
+text = "Full in, and let it fall out."
+
+[cues.form-alternate-nostril]
+text = "Switch fingers before you breathe, not while."
