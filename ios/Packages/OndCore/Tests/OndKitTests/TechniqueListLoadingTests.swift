@@ -60,11 +60,11 @@ struct TechniqueListLoadingTests {
         }
     }
 
-    private func technique(slug: String) -> Technique {
+    private func technique(slug: TechniqueSlug) -> Technique {
         Technique(
-            id: slug,
+            id: TechniqueId(rawValue: slug.rawValue),
             slug: slug,
-            name: slug,
+            name: slug.rawValue,
             summary: "",
             goal: .calm,
             stages: [

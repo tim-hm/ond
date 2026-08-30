@@ -48,7 +48,7 @@ public enum Weekday: Int, Sendable, CaseIterable, Codable, Identifiable, Compara
 public struct Schedule: Sendable, Equatable, Codable, Identifiable {
     public let id: UUID
     /// The technique it opens with, by the slug the catalogue keeps stable.
-    public var techniqueSlug: String
+    public var techniqueSlug: TechniqueSlug
     /// Denormalised so the notification can name the exercise even when the
     /// catalogue has not been fetched this launch.
     public var techniqueName: String
@@ -71,7 +71,7 @@ public struct Schedule: Sendable, Equatable, Codable, Identifiable {
 
     public init(
         id: UUID = UUID(),
-        techniqueSlug: String,
+        techniqueSlug: TechniqueSlug,
         techniqueName: String,
         hour: Int,
         minute: Int,
@@ -96,7 +96,7 @@ public struct Schedule: Sendable, Equatable, Codable, Identifiable {
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
-        techniqueSlug = try container.decode(String.self, forKey: .techniqueSlug)
+        techniqueSlug = try container.decode(TechniqueSlug.self, forKey: .techniqueSlug)
         techniqueName = try container.decode(String.self, forKey: .techniqueName)
         hour = try container.decode(Int.self, forKey: .hour)
         minute = try container.decode(Int.self, forKey: .minute)

@@ -101,12 +101,12 @@ public final class SessionSettings: PersonalStore {
     /// the set is read on launch and written on change. Device-only — see
     /// `TechniqueOverrides` for why the profile is not where this belongs.
     /// Watched as a whole so a length on one tab tracks a dial on another.
-    public private(set) var overridesBySlug: [String: TechniqueOverrides] {
+    public private(set) var overridesBySlug: [TechniqueSlug: TechniqueOverrides] {
         didSet { persistOverrides() }
     }
 
     private let defaults: UserDefaults
-    private let overridesStore: DefaultsJSONStore<[String: TechniqueOverrides]>
+    private let overridesStore: DefaultsJSONStore<[TechniqueSlug: TechniqueOverrides]>
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -177,7 +177,9 @@ public final class SessionSettings: PersonalStore {
     /// one screen to print a curated length while the other prints a dialled
     /// one. An undialled slug is absent, not nil-valued — assigning an
     /// `Optional` removes the key — which is `DialStop`'s meaning of nil.
-    public func overrides(forSlugsOf techniques: [Technique]) -> [String: TechniqueOverrides] {
+    public func overrides(
+        forSlugsOf techniques: [Technique]
+    ) -> [TechniqueSlug: TechniqueOverrides] {
         techniques.reduce(into: [:]) { dialled, technique in
             dialled[technique.slug] = overrides(for: technique)
         }

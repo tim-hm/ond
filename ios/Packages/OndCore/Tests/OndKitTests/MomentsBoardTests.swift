@@ -7,7 +7,7 @@ import Testing
 @Suite("The moments board")
 struct MomentsBoardTests {
     private static func prescription(
-        _ slug: String,
+        _ slug: TechniqueSlug,
         goal: TechniqueGoal,
         surface: DeliverySurface = .fullScreen,
         register: CopyRegister = .plain,

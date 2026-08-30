@@ -153,7 +153,7 @@ public final class UserTechniqueModel {
         let stored: Technique
         do {
             stored = if let edited {
-                try await store.updateUserTechnique(id: UserTechniqueId(of: edited), to: draft)
+                try await store.updateUserTechnique(id: edited.id, to: draft)
             } else {
                 try await store.createUserTechnique(draft)
             }
@@ -175,7 +175,7 @@ public final class UserTechniqueModel {
     /// had to be undone would put a row back under somebody's finger.
     public func delete(_ technique: Technique) async throws {
         do {
-            try await store.deleteUserTechnique(id: UserTechniqueId(of: technique))
+            try await store.deleteUserTechnique(id: technique.id)
         } catch {
             Self.logger.notice(
                 "failed to delete the exercise: \(error.diagnostic, privacy: .public)"
@@ -193,7 +193,7 @@ public final class UserTechniqueModel {
     /// Puts a stored exercise where it belongs: over the one it replaced, or at
     /// the end, which is where the server's oldest-first order would also put a
     /// new one.
-    private func replace(_ stored: Technique, at id: String?) {
+    private func replace(_ stored: Technique, at id: TechniqueId?) {
         guard case let .loaded(list) = state else { return }
 
         var techniques = list.techniques

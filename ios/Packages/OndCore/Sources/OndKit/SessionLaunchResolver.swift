@@ -14,9 +14,9 @@ public struct PhoneSessionLaunch: Identifiable {
     public let register: CopyRegister
 
     /// The occasion that prescribed the session, if one did.
-    public let occasionSlug: String?
+    public let occasionSlug: OccasionSlug?
 
-    init(model: SessionModel, register: CopyRegister, occasionSlug: String?) {
+    init(model: SessionModel, register: CopyRegister, occasionSlug: OccasionSlug?) {
         id = UUID()
         self.model = model
         self.register = register
@@ -26,8 +26,8 @@ public struct PhoneSessionLaunch: Identifiable {
 
 /// The order a discreet stop asks the phone to send to the wrist.
 public struct WristSessionHandoff: Sendable, Equatable {
-    public let occasionSlug: String?
-    public let techniqueSlug: String
+    public let occasionSlug: OccasionSlug?
+    public let techniqueSlug: TechniqueSlug
 }
 
 /// What resolving a request to begin breathing asks the app to present.
@@ -54,7 +54,7 @@ public struct SessionLaunchResolver {
         let technique: Technique
         let surface: DeliverySurface
         let register: CopyRegister
-        let occasionSlug: String?
+        let occasionSlug: OccasionSlug?
         let title: String?
         let warning: SessionWarning?
     }

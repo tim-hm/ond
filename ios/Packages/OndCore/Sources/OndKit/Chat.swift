@@ -86,7 +86,7 @@ public enum CoachProposal: Sendable, Hashable, Codable {
 /// safe range — but this device's catalogue may lag the server's, so the
 /// card resolves the slug locally before rendering anything.
 public struct ExerciseOffer: Sendable, Hashable, Codable {
-    public let techniqueSlug: String
+    public let techniqueSlug: TechniqueSlug
 
     /// Nil means "as the catalogue curates it". A shape that no longer fits
     /// the technique is already handled downstream: `Technique.dialled(with:)`
@@ -95,7 +95,7 @@ public struct ExerciseOffer: Sendable, Hashable, Codable {
 
     /// Memberwise, made public: offers are decoded at the repository seam and
     /// scripted whole by tests.
-    public init(techniqueSlug: String, overrides: TechniqueOverrides? = nil) {
+    public init(techniqueSlug: TechniqueSlug, overrides: TechniqueOverrides? = nil) {
         self.techniqueSlug = techniqueSlug
         self.overrides = overrides
     }

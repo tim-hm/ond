@@ -109,7 +109,10 @@ public struct AssistantRepository: AssistantReading {
         // only displays, and the server has already guaranteed the slug is one
         // the catalogue holds.
         let recommendations = message.recommendations.map {
-            Recommendation(techniqueSlug: $0.techniqueSlug, reason: $0.reason)
+            Recommendation(
+                techniqueSlug: TechniqueSlug(rawValue: $0.techniqueSlug),
+                reason: $0.reason
+            )
         }
 
         guard !recommendations.isEmpty else {
@@ -288,7 +291,10 @@ public struct AssistantRepository: AssistantReading {
                 nil
             }
 
-        return ExerciseOffer(techniqueSlug: wire.techniqueSlug, overrides: overrides)
+        return ExerciseOffer(
+            techniqueSlug: TechniqueSlug(rawValue: wire.techniqueSlug),
+            overrides: overrides
+        )
     }
 
     /// The domain turn as the wire message. Total in this direction: every
@@ -305,7 +311,7 @@ public struct AssistantRepository: AssistantReading {
             }
         wire.text = turn.text
         if let offer = turn.offer {
-            wire.offeredSlug = offer.techniqueSlug
+            wire.offeredSlug = offer.techniqueSlug.rawValue
         }
         return wire
     }

@@ -9,7 +9,7 @@ import Testing
 /// seeded exercises that nothing checked.
 @Suite("What an exercise's screen says about it")
 struct TechniqueWordsTests {
-    private func technique(_ slug: String) -> Technique {
+    private func technique(_ slug: TechniqueSlug) -> Technique {
         SeededCatalogue.technique(slug)
     }
 
@@ -79,7 +79,7 @@ struct TechniqueWordsTests {
     /// the same shape say the same route-neutral sentence.
     @Test("Both sighs read as one connected instruction")
     func sighsUseConnectedInstructions() {
-        for slug in ["physiological-sigh", "cyclic-sighing"] {
+        for slug: TechniqueSlug in ["physiological-sigh", "cyclic-sighing"] {
             let steps = technique(slug).stages.flatMap(\.steps)
             #expect(steps.map(\.instruction) == [
                 "Breathe in", "And in", "And breathe out",

@@ -59,7 +59,7 @@ struct TechniqueFigureWordsTests {
     /// techniques are the same drawing once their labels are on them.
     @Test("Every seeded technique draws something no other technique draws")
     func everyTechniqueIsDistinct() {
-        var seen: [String: String] = [:]
+        var seen: [String: TechniqueSlug] = [:]
 
         for technique in SeededCatalogue.techniques {
             let labels = TechniqueFigure.all(for: technique)
@@ -70,7 +70,7 @@ struct TechniqueFigureWordsTests {
 
             #expect(
                 seen[drawn] == nil,
-                "`\(technique.slug)` draws the same as `\(seen[drawn] ?? "")`"
+                "`\(technique.slug)` draws the same as `\(seen[drawn]?.rawValue ?? "")`"
             )
             seen[drawn] = technique.slug
         }

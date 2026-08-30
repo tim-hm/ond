@@ -6,7 +6,7 @@ import Foundation
 /// syncing later is a mapping, not a migration of what is already on disk.
 public struct SessionRecord: Sendable, Codable, Equatable, Identifiable {
     public let id: UUID
-    public let techniqueSlug: String
+    public let techniqueSlug: TechniqueSlug
     public let startedAt: Date
     /// Milliseconds rather than a `Duration`, because this shape is written to
     /// disk: milliseconds are what the proto carries and what a person reading
@@ -23,7 +23,7 @@ public struct SessionRecord: Sendable, Codable, Equatable, Identifiable {
     public let completed: Bool
     /// The occasion that prescribed the session, nil when the person picked
     /// the technique themselves.
-    public let occasionSlug: String?
+    public let occasionSlug: OccasionSlug?
     /// How the session was delivered. Carried because `completed` reads
     /// differently per surface: a discreet session's sparse cadence runs near
     /// half an hour, and grading it like a five-minute guided session would
@@ -32,13 +32,13 @@ public struct SessionRecord: Sendable, Codable, Equatable, Identifiable {
 
     public init(
         id: UUID = UUID(),
-        techniqueSlug: String,
+        techniqueSlug: TechniqueSlug,
         startedAt: Date,
         duration: Duration,
         cyclesCompleted: Int,
         breathCount: Int,
         completed: Bool,
-        occasionSlug: String? = nil,
+        occasionSlug: OccasionSlug? = nil,
         surface: DeliverySurface = .fullScreen
     ) {
         self.id = id
@@ -58,13 +58,13 @@ public struct SessionRecord: Sendable, Codable, Equatable, Identifiable {
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
-        techniqueSlug = try container.decode(String.self, forKey: .techniqueSlug)
+        techniqueSlug = try container.decode(TechniqueSlug.self, forKey: .techniqueSlug)
         startedAt = try container.decode(Date.self, forKey: .startedAt)
         durationMs = try container.decode(Int.self, forKey: .durationMs)
         cyclesCompleted = try container.decode(Int.self, forKey: .cyclesCompleted)
         breathCount = try container.decode(Int.self, forKey: .breathCount)
         completed = try container.decode(Bool.self, forKey: .completed)
-        occasionSlug = try container.decodeIfPresent(String.self, forKey: .occasionSlug)
+        occasionSlug = try container.decodeIfPresent(OccasionSlug.self, forKey: .occasionSlug)
         surface = try container.decodeIfPresent(DeliverySurface.self, forKey: .surface)
             ?? .fullScreen
     }

@@ -27,14 +27,14 @@ public enum GuidanceSource: Sendable, Equatable {
 /// slug against it before answering, so a view can look this up without a
 /// branch for a technique the app has never heard of.
 public struct Recommendation: Sendable, Equatable, Identifiable {
-    public let techniqueSlug: String
+    public let techniqueSlug: TechniqueSlug
     public let reason: String
 
-    public var id: String {
+    public var id: TechniqueSlug {
         techniqueSlug
     }
 
-    public init(techniqueSlug: String, reason: String) {
+    public init(techniqueSlug: TechniqueSlug, reason: String) {
         self.techniqueSlug = techniqueSlug
         self.reason = reason
     }

@@ -32,7 +32,7 @@ struct ScheduleStoreTests {
     }
 
     private func schedule(
-        slug: String = "box-breathing",
+        slug: TechniqueSlug = "box-breathing",
         hour: Int = 8,
         weekdays: Set<Weekday> = Weekday.weekdays
     ) -> Schedule {

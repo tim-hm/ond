@@ -37,14 +37,14 @@ private actor ScriptedServer: UserTechniqueStoring {
         return stored(draft, id: "created")
     }
 
-    func updateUserTechnique(id: UserTechniqueId, to _: TechniqueDraft) async throws -> Technique {
+    func updateUserTechnique(id: TechniqueId, to _: TechniqueDraft) async throws -> Technique {
         if failing {
             throw UserTechniqueRepositoryError.transport(.stub())
         }
-        return stored(draft(name: "updated"), id: id.value)
+        return stored(draft(name: "updated"), id: id.rawValue)
     }
 
-    func deleteUserTechnique(id _: UserTechniqueId) async throws {
+    func deleteUserTechnique(id _: TechniqueId) async throws {
         if failing {
             throw UserTechniqueRepositoryError.transport(.stub())
         }
@@ -142,7 +142,7 @@ struct UserTechniqueOfflineTests {
         )
 
         _ = try await cache.listUserTechniques()
-        try await cache.deleteUserTechnique(id: UserTechniqueId(of: list(["a"]).techniques[0]))
+        try await cache.deleteUserTechnique(id: list(["a"]).techniques[0].id)
 
         let local = try #require(await cache.localUserTechniques())
         #expect(local.techniques.map(\.id) == ["b"])

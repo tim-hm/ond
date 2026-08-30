@@ -14,9 +14,9 @@ public struct NotificationPayload: Sendable, Equatable {
     private static let techniqueSlugKey = "techniqueSlug"
 
     /// The exercise to open, by the slug the catalogue keeps stable.
-    public let techniqueSlug: String
+    public let techniqueSlug: TechniqueSlug
 
-    public init(techniqueSlug: String) {
+    public init(techniqueSlug: TechniqueSlug) {
         self.techniqueSlug = techniqueSlug
     }
 
@@ -24,7 +24,7 @@ public struct NotificationPayload: Sendable, Equatable {
     /// notification centre and APNs both serialise this dictionary, so
     /// anything richer than a property-list scalar can fail to decode.
     public var userInfo: [String: String] {
-        [Self.techniqueSlugKey: techniqueSlug]
+        [Self.techniqueSlugKey: techniqueSlug.rawValue]
     }
 
     /// Reads a payload back off a tapped notification, or nil where there is
@@ -35,6 +35,6 @@ public struct NotificationPayload: Sendable, Equatable {
         guard let slug = userInfo[Self.techniqueSlugKey] as? String, !slug.isEmpty else {
             return nil
         }
-        techniqueSlug = slug
+        techniqueSlug = TechniqueSlug(rawValue: slug)
     }
 }

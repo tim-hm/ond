@@ -124,7 +124,7 @@ private struct Suggestion {
         let technique: Technique
         let reason: String
 
-        var id: String {
+        var id: TechniqueId {
             technique.id
         }
     }

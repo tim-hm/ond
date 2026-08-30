@@ -38,7 +38,7 @@ public struct Prescription: Sendable, Hashable, Codable {
     /// else about that technique is repeated here — a locked flag copied onto a
     /// route would be a second copy of a promise free to disagree with the
     /// first.
-    public let techniqueSlug: String
+    public let techniqueSlug: TechniqueSlug
 
     /// The goal this moment borrows, so the home screen and the coach keep
     /// speaking the five goals they already speak. Carried by the occasion
@@ -67,7 +67,7 @@ public struct Prescription: Sendable, Hashable, Codable {
     public let duration: Duration
 
     public init(
-        techniqueSlug: String,
+        techniqueSlug: TechniqueSlug,
         goal: TechniqueGoal,
         surface: DeliverySurface,
         register: CopyRegister = .plain,
@@ -91,7 +91,7 @@ public struct Prescription: Sendable, Hashable, Codable {
     /// here needs the same treatment.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        techniqueSlug = try container.decode(String.self, forKey: .techniqueSlug)
+        techniqueSlug = try container.decode(TechniqueSlug.self, forKey: .techniqueSlug)
         goal = try container.decode(TechniqueGoal.self, forKey: .goal)
         surface = try container.decode(DeliverySurface.self, forKey: .surface)
         register = try container.decodeIfPresent(CopyRegister.self, forKey: .register) ?? .plain
@@ -111,7 +111,7 @@ public struct Prescription: Sendable, Hashable, Codable {
 public struct Occasion: Sendable, Hashable, Codable, Identifiable {
     /// Stable key ("before-a-presentation"), so a surface can pin an icon or an
     /// event to an occasion without pinning its wording.
-    public let slug: String
+    public let slug: OccasionSlug
 
     /// How the moment is named to the person, in their words rather than the
     /// catalogue's.
@@ -122,11 +122,11 @@ public struct Occasion: Sendable, Hashable, Codable, Identifiable {
 
     public let prescription: Prescription
 
-    public var id: String {
+    public var id: OccasionSlug {
         slug
     }
 
-    public init(slug: String, name: String, summary: String, prescription: Prescription) {
+    public init(slug: OccasionSlug, name: String, summary: String, prescription: Prescription) {
         self.slug = slug
         self.name = name
         self.summary = summary
@@ -136,18 +136,18 @@ public struct Occasion: Sendable, Hashable, Codable, Identifiable {
 
 /// One rung of the Start here progression.
 public struct ProgressionStep: Sendable, Hashable, Codable, Identifiable {
-    public let techniqueSlug: String
+    public let techniqueSlug: TechniqueSlug
 
     /// Why this one, at this point — the sentence that makes the order a
     /// progression rather than a list. Empty means the technique's own summary
     /// is enough.
     public let note: String
 
-    public var id: String {
+    public var id: TechniqueSlug {
         techniqueSlug
     }
 
-    public init(techniqueSlug: String, note: String) {
+    public init(techniqueSlug: TechniqueSlug, note: String) {
         self.techniqueSlug = techniqueSlug
         self.note = note
     }

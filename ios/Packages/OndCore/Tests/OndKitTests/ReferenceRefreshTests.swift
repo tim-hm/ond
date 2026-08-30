@@ -77,11 +77,11 @@ struct ReferenceRefreshTests {
         }
     }
 
-    private func technique(slug: String) -> Technique {
+    private func technique(slug: TechniqueSlug) -> Technique {
         Technique(
-            id: slug,
+            id: TechniqueId(rawValue: slug.rawValue),
             slug: slug,
-            name: slug,
+            name: slug.rawValue,
             summary: "",
             goal: .calm,
             stages: [
@@ -167,7 +167,7 @@ struct ReferenceRefreshTests {
         #expect(await counter.count == 1)
     }
 
-    private func loadedSlugs(in model: TechniqueListModel) -> [String]? {
+    private func loadedSlugs(in model: TechniqueListModel) -> [TechniqueSlug]? {
         guard case let .loaded(techniques) = model.state else { return nil }
         return techniques.map(\.slug)
     }

@@ -188,7 +188,7 @@ struct StageSeamTests {
     /// clips. Both doses take the same stems; only their timings differ.
     @Test("Both sighs speak one connected instruction")
     func sighsUseConnectedClips() {
-        for slug in ["physiological-sigh", "cyclic-sighing"] {
+        for slug: TechniqueSlug in ["physiological-sigh", "cyclic-sighing"] {
             let beats = Array(SessionTimeline(technique: SeededCatalogue.technique(slug))
                 .beats.prefix(3))
 
@@ -213,7 +213,7 @@ struct StageSeamTests {
     /// breath alternates all the way through, so it is the counter-case.
     @Test("Alternating breaths never stack")
     func alternatingBreathsNeverStack() {
-        for slug in ["bellows-breath", "box-breathing", "coherent-breathing"] {
+        for slug: TechniqueSlug in ["bellows-breath", "box-breathing", "coherent-breathing"] {
             let beats = SessionTimeline(technique: SeededCatalogue.technique(slug)).beats
             let stacked = beats.filter(\.stacksOnPrevious)
             #expect(stacked.isEmpty, "\(slug) stacked \(stacked.count) breaths")
@@ -271,7 +271,7 @@ struct SpokenCueFitTests {
     /// fit", so it is pinned against the exercises it was decided on.
     @Test("A breath of two seconds or less is cued in one word")
     func theQuickBreathsAreCuedInOneWord() {
-        for slug in ["wim-hof-rounds", "bellows-breath"] {
+        for slug: TechniqueSlug in ["wim-hof-rounds", "bellows-breath"] {
             let technique = SeededCatalogue.technique(slug)
 
             let breaths = technique.stages.flatMap(\.phases)

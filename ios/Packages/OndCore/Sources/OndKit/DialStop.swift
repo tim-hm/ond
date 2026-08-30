@@ -88,7 +88,7 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     /// must be equal or a star silently pins nothing. Deliberately not an
     /// occasion's or rung's id: a star is about the exercise, not the moment.
     public static func id(of technique: Technique) -> ID {
-        id(in: technique.origin == .personal ? .yours : .everything, key: technique.slug)
+        id(in: technique.origin == .personal ? .yours : .everything, key: technique.slug.rawValue)
     }
 
     /// Every id a card standing for this exercise could carry, `id(of:)` among
@@ -98,9 +98,9 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     /// clearing one by pressing the other would take away the wrong thing.
     public static func ids(standingFor technique: Technique) -> Set<ID> {
         [
-            id(in: .yours, key: technique.slug),
-            id(in: .startHere, key: technique.slug),
-            id(in: .everything, key: technique.slug),
+            id(in: .yours, key: technique.slug.rawValue),
+            id(in: .startHere, key: technique.slug.rawValue),
+            id(in: .everything, key: technique.slug.rawValue),
         ]
     }
 
@@ -136,8 +136,8 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     /// The stop's name in its own band, before the band is prefixed.
     private var key: String {
         switch origin {
-        case let .occasion(occasion): occasion.slug
-        case .step, .technique: technique.slug
+        case let .occasion(occasion): occasion.slug.rawValue
+        case .step, .technique: technique.slug.rawValue
         }
     }
 
@@ -164,7 +164,7 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     /// The occasion this stop routes through, or nil for a rung or a plain
     /// technique — what a started session stamps onto its record, so the
     /// journey can tell a prescribed session from a chosen one.
-    public var occasionSlug: String? {
+    public var occasionSlug: OccasionSlug? {
         switch origin {
         case let .occasion(occasion): occasion.slug
         case .step, .technique: nil

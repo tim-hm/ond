@@ -107,6 +107,6 @@ public final class TechniqueWarningStore: PersonalStore {
 public extension Technique {
     /// This exercise's own caution in the shape a session warning screen needs.
     var sessionWarning: SessionWarning? {
-        safetyNote.map { SessionWarning(key: slug, title: name, text: $0) }
+        safetyNote.map { SessionWarning(key: slug.rawValue, title: name, text: $0) }
     }
 }

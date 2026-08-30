@@ -11,7 +11,7 @@ struct WristShelfTests {
         WristShelf(techniques: Self.catalogue, history: history)
     }
 
-    private func slugs(_ history: [SessionRecord]) -> [String] {
+    private func slugs(_ history: [SessionRecord]) -> [TechniqueSlug] {
         shelf(history).stops.map(\.technique.slug)
     }
 

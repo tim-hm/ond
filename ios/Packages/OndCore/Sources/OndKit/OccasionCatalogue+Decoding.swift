@@ -31,7 +31,7 @@ extension Occasion {
         }
 
         try self.init(
-            slug: proto.slug,
+            slug: OccasionSlug(rawValue: proto.slug),
             name: proto.name,
             summary: proto.summary,
             prescription: Prescription(proto: proto.prescription, occasion: proto.slug)
@@ -73,7 +73,7 @@ extension Prescription {
         }
 
         self.init(
-            techniqueSlug: proto.techniqueSlug,
+            techniqueSlug: TechniqueSlug(rawValue: proto.techniqueSlug),
             goal: goal,
             surface: surface,
             // The one nil here that degrades rather than refuses: an
@@ -122,6 +122,9 @@ extension ProgressionStep {
     /// value here it could fail to represent. A step naming a technique the
     /// catalogue does not hold is dropped where the two are joined, not here.
     init(proto: Ond_V1_ProgressionStep) {
-        self.init(techniqueSlug: proto.techniqueSlug, note: proto.note)
+        self.init(
+            techniqueSlug: TechniqueSlug(rawValue: proto.techniqueSlug),
+            note: proto.note
+        )
     }
 }

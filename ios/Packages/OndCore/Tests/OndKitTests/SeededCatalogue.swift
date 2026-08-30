@@ -13,7 +13,7 @@ enum SeededCatalogue {
 
     /// The one technique a test names directly. Everything else is looked up by
     /// the shape of its stages, so the catalogue can grow without touching them.
-    static func technique(_ slug: String) -> Technique {
+    static func technique(_ slug: TechniqueSlug) -> Technique {
         guard let technique = techniques.first(where: { $0.slug == slug }) else {
             fatalError("`\(slug)` is not in the seeded catalogue")
         }
@@ -22,13 +22,13 @@ enum SeededCatalogue {
 
     /// A seeded technique laid out on a session's time axis, at its curated
     /// rounds — the form every test that asks what a *beat* says needs.
-    static func timeline(_ slug: String) -> SessionTimeline {
+    static func timeline(_ slug: TechniqueSlug) -> SessionTimeline {
         SessionTimeline(technique: technique(slug))
     }
 
     /// The figure a stage is drawn in, from the seeded technique. One figure
     /// per stage, so the two numberings agree by construction.
-    static func figure(_ slug: String, stage: Int = 0) -> TechniqueFigure {
+    static func figure(_ slug: TechniqueSlug, stage: Int = 0) -> TechniqueFigure {
         let figures = TechniqueFigure.all(for: technique(slug))
         guard figures.indices.contains(stage) else {
             fatalError("`\(slug)` draws no figure for stage \(stage)")
