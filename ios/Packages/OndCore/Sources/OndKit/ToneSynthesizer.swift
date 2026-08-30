@@ -43,11 +43,12 @@ public enum ToneSynthesizer {
                 let value = sin(2 * .pi * note.frequency * time)
                     * envelope(at: time, of: note.duration)
                     * amplitude
-                // Summed rather than assigned so overlapping notes can chord,
-                // and clamped so a chord that peaks together cannot wrap.
-                samples[offset + frame] = samples[offset + frame]
-                    .addingReportingOverflow(Int16(value * Double(Int16.max)))
-                    .partialValue
+                // Summed rather than assigned so overlapping notes can chord.
+                // Summed in `Int32` and narrowed by clamping, so a chord that
+                // peaks together saturates instead of wrapping to the opposite
+                // sign, which is an audible crack mid-cue.
+                let sum = Int32(samples[offset + frame]) + Int32(value * Double(Int16.max))
+                samples[offset + frame] = Int16(clamping: sum)
             }
         }
 
