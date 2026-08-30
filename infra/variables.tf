@@ -20,14 +20,13 @@ variable "tailscale_auth_key" {
   type        = string
   sensitive   = true
 
-  # The prefix is all the format can be held to. Single-use is not encoded in
-  # the key, so nothing here can assert it. What this does reject is the
-  # neighbouring credential: an API access token (`tskey-api-`) or an OAuth
-  # client secret pasted here registers no node, and fails at first boot on a
-  # box that has no shell yet.
+  # Neither property above is in the key text, so this checks only the prefix.
+  # What it rejects is the neighbouring credential: an API access token or an
+  # OAuth client secret pasted here registers no node, and fails at first boot
+  # on a box that has no shell yet.
   validation {
     condition     = startswith(var.tailscale_auth_key, "tskey-auth-")
-    error_message = "tailscale_auth_key must be an auth key (tskey-auth-...), minted single-use and tagged tag:server."
+    error_message = "tailscale_auth_key must start with tskey-auth-. Single-use and tag:server are not in the key text and are not checked here; see docs/deployment.md."
   }
 }
 

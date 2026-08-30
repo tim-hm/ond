@@ -100,7 +100,6 @@ module "backups" {
   # turns `expiration` into a delete marker, so only the noncurrent rule deletes
   # bytes; the dump is uploaded as multipart, so a dropped link strands parts
   # that neither expiry rule can see.
-  # docs/deployment.md § The two buckets.
   lifecycle_rule = [
     {
       id      = "expire-dumps"
@@ -270,8 +269,8 @@ locals {
   # The foundation model behind the inference profile: the same id with the
   # geography prefix removed, because that prefix names the profile. Derived
   # rather than written twice — two literals naming one model can disagree, and
-  # they disagree as an AccessDenied at invoke time. The optional group leaves a
-  # profile id that carries no prefix alone.
+  # they disagree as an AccessDenied at invoke time. The optional group matches
+  # `eu.`, `us.` and `apac.`, and leaves an unprefixed profile id alone.
   assistant_foundation_model = regex("^(?:[a-z]{2,4}\\.)?(.*)$", var.assistant_inference_profile)[0]
 }
 
@@ -491,10 +490,10 @@ resource "aws_volume_attachment" "data" {
 }
 
 # Daily snapshots of the data volume, and not a second database backup — the
-# nightly `pg_dump` is that, and it stays the restore path because a snapshot is
-# only crash-consistent. What these cover is everything the dump does not: the
-# Prometheus TSDB, Grafana's database, Alertmanager's silences, and a rebuild
-# that does not start from an empty disk. docs/deployment.md.
+# `pg_dump` is that, and stays the restore path because a snapshot is only
+# crash-consistent. These cover what the dump does not: the Prometheus TSDB,
+# Grafana's database, Alertmanager's silences, and a rebuild that does not start
+# from an empty disk. docs/deployment.md § Decisions and their edges.
 resource "aws_dlm_lifecycle_policy" "data" {
   # ASCII only, and not a style choice: DLM validates this field against
   # `[0-9A-Za-z _-]+` and rejects the o-umlaut in "önd" at apply time.
@@ -587,7 +586,7 @@ resource "aws_route53_record" "apex" {
 # The API's own name, pointing at the same box the apex does. One address today,
 # and that is not the point: the iOS Release build compiles its host in, so only
 # an App Store release changes what it asks for. This record is the indirection
-# the shipped app cannot supply for itself. docs/deployment.md.
+# the shipped app cannot supply for itself. docs/deployment.md § Shape.
 resource "aws_route53_record" "api" {
   zone_id = aws_route53_zone.primary.zone_id
   name    = "api.${aws_route53_zone.primary.name}"
@@ -598,9 +597,9 @@ resource "aws_route53_record" "api" {
 
 # One probe per public name, and the response that proves each name is served by
 # the thing that should serve it. A map because the two differ only in what a
-# healthy answer looks like, so a third name gets a line here. Every path and
-# search string is chosen, not obvious: docs/deployment.md § The alarm path says
-# why each one, and what breaks if it is changed.
+# healthy answer looks like, so a third name gets a line here. No path or search
+# string here is arbitrary: docs/observability.md says why these paths, and
+# docs/deployment.md § The alarm path why these strings.
 locals {
   public_probes = {
     api = {

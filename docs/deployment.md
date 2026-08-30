@@ -66,14 +66,12 @@ The `ssh` section decides who may open a session; it does not open the port. Tai
 "acls": [
   // Tailscale SSH needs the port allowed here as well as in `ssh` above.
   {"action": "accept", "src": ["autogroup:member"], "dst": ["tag:server:22"]},
-  // Grafana, Prometheus and Alertmanager. Narrower than SSH on purpose: an
-  // Alertmanager silence suppresses every alert this box can raise, and a
-  // Grafana datasource makes its proxy a request forger signing as the box.
+  // Grafana, Prometheus and Alertmanager. Narrower than SSH on purpose.
   {"action": "accept", "src": ["autogroup:admin"], "dst": ["tag:server:18104-18106"]},
 ],
 ```
 
-That rule is the whole authentication on those three ports, and it has to be, because two of them have none of their own: Prometheus and Alertmanager ship no login. Grafana is anonymous behind it too, at `Viewer` with `viewers_can_edit` — which keeps Explore and temporary panel edits, and removes the ability to add a datasource. It was `Admin` until the 2026-08-30 audit, which is how a device that merely joined the tailnet could have edited datasources and read every application log in Loki.
+That rule is the whole authentication on those three ports, and it has to be, because two of them have none of their own: Prometheus and Alertmanager ship no login. An Alertmanager silence suppresses every alert this box can raise. Grafana is anonymous behind the rule too, at `Viewer` with `viewers_can_edit` — which keeps Explore and temporary panel edits, and removes the ability to add a datasource, because a datasource makes Grafana's proxy a request forger signing as the box. It was `Admin` until the 2026-08-30 audit, so any device that merely joined the tailnet could have done both, and read every application log in Loki.
 
 `ssh_public_key` survives this without authorising anything, and stays because the key pair is ForceNew on the instance: dropping it would rebuild the box to remove a credential that already opens nothing.
 
@@ -82,7 +80,7 @@ Two properties of the auth key are load-bearing rather than stylistic, and `infr
 - **Single-use.** It reaches the box in `user_data`, which anything running on the box can read back through IMDS, and which stays readable for the life of the instance. A key already spent by the time cloud-init finishes is worth nothing to whoever reads it. The cost is that the key in `terraform.tfvars` is spent the moment a box uses it — replacing the instance means minting a new one first, because a rebuild with a stale key is a box that boots and never appears.
 - **Tagged `tag:server`.** A node registered under a person's identity inherits that person's key expiry and drops off the tailnet some months later, silently, with nothing failing until the next deploy. Tagged nodes do not expire.
 
-Neither property is in the key's text, so neither can be validated. The variable's `validation` block checks only the `tskey-auth-` prefix, which rejects the credential most likely to be pasted here by mistake — an API access token (`tskey-api-`) or an OAuth client secret. Single-use stays an operator promise, and the mitigation for breaking it is rotation: mint a new key, revoke the old one in the tailnet's Keys page, and rebuild the box. A key already in a running instance's `user_data` cannot be taken back out of it.
+Neither property is in the key's text, so neither can be validated; the variable's `validation` block checks the prefix and nothing more. Single-use stays an operator promise, and the repair for breaking it is rotation: mint a new key, revoke the old one on the tailnet's Keys page, and rebuild the box. A key already in a running instance's `user_data` cannot be taken back out of it.
 
 ### When the tailnet is what broke
 
@@ -181,9 +179,7 @@ Its lifecycle rule is three clauses, and only the first is the retention:
 
 One day rather than thirty, because the current-version expiry _is_ the retention policy and the noncurrent window only has to outlast a mistaken delete.
 
-**Logs** is Loki's chunk store, and takes the same public-access block and the same deny on insecure transport for the same argument. It holds thirty-five days of application logs — support references, request paths, framework error text. Versioning is the only thing deliberately left off: the compactor rewrites and deletes chunks constantly, so versioning them would keep every superseded chunk for the length of the retention it is supposed to enforce. Thirty-five days rather than Loki's own thirty, so the lifecycle is the backstop and not the thing racing the compactor.
-
-It is a bucket rather than a prefix in the first one because the two want different rules, and it is on S3 rather than the data volume because that volume is the one Postgres writes to — and because logs that die with the instance are missing exactly when the instance is what failed.
+**Logs** is Loki's chunk store, and takes the same public-access block and the same deny on insecure transport for the same argument. It holds thirty-five days of application logs — support references, request paths, framework error text. Versioning is the only thing deliberately left off: the compactor rewrites and deletes chunks constantly, so versioning them would keep every superseded chunk for the length of the retention it is supposed to enforce. It is a bucket rather than a prefix in the first one because the two want different rules; [observability.md](observability.md) has the retention window and why it sits past Loki's own.
 
 ### What the instance role holds
 
@@ -202,18 +198,15 @@ It is a bucket rather than a prefix in the first one because the two want differ
 
 ### The alarm path
 
-Two SNS topics, both named `ond-alarms`, and the second exists for one reason: a CloudWatch alarm may only publish to a topic in its own region, and Route 53 publishes health-check metrics into us-east-1 whatever region the rest of this lives in. SNS cannot subscribe to SNS, so funnelling one into the other would need a Lambda — a great deal of machinery to avoid one extra confirmation click. The cost is that a first `tofu apply` sends **two** confirmation emails and both must be clicked. An unconfirmed subscription accepts every publish and drops it, so a half-confirmed pair looks exactly like a working one until the day it matters.
+What the two Route 53 probes watch, and why a dead-man's switch is the only thing that can report a Prometheus which never evaluated a rule, is in [observability.md](observability.md). Three details are properties of this module rather than of the monitoring, and live here instead.
 
-An alarm built against the default provider instead applies cleanly and then sits in `INSUFFICIENT_DATA` for ever — a monitor that looks configured and watches nothing, which is worse than an absent one.
+**Two SNS topics, both named `ond-alarms`.** A CloudWatch alarm may only publish to a topic in its own region, and the health-check alarms are pinned to us-east-1 by where Route 53 puts those metrics. SNS cannot subscribe to SNS, so funnelling one into the other would need a Lambda — a great deal of machinery to avoid one extra confirmation click. The cost is that a first `tofu apply` sends **two** confirmation emails and both must be clicked. An unconfirmed subscription accepts every publish and drops it, so a half-confirmed pair looks exactly like a working one until the day it matters.
 
-The two Route 53 probes are the only thing watching this service from outside it, and each path is chosen to exercise what is fragile on that name:
+**Each search string is chosen, not obvious.** It has to be absent from the other name's response and to fall inside the first 5120 bytes, which is all Route 53 reads. So the whole JSON member rather than `ok`, since any "look" or "booking" in a wrong-handler response would satisfy two characters — and the page's `<h1>` rather than its title, which is the same word in non-ASCII punctuation.
 
-- The API answers `/health`, from the one handler that touches no database.
-- The page answers `/privacy` rather than `/`, because the extensionless form resolves only through the Caddyfile's `try_files` directive — the thing most likely to break silently, and the one App Review rejects a paywall over.
+**One alarm per probe, named for which one it is.** A page reading "önd is down" when only the marketing site 404s sends somebody to the wrong half of the box. Each alarm's description carries the URL to `curl`, built from the probe rather than written out, so it names whatever the check actually watches.
 
-Both are `HTTPS_STR_MATCH`, because Route 53 does not verify the certificate it is served: a 200 is not a claim about who answered, and the body is the only part of the response that is. Each search string is picked to be absent from the other name's response and to fall inside the first 5120 bytes, which is all Route 53 reads — the whole JSON member rather than `ok`, since any "look" or "booking" in a wrong-handler response would satisfy two characters, and the page's `<h1>` rather than its title, which is the same word in non-ASCII punctuation. One alarm per probe, named for which one it is, because a page reading "önd is down" when only the marketing site 404s sends somebody to the wrong half of the box.
-
-The dead-man's switch is the only alert here that fires on silence. `heartbeat.sh` publishes into the `Ond` namespace every five minutes while Prometheus **and** Alertmanager both answer, and `treat_missing_data = "breaching"` turns the absence of that into an alarm. It is the only construction that can report a box that has stopped, a disk that has filled, or a Prometheus crash-looping on a rule file that does not parse. Three periods before it trips, because one missed heartbeat is a slow metadata lookup.
+The heartbeat alarm is the one that needs none of this. Its metric is written by `heartbeat.sh`, which signs for the box's own region, so that alarm sits beside the main topic and needs no second subscription — us-east-1 is the exception here, not the rule, and only because AWS chooses where health-check metrics live.
 
 ## Identity and state
 
@@ -320,4 +313,4 @@ Restores into the live database; for a from-scratch rebuild, apply migrations fi
 - **A tailnet, not a narrowed CIDR and not a bastion.** 22/tcp used to be open to `admin_cidr`, which is a residential prefix: it is re-issued by the ISP, it covers every other subscriber on it, and it strands the operator on the day it renews. A bastion is a second box to patch and a second key to lose. The tailnet is neither — nothing is exposed, the credential is a device rather than an address, and the same enrolment is what makes an internal dashboard reachable without ever publishing it. What it costs is a dependency on a third party being up between the laptop and the box, which is why the SSM path stays.
 - **The box self-heals, and now says so when it cannot.** `restart: unless-stopped` covers crashes. Alertmanager publishes the Prometheus rules to an SNS topic and one email subscription takes them, signed with the instance profile so no credential lands on the box. What that could never cover is the box itself going away, so a Route 53 health check probes the public endpoint from outside and a five-minute heartbeat into CloudWatch alarms on its own silence. See [observability.md](observability.md).
 - **Backups are verified, not merely attempted.** The nightly dump is read back with `gunzip -t` and measured against a size floor before it is uploaded, and it writes its result to node-exporter's textfile collector so `BackupStale` can fire on the age of the last _verified_ dump. The one-line `pg_dump | gzip | aws s3 cp` it replaces had no `pipefail`, so a failed dump uploaded a valid gzip of nothing and exited 0 — which is how eight days of backups were lost, and why the cron now ships with every deploy instead of being written once by cloud-init.
-- **EBS snapshots cover what the dump does not.** A DLM policy keeps seven dailies of the data volume: the Prometheus TSDB, Grafana's database and Alertmanager's silences, none of which the logical dump touches. They are crash-consistent, so Postgres WAL-replays from one and usually comes up clean — but the dump stays the trustworthy restore path for the database itself, and that distinction is the reason both exist.
+- **EBS snapshots cover what the dump does not.** A DLM policy keeps seven dailies of the data volume: the Prometheus TSDB, Grafana's database and Alertmanager's silences, none of which the logical dump touches. Snapshots are incremental after the first, so seven dailies of a mostly-static volume cost roughly a coffee a month. They are crash-consistent, so Postgres WAL-replays from one and usually comes up clean — but the dump stays the trustworthy restore path for the database itself, and that distinction is the reason both exist.
