@@ -25,8 +25,17 @@ struct CoachComposer: View {
 
     @Environment(SubscriptionStore.self) private var plus
 
-    /// The send button, and through it the bar's resting height.
-    private static let sendDiameter: CGFloat = 48
+    /// Read so the send glyph dims when an ancestor disables the whole
+    /// composer, which is how `CoachOffer` draws the free tier. The system
+    /// button this replaced took that from the environment for free.
+    @Environment(\.isEnabled) private var isEnabled
+
+    /// The bar's resting height, which the refresh spec sets.
+    private static let barHeight: CGFloat = 48
+
+    /// The send circle the eye sees, inside a tap target half again its size —
+    /// the proportion Messages and Mail draw a send button at.
+    private static let sendGlyph: CGFloat = 30
 
     var body: some View {
         VStack(spacing: Theme.Spacing.close) {
@@ -129,38 +138,49 @@ struct CoachComposer: View {
                     }
                 }
 
-            // A button rather than a tinted glyph: `glassProminent` carries its
-            // own disabled state, so nothing here has to decide what "off"
-            // looks like, and it sits in the same material as the bar around it.
-            Button(action: send) {
-                Image(systemName: "arrow.up")
-                    .fontWeight(.semibold)
-                    // The spec's own send button, and the reason it is sized
-                    // here rather than left to the control's own metrics: the
-                    // bar it sits in is 48 points tall, and a button that
-                    // shrank to its glyph would leave a circle floating in a
-                    // capsule twice its height.
-                    .frame(width: Self.sendDiameter, height: Self.sendDiameter)
-            }
-            .buttonStyle(.glassProminent)
-            .buttonBorderShape(.circle)
-            .tint(Theme.Breath.inhale)
-            .disabled(!canSend)
-            .accessibilityLabel("Send")
+            sendButton
         }
-        .frame(minHeight: Self.sendDiameter)
-        // Asymmetric: the field wants a full inset to read as text, the button
-        // only wants clearance from the capsule's edge.
+        .frame(minHeight: Self.barHeight)
+        // Asymmetric: the field wants a full inset to read as text, while the
+        // send glyph already stands clear inside its own tap target.
         .padding(EdgeInsets(
             top: Theme.Spacing.tight,
             leading: Theme.Spacing.standard,
             bottom: Theme.Spacing.tight,
-            trailing: Theme.Spacing.tight
+            trailing: Theme.Spacing.close
         ))
         // A capsule of the tab bar's own material, floating clear of it, rather
         // than a flat full-width strip stacked on top: two opaque slabs read as
         // two pieces of chrome, where this reads as one system with the bar.
         .glassEffect(in: .capsule)
+    }
+
+    /// A filled glyph rather than a circular `glassProminent` button: that
+    /// button drew its own material inside the bar's, and two glass layers one
+    /// within the other read as a blob rather than a control. The palette
+    /// rendering carries "off" in the circle's own colour — dimming the whole
+    /// glyph fades the arrow with it, leaving nothing to read.
+    private var sendButton: some View {
+        let isReady = canSend && isEnabled
+
+        return Button(action: send) {
+            Image(systemName: "arrow.up.circle.fill")
+                .font(.system(size: Self.sendGlyph))
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(
+                    Theme.Surface.ground,
+                    isReady ? Theme.Breath.inhale : Theme.Ink.tertiary
+                )
+                // The circle is smaller than a finger; the target is not.
+                .frame(
+                    width: Theme.Metrics.minimumTapTarget,
+                    height: Theme.Metrics.minimumTapTarget
+                )
+                .contentShape(.circle)
+        }
+        .buttonStyle(.plain)
+        .disabled(!isReady)
+        .accessibilityLabel("Send")
     }
 
     /// The way off the screen while the keyboard is up. In the composer rather
