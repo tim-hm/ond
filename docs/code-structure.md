@@ -126,7 +126,7 @@ Three channels, chosen by what a lost payload costs:
 
 | Channel | Semantics | Carries |
 | :-- | :-- | :-- |
-| `updateApplicationContext` (phone → watch) | last-value-wins, replayed on every activation | `WatchHandoff`: the identity, the mirrored best pause, the erase flag, a pending `WatchSessionOrder` |
+| `updateApplicationContext` (phone → watch) | last-value-wins, replayed on every activation | `WatchHandoff`: the identity, the mirrored best pause, the erase flag, the entitled tier, the safety terms version the phone agreed to, a pending `WatchSessionOrder` |
 | `sendMessage` / `transferUserInfo` (watch → phone) | best-effort, lossy, live | the order's ack, each heart-rate reading, and the notice that an ordered session finished |
 | gRPC-Web to the API | idempotent, retried, offline-first | every `SessionRecord` and check-in score |
 
@@ -135,6 +135,8 @@ Three rules hold that shape, and all three have teeth:
 - **One writer to `applicationContext`.** It is a single dictionary, wholly replaced per write, so everything outbound goes through the one `WatchHandoffOutbox`. A second writer clobbers the identity the wrist depends on for everything else.
 - **State the system replays is not an event.** The context is redelivered on every activation, so anything in it that _acts_ needs a consumer that fires once: `erasesPriorHistory` guards on the identity having changed, and an order goes through `WatchOrderLedger`, which admits an id once and only while it is fresh.
 - **Nothing outbound reaches a wrist reliably, so anything the wrist must stop doing rides its own reply.** The phone cannot count on reaching the watch — `sendMessage` needs the watch app frontmost, and a context is delivered whenever the system feels like it. What it can count on is that a wrist still sending has just reached the phone, which is why every `WatchPulse` is answered with a `WatchPulseReply` saying whether more are wanted. A phone killed and relaunched in the background to take one still answers correctly, where a "stop" it never got to send would have left a workout running on somebody's arm.
+
+**An absent key means three different things, and each field says which.** The mirrored best pause reads absent as no news, and keeps the number the wrist already holds — a phone whose owner has not taken the test must not blank one. The entitled tier reads absent as `free`, the direction that cannot give anything away. The agreed terms version reads absent as withdrawn, because deleting the account is how an agreement goes away and it leaves the phone with no version to send. Choose one of the three deliberately when adding a field; the default that suits a new key is whichever direction is safe when the key never arrives.
 
 The watch must never mint an identity of its own, so `ProvisionedUserIdentityStore` starts empty and everything above it works without one — the reasoning is on that type. Standalone is the constraint underneath all of it: a wrist with no phone in range still runs sessions, records them, and syncs them itself.
 

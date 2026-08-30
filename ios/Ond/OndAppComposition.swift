@@ -191,18 +191,21 @@ extension OndApp {
     }
 
     /// The channel to the wrist, and the outbox that decides what goes down
-    /// it — never wanted separately. The tier is read through a closure, not
-    /// captured: a value read at launch would leave somebody who subscribed
-    /// this morning unable to send a session to the watch until relaunch.
+    /// it — never wanted separately. The tier and the agreed terms are read
+    /// through closures, not captured: values read at launch would leave
+    /// somebody who subscribed, or agreed, this morning waiting for a relaunch
+    /// before their watch heard about it.
     static func pairing(
         identity: any UserIdentityStore,
         scores: any BoltScoreRecording,
-        plus: SubscriptionStore
+        plus: SubscriptionStore,
+        consent: SafetyConsentStore
     ) -> (WatchHandoffOutbox, WatchLink) {
         let outbox = WatchHandoffOutbox(
             identity: identity,
             scores: scores,
-            entitledTier: { plus.tier }
+            entitledTier: { plus.tier },
+            agreedConsentVersion: { consent.agreed?.version }
         )
         return (outbox, WatchLink(outbox: outbox))
     }

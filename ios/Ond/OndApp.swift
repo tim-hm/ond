@@ -190,15 +190,23 @@ struct OndApp: App {
         recorder = MindfulMinutesRecorder(wrapping: sessions, health: health)
         mood = MoodRecorder(store: health)
 
-        // Ahead of the outbox, which reads the tier at every hand-over so the
-        // wrist knows what it may do with this phone. Nothing else here needs
-        // it this early; the ordering is the dependency.
+        // Ahead of the outbox, which reads the tier and the agreed terms at
+        // every hand-over so the wrist knows what it may do with this phone and
+        // whether it still has to ask. Nothing else here needs either this
+        // early; the ordering is the dependency.
         let coach = Self.coach(baseURL: baseURL, identity: identity, health: health)
         _plus = State(wrappedValue: coach.plus)
         _heart = State(wrappedValue: coach.heart)
         _assistant = State(wrappedValue: coach.assistant)
 
-        let (outbox, watch) = Self.pairing(identity: identity, scores: scores, plus: coach.plus)
+        let records = Self.firstRunRecords(baseURL: baseURL, identity: identity)
+        _profiles = State(wrappedValue: records.profiles)
+        _consent = State(wrappedValue: records.consent)
+        _firstRun = State(wrappedValue: Self.firstRunGate(for: records))
+
+        let (outbox, watch) = Self.pairing(
+            identity: identity, scores: scores, plus: coach.plus, consent: records.consent
+        )
         self.watch = watch
 
         let schedules = ScheduleStore(notifier: NotificationScheduler())
@@ -211,11 +219,6 @@ struct OndApp: App {
 
         let own = UserTechniqueModel(store: Self.ownExercises(baseURL: baseURL, identity: identity))
         _own = State(wrappedValue: own)
-
-        let records = Self.firstRunRecords(baseURL: baseURL, identity: identity)
-        _profiles = State(wrappedValue: records.profiles)
-        _consent = State(wrappedValue: records.consent)
-        _firstRun = State(wrappedValue: Self.firstRunGate(for: records))
 
         // The four stores composed from nothing at all. Together on one line
         // only because each is a local the deletion list below has to name,
@@ -233,11 +236,7 @@ struct OndApp: App {
         ))
 
         let (journey, queue) = Self.journey(
-            baseURL: baseURL,
-            identity: identity,
-            sessions: sessions,
-            scores: scores,
-            rates: rates
+            baseURL: baseURL, identity: identity, sessions: sessions, scores: scores, rates: rates
         )
         _journey = State(wrappedValue: journey)
 

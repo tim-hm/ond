@@ -23,6 +23,13 @@ public final class WatchHandoffOutbox: PersonalStore {
     /// surface behind a type whose tests have no App Store account.
     private let entitledTier: @MainActor () -> SubscriptionTier
 
+    /// The terms version this person agreed to on this phone, read afresh at
+    /// each hand-over for the same reason the tier is: somebody who agreed a
+    /// minute ago must not have to relaunch before their wrist stops asking.
+    /// A closure rather than the store, so a test can say what the phone has
+    /// agreed to without keeping a consent record.
+    private let agreedConsentVersion: @MainActor () -> Int?
+
     /// The last context confirmed delivered, so an unchanged one is not handed
     /// over again. Every foreground asks, and almost none of them carry news.
     private var sent: WatchHandoff?
@@ -41,12 +48,14 @@ public final class WatchHandoffOutbox: PersonalStore {
         identity: any UserIdentityStore,
         scores: any BoltScoreRecording,
         defaults: UserDefaults = .standard,
-        entitledTier: @escaping @MainActor () -> SubscriptionTier = { .free }
+        entitledTier: @escaping @MainActor () -> SubscriptionTier = { .free },
+        agreedConsentVersion: @escaping @MainActor () -> Int? = { nil }
     ) {
         self.identity = identity
         self.scores = scores
         self.defaults = defaults
         self.entitledTier = entitledTier
+        self.agreedConsentVersion = agreedConsentVersion
     }
 
     /// Forgets what the watch was told and records why it is about to be told
@@ -96,6 +105,7 @@ public final class WatchHandoffOutbox: PersonalStore {
             boltBestSeconds: scores.personalBest(),
             erasesPriorHistory: defaults.string(forKey: Self.erasedKey) == userId.uuidString,
             order: order,
+            agreedConsentVersion: agreedConsentVersion(),
             entitledTier: entitledTier()
         )
         // A changed tier is therefore news like any other, and the same

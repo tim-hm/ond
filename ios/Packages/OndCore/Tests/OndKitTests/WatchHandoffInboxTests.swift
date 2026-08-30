@@ -211,6 +211,37 @@ struct WatchHandoffInboxTests {
         #expect(inbox(storage: storage, defaults: defaults).entitledTier == .plus)
     }
 
+    /// Persisted for the tier's reason, and worth its own test because the
+    /// consequence is a screen: a wrist that answered "nothing known" for the
+    /// first half-second of every launch would show the safety terms to
+    /// somebody who has already agreed to them on their phone.
+    @Test("The phone's agreed terms version survives a launch")
+    func theAgreedVersionSurvivesALaunch() async {
+        let storage = FakeStorage()
+        let defaults = scratchDefaults()
+        let first = inbox(storage: storage, defaults: defaults)
+
+        await first.adopt(WatchHandoff(userId: UUID(), agreedConsentVersion: 1))
+        #expect(first.agreedConsentVersion == 1)
+
+        #expect(inbox(storage: storage, defaults: defaults).agreedConsentVersion == 1)
+    }
+
+    /// The one place a context that carries nothing does blank what the wrist
+    /// holds. Deleting the account is how an agreement goes away, and it leaves
+    /// the phone with no version to send — so the wrist has to read absent as
+    /// "no longer covered" and ask for itself.
+    @Test("A context with no agreed version takes back the one held")
+    func clearsTheAgreedVersionThePhoneStopsSending() async {
+        let inbox = inbox()
+        let id = UUID()
+
+        await inbox.adopt(WatchHandoff(userId: id, agreedConsentVersion: 1))
+        await inbox.adopt(WatchHandoff(userId: id))
+
+        #expect(inbox.agreedConsentVersion == nil)
+    }
+
     /// The rule the ledger exists for, seen from the inbox: the system replays
     /// the last context on every activation, and a session that ran must not
     /// run again — even after the screen has consumed and cleared the order.

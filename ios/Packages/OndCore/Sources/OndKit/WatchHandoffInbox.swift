@@ -43,7 +43,21 @@ public final class WatchHandoffInbox {
         }
     }
 
+    /// The `SafetyConsent.version` the phone's owner agreed to, or nil while
+    /// this wrist has been told of no agreement. Persisted on the tier's
+    /// reasoning: the replayed context lands a moment after a cold launch, and
+    /// a wrist answering "nothing known" until then would show the terms to
+    /// somebody who has already agreed to them on their phone.
+    public private(set) var agreedConsentVersion: Int? {
+        didSet {
+            guard oldValue != agreedConsentVersion else { return }
+
+            defaults.set(agreedConsentVersion, forKey: Self.consentKey)
+        }
+    }
+
     private static let tierKey = "watch.entitledTier"
+    private static let consentKey = "watch.agreedConsentVersion"
 
     private let identity: ProvisionedUserIdentityStore
     private let stores: [any PersonalStore]
@@ -69,6 +83,7 @@ public final class WatchHandoffInbox {
         // Assigning in an initialiser does not run `didSet`, which is what keeps
         // this from writing back the value it just read.
         entitledTier = SubscriptionTier.cached(in: defaults, forKey: Self.tierKey)
+        agreedConsentVersion = defaults.object(forKey: Self.consentKey) as? Int
     }
 
     /// Adopts a context, from wherever it arrived.
@@ -94,6 +109,12 @@ public final class WatchHandoffInbox {
         if let best = handoff.boltBestSeconds {
             boltBestSeconds = best
         }
+
+        // Unlike the best pause above, a context that carries nothing does
+        // blank this. Deleting the account is how an agreement goes away, and
+        // it leaves the phone with no version to send — so absent has to mean
+        // "the phone no longer covers this wrist", not "no news".
+        agreedConsentVersion = handoff.agreedConsentVersion
 
         // Before the order, because it decides whether there is one to admit.
         entitledTier = handoff.entitledTier
