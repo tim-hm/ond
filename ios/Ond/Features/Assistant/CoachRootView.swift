@@ -24,7 +24,6 @@ struct CoachRootView: View {
 
     @State private var conversations: ConversationListModel
     @State private var opened: Conversation?
-    @State private var isShowingPaywall = false
 
     init(
         assistant: any AssistantReading,
@@ -169,11 +168,9 @@ struct CoachRootView: View {
             Button {
                 opened = conversations.newConversation()
             } label: {
-                // The same geometry as the offer's button below, and as every
-                // other concluding action in the app. Left at the default it
-                // drew a control two thirds the size of the one the locked room
-                // shows in the same slot — the invitation reading as the lesser
-                // of the two.
+                // The geometry every concluding action in the app takes. Left
+                // at the default it drew a control two thirds the size, and
+                // the invitation read as the lesser of the two rooms.
                 Text("New conversation")
             }
             .buttonStyle(.inkAction)
@@ -186,31 +183,7 @@ struct CoachRootView: View {
     }
 
     private var offer: some View {
-        withCoachShortcuts(
-            ContentUnavailableView {
-                // The tab's own symbol — the offer is what is behind that door,
-                // and a different glyph here would read as a different feature.
-                Label("Your breathing coach", systemImage: CoachGlyph.symbol)
-            } description: {
-                Text(
-                    "Ask where to start, why an exercise works, or what your "
-                        + "comfortable pause is telling you — answered from your own "
-                        + "practice, in your own words."
-                )
-            } actions: {
-                Button {
-                    isShowingPaywall = true
-                } label: {
-                    Text("See \(SubscriptionTier.assistant.title)")
-                }
-                .buttonStyle(.inkAction)
-            }
-            // Centred in what the doors left, on `emptyState`'s reasoning: the
-            // two rooms sit in the same slot and must not be arranged
-            // differently.
-            .frame(maxHeight: .infinity)
-        )
-        .coachGround()
-        .paywall(for: .coach, isPresented: $isShowingPaywall)
+        withCoachShortcuts(CoachOffer())
+            .coachGround()
     }
 }
