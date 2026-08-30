@@ -75,7 +75,7 @@ public struct PracticeRhythm: Sendable, Equatable {
     ///     entry still counts in the bars; only the goal caption ignores it.
     public init(
         sessions: [SessionRecord],
-        goals: [String: TechniqueGoal],
+        goals: [TechniqueSlug: TechniqueGoal],
         calendar: Calendar = .autoupdatingCurrent,
         now: Date = .now
     ) {

@@ -14,7 +14,7 @@ struct ScheduleEditorView: View {
     /// nil when adding — there is nothing to delete yet.
     let onDelete: (() -> Void)?
 
-    @State private var techniqueSlug: String?
+    @State private var techniqueSlug: TechniqueSlug?
     @State private var time: Date
     @State private var weekdays: Set<Weekday>
 
@@ -94,7 +94,7 @@ struct ScheduleEditorView: View {
         case let .loaded(techniques) where !techniques.isEmpty:
             Picker("Exercise", selection: $techniqueSlug) {
                 ForEach(techniques) { technique in
-                    Text(technique.name).tag(String?.some(technique.slug))
+                    Text(technique.name).tag(TechniqueSlug?.some(technique.slug))
                 }
             }
             // Settled here rather than defaulted in init, because the

@@ -21,7 +21,7 @@ public struct HomeOffer: Sendable, Hashable {
     /// describe one breath. `RestingBreathTests` holds that promise —
     /// `AmbientBreath.restingCycle` cannot name this exercise from OndUI,
     /// which knows nothing of a catalogue, so a test pins the pair instead.
-    public static let restingSlug = "coherent-breathing"
+    public static let restingSlug: TechniqueSlug = "coherent-breathing"
 
     /// The sheet's rows, the default first. Each stands at the person's own
     /// dials — the rhythm under its name is the rhythm it would play.
@@ -55,7 +55,7 @@ public struct HomeOffer: Sendable, Hashable {
         starred ids: Set<DialStop.ID> = [],
         goals: [TechniqueGoal] = [],
         choice: HomeChoice?,
-        dialled: [String: TechniqueOverrides] = [:]
+        dialled: [TechniqueSlug: TechniqueOverrides] = [:]
     ) {
         guard !techniques.isEmpty else { return nil }
 

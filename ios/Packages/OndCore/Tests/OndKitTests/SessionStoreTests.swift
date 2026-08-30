@@ -11,7 +11,7 @@ struct SessionStoreTests {
     }
 
     private func record(
-        slug: String = "box-breathing",
+        slug: TechniqueSlug = "box-breathing",
         duration: Duration = .milliseconds(128_000),
         completed: Bool = true
     ) -> SessionRecord {

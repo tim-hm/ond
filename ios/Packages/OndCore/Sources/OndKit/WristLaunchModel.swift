@@ -78,7 +78,7 @@ public final class WristLaunchModel {
     /// in the same tap, and a nil phase would leave it one frame with nothing
     /// true to say. A second call while one is in flight is a no-op — the
     /// wrist runs one session at a time.
-    public func launch(occasionSlug: String, techniqueSlug: String) {
+    public func launch(occasionSlug: OccasionSlug, techniqueSlug: TechniqueSlug) {
         guard pending == nil else { return }
 
         let order = WatchSessionOrder(

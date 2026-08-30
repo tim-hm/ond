@@ -30,7 +30,7 @@ enum OfferFixtures {
         starred: Set<DialStop.ID> = [],
         goals: [TechniqueGoal] = [],
         choice: HomeChoice? = nil,
-        dialled: [String: TechniqueOverrides] = [:],
+        dialled: [TechniqueSlug: TechniqueOverrides] = [:],
         authored: [Technique] = []
     ) throws -> HomeOffer {
         try #require(HomeOffer(

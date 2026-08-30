@@ -5,11 +5,11 @@ import Testing
 /// A technique with everything left at its simplest but the two fields these
 /// suites turn on: the slug a payload names, and the tier that decides where a
 /// tap on it lands.
-private func technique(slug: String, requires: SubscriptionTier = .free) -> Technique {
+private func technique(slug: TechniqueSlug, requires: SubscriptionTier = .free) -> Technique {
     Technique(
-        id: slug,
+        id: TechniqueId(rawValue: slug.rawValue),
         slug: slug,
-        name: slug,
+        name: slug.rawValue,
         summary: "",
         goal: .calm,
         stages: [Stage(phases: [Phase(kind: .inhale, duration: .seconds(4))], cycles: 1)],
@@ -66,7 +66,7 @@ struct NotificationDestinationTests {
     }
 
     private func destination(
-        _ slug: String,
+        _ slug: TechniqueSlug,
         tier: SubscriptionTier
     ) -> NotificationDestination? {
         NotificationDestination(

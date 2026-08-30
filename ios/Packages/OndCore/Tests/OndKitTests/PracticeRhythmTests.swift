@@ -35,7 +35,7 @@ struct PracticeRhythmTests {
         return date
     }
 
-    private static let goals: [String: TechniqueGoal] = [
+    private static let goals: [TechniqueSlug: TechniqueGoal] = [
         "box-breathing": .calm,
         "four-seven-eight": .sleep,
         "bellows-breath": .energy,

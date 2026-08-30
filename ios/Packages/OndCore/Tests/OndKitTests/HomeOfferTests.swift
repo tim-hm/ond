@@ -5,7 +5,7 @@ import Testing
 /// What Home's button starts and what its sheet offers beside it.
 @Suite("Home's offer")
 struct HomeOfferTests {
-    private func slugs(_ offer: HomeOffer) -> [String] {
+    private func slugs(_ offer: HomeOffer) -> [TechniqueSlug] {
         offer.rows.map(\.technique.slug)
     }
 

@@ -239,8 +239,8 @@ public enum CatalogueExport {
 private extension Technique {
     init(exported: CatalogueExport.ExportedTechnique) throws {
         try self.init(
-            id: exported.slug,
-            slug: exported.slug,
+            id: TechniqueId(rawValue: exported.slug),
+            slug: TechniqueSlug(rawValue: exported.slug),
             name: exported.name,
             summary: exported.summary,
             goal: TechniqueGoal(exported: exported.goal),
@@ -275,7 +275,7 @@ private extension FoundationTopic {
 private extension Occasion {
     init(exported: CatalogueExport.ExportedOccasion) throws {
         try self.init(
-            slug: exported.slug,
+            slug: OccasionSlug(rawValue: exported.slug),
             name: exported.name,
             summary: exported.summary,
             prescription: Prescription(exported: exported)
@@ -299,7 +299,7 @@ private extension Prescription {
         }
 
         try self.init(
-            techniqueSlug: exported.techniqueSlug,
+            techniqueSlug: TechniqueSlug(rawValue: exported.techniqueSlug),
             goal: TechniqueGoal(exported: exported.goal),
             surface: DeliverySurface(exported: exported.surface),
             register: CopyRegister(exported: exported.register),
@@ -312,7 +312,10 @@ private extension Prescription {
 
 private extension ProgressionStep {
     init(exported: CatalogueExport.ExportedProgressionStep) {
-        self.init(techniqueSlug: exported.techniqueSlug, note: exported.note)
+        self.init(
+            techniqueSlug: TechniqueSlug(rawValue: exported.techniqueSlug),
+            note: exported.note
+        )
     }
 }
 

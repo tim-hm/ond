@@ -50,7 +50,7 @@ public final class SessionModel {
     private let clock: any SessionClock
     /// The occasion that prescribed this session, stamped onto the record; nil
     /// for every start that was the person's own choice.
-    private let occasionSlug: String?
+    private let occasionSlug: OccasionSlug?
 
     /// The instant both elapsed times are measured from. Nil while paused, which
     /// is what makes them hold still.
@@ -82,7 +82,7 @@ public final class SessionModel {
         recorder: any SessionRecording,
         clock: any SessionClock,
         register: CopyRegister = .plain,
-        occasionSlug: String? = nil,
+        occasionSlug: OccasionSlug? = nil,
         title: String? = nil,
         warning: SessionWarning? = nil
     ) {

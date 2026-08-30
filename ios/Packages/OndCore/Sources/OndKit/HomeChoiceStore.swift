@@ -8,11 +8,11 @@ import Observation
 /// technique: a stored cycle count would outlive a retuned exercise.
 public struct HomeChoice: Codable, Hashable, Sendable {
     /// The chosen exercise's slug — catalogue or authored.
-    public var slug: String
+    public var slug: TechniqueSlug
     /// The asked-for length in whole minutes; one of `HomeOffer.lengths`.
     public var minutes: Int
 
-    public init(slug: String, minutes: Int) {
+    public init(slug: TechniqueSlug, minutes: Int) {
         self.slug = slug
         self.minutes = minutes
     }
@@ -42,14 +42,14 @@ public final class HomeChoiceStore: PersonalStore {
 
     /// Makes `slug` the default, keeping the chosen length — or the default
     /// length where nothing was chosen yet.
-    public func choose(slug: String) {
+    public func choose(slug: TechniqueSlug) {
         write(HomeChoice(slug: slug, minutes: choice?.minutes ?? HomeOffer.defaultMinutes))
     }
 
     /// Makes `minutes` the default length for `slug` — the exercise the sheet
     /// is showing as chosen, so that changing the length can never leave the
     /// store naming an exercise the person did not pick.
-    public func choose(minutes: Int, for slug: String) {
+    public func choose(minutes: Int, for slug: TechniqueSlug) {
         write(HomeChoice(slug: slug, minutes: minutes))
     }
 

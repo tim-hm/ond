@@ -25,7 +25,7 @@ public final class DiscreetSessionModel {
     public let technique: Technique
     /// The occasion that prescribed this session, stamped onto the record so
     /// the journey can say which moment the practice served.
-    public let occasionSlug: String?
+    public let occasionSlug: OccasionSlug?
 
     public private(set) var status: Status = .ready
     public private(set) var record: SessionRecord?
@@ -52,7 +52,7 @@ public final class DiscreetSessionModel {
     /// timed against.
     init(
         technique: Technique,
-        occasionSlug: String?,
+        occasionSlug: OccasionSlug?,
         cues: any SessionCueing,
         recorder: any SessionRecording,
         clock: any SessionClock
@@ -71,7 +71,7 @@ public final class DiscreetSessionModel {
     ///   stamped onto the record; nil when the person picked the technique.
     public convenience init(
         technique: Technique,
-        occasionSlug: String?,
+        occasionSlug: OccasionSlug?,
         cues: any SessionCueing,
         recorder: any SessionRecording
     ) {

@@ -63,17 +63,17 @@ public struct CachedUserTechniqueRepository: UserTechniqueStoring, UserTechnique
     }
 
     public func updateUserTechnique(
-        id: UserTechniqueId,
+        id: TechniqueId,
         to draft: TechniqueDraft
     ) async throws -> Technique {
         let stored = try await network.updateUserTechnique(id: id, to: draft)
-        patch { $0.replacing(id: id.value, with: stored) }
+        patch { $0.replacing(id: id, with: stored) }
         return stored
     }
 
-    public func deleteUserTechnique(id: UserTechniqueId) async throws {
+    public func deleteUserTechnique(id: TechniqueId) async throws {
         try await network.deleteUserTechnique(id: id)
-        patch { $0.removing(id: id.value) }
+        patch { $0.removing(id: id) }
     }
 
     /// Applies a write to the snapshot so a cached list cannot outlive the edit
@@ -141,14 +141,14 @@ private extension UserTechniqueList {
         UserTechniqueList(techniques: techniques + [technique], limits: limits)
     }
 
-    func replacing(id: String, with technique: Technique) -> UserTechniqueList {
+    func replacing(id: TechniqueId, with technique: Technique) -> UserTechniqueList {
         UserTechniqueList(
             techniques: techniques.map { $0.id == id ? technique : $0 },
             limits: limits
         )
     }
 
-    func removing(id: String) -> UserTechniqueList {
+    func removing(id: TechniqueId) -> UserTechniqueList {
         UserTechniqueList(techniques: techniques.filter { $0.id != id }, limits: limits)
     }
 }

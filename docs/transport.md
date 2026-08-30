@@ -109,6 +109,8 @@ Four kinds travel, and they are different types on both sides of the boundary:
 - **A client-minted UUID** — `client_session_id`, `client_score_id`, `client_measurement_id`. Already `Uuid` inside the server; they need narrowing, not a type, so `crate::wire::uuid` does it once and every RPC refuses a mistyped id with the same sentence.
 - **The caller** — `UserId` in `crates/api/src/identity/`, which the middleware resolves and every scoped query binds.
 
+The apps carry the same four kinds as `TechniqueSlug`, `OccasionSlug` and `TechniqueId` in `OndKit`, narrowed in the repositories that already narrow the enums. They do not repeat the length bound: every slug an app holds came from the server, which owns it. Two conformances on `StringIdentifier` are load-bearing rather than decorative — `RawRepresentable` keeps a stored slug a bare JSON string instead of an object, and `CodingKeyRepresentable` keeps a slug-keyed dictionary a JSON object instead of a flat array. `StoredIdentifierShapeTests` pins both against the files already on a device.
+
 A slug that fails its bound is the caller's fault, so it travels back verbatim as `INVALID_ARGUMENT` through `wire::Malformed`. That is the whole reason `Malformed` is a separate type from `Unrepresentable`, which describes this server's own corrupt data and travels as `internal`.
 
 ## Changing the contract

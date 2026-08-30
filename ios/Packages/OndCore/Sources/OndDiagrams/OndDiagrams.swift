@@ -34,10 +34,14 @@ enum OndDiagrams {
                 var drawn: Set<String> = []
 
                 for technique in techniques {
-                    guard let markers = Markers(slug: technique.slug, of: vocabulary, in: html)
+                    guard let markers = Markers(
+                        slug: technique.slug.rawValue,
+                        of: vocabulary,
+                        in: html
+                    )
                     else { continue }
                     html.replaceSubrange(markers.between, with: render(technique))
-                    drawn.insert(technique.slug)
+                    drawn.insert(technique.slug.rawValue)
                 }
 
                 // A marker naming a slug the catalogue no longer has is the

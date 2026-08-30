@@ -51,19 +51,6 @@ public struct UserTechniqueList: Sendable, Equatable, Codable {
     }
 }
 
-/// A type rather than a `String`: `Technique` carries an `id` and a `slug`
-/// side by side, everything else in the app is keyed on the slug, and handing
-/// a slug to an edit compiled — surfacing only as a server `NOT_FOUND`.
-public struct UserTechniqueId: Sendable, Hashable {
-    public let value: String
-
-    /// Minted from the exercise itself and never from a loose string, so that
-    /// reading the id rather than the slug happens exactly here.
-    public init(of technique: Technique) {
-        value = technique.id
-    }
-}
-
 /// Reads and writes the exercises somebody composed for themselves.
 ///
 /// The counterpart to `TechniqueReading`, kept separate for the reason the two
@@ -73,10 +60,10 @@ public protocol UserTechniqueStoring: Sendable {
     func listUserTechniques() async throws -> UserTechniqueList
     func createUserTechnique(_ draft: TechniqueDraft) async throws -> Technique
     func updateUserTechnique(
-        id: UserTechniqueId,
+        id: TechniqueId,
         to draft: TechniqueDraft
     ) async throws -> Technique
-    func deleteUserTechnique(id: UserTechniqueId) async throws
+    func deleteUserTechnique(id: TechniqueId) async throws
 }
 
 /// Split from `UserTechniqueStoring` as `ReferenceFetching` is: fetching is
@@ -141,11 +128,11 @@ public struct UserTechniqueRepository: UserTechniqueStoring {
     }
 
     public func updateUserTechnique(
-        id: UserTechniqueId,
+        id: TechniqueId,
         to draft: TechniqueDraft
     ) async throws -> Technique {
         var request = Ond_V1_UpdateUserTechniqueRequest()
-        request.id = id.value
+        request.id = id.rawValue
         request.draft = draft.proto
 
         let response = await client.updateUserTechnique(request: request)
@@ -163,9 +150,9 @@ public struct UserTechniqueRepository: UserTechniqueStoring {
 
     /// Deleting is idempotent server-side, so there is no refusal to
     /// distinguish: an exercise that was already gone comes back as success.
-    public func deleteUserTechnique(id: UserTechniqueId) async throws {
+    public func deleteUserTechnique(id: TechniqueId) async throws {
         var request = Ond_V1_DeleteUserTechniqueRequest()
-        request.id = id.value
+        request.id = id.rawValue
 
         let response = await client.deleteUserTechnique(request: request)
 

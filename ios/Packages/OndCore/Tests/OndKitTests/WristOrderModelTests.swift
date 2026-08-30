@@ -87,7 +87,7 @@ struct WristOrderModelTests {
         )
     }
 
-    private func order(technique: String = "coherent-breathing") -> WatchSessionOrder {
+    private func order(technique: TechniqueSlug = "coherent-breathing") -> WatchSessionOrder {
         WatchSessionOrder(
             id: UUID(),
             errand: .breathe(

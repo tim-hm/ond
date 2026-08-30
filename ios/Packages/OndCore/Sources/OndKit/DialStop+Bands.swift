@@ -6,7 +6,7 @@ extension DialStop {
     /// First slug wins, which the catalogue's own uniqueness makes moot —
     /// stated only because `Dictionary(uniqueKeysWithValues:)` would trap on a
     /// duplicate the server is free to send.
-    static func indexed(_ techniques: [Technique]) -> [String: Technique] {
+    static func indexed(_ techniques: [Technique]) -> [TechniqueSlug: Technique] {
         Dictionary(techniques.map { ($0.slug, $0) }) { first, _ in first }
     }
 
@@ -17,8 +17,8 @@ extension DialStop {
     /// that precedence is stated.
     static func occasions(
         of occasionCatalogue: OccasionCatalogue,
-        resolvedBy bySlug: [String: Technique],
-        dialled: [String: TechniqueOverrides]
+        resolvedBy bySlug: [TechniqueSlug: Technique],
+        dialled: [TechniqueSlug: TechniqueOverrides]
     ) -> [DialStop] {
         deduplicated(occasionCatalogue.occasions.compactMap { occasion in
             bySlug[occasion.prescription.techniqueSlug].map { technique in
@@ -40,7 +40,7 @@ extension DialStop {
     static func standalone(
         _ techniques: [Technique],
         in band: DialBand,
-        dialled: [String: TechniqueOverrides]
+        dialled: [TechniqueSlug: TechniqueOverrides]
     ) -> [DialStop] {
         deduplicated(techniques.map { technique in
             DialStop(

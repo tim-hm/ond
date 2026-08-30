@@ -27,7 +27,7 @@ public struct WristShelf: Sendable, Hashable {
         // slug taken once and the rest cut. A session whose exercise has left
         // the catalogue resolves to nothing and drops out here rather than
         // becoming a card that could not be started.
-        var seen: Set<String> = []
+        var seen: Set<TechniqueSlug> = []
         stops = (history.sorted { $0.startedAt > $1.startedAt }.map(\.techniqueSlug)
             + techniques.map(\.slug))
             .filter { bySlug[$0] != nil && seen.insert($0).inserted }

@@ -15,7 +15,7 @@ public extension SessionModel {
         cues: any SessionCueing,
         recorder: any SessionRecording,
         register: CopyRegister = .plain,
-        occasionSlug: String? = nil,
+        occasionSlug: OccasionSlug? = nil,
         title: String? = nil,
         warning: SessionWarning? = nil
     ) {

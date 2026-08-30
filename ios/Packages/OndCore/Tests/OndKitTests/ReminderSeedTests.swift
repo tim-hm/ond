@@ -48,11 +48,11 @@ struct ReminderSeedTests {
         }
     }
 
-    private func technique(slug: String, goal: TechniqueGoal) -> Technique {
+    private func technique(slug: TechniqueSlug, goal: TechniqueGoal) -> Technique {
         Technique(
-            id: slug,
+            id: TechniqueId(rawValue: slug.rawValue),
             slug: slug,
-            name: slug.capitalized,
+            name: slug.rawValue.capitalized,
             summary: "",
             goal: goal,
             stages: [Stage(phases: [Phase(kind: .inhale, duration: .seconds(4))], cycles: 1)],

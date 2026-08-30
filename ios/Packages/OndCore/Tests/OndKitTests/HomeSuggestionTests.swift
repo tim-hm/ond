@@ -8,11 +8,11 @@ import Testing
 /// something Begin can start.
 @Suite("Choosing what the home screen leads with")
 struct HomeSuggestionTests {
-    private func technique(slug: String, goal: TechniqueGoal) -> Technique {
+    private func technique(slug: TechniqueSlug, goal: TechniqueGoal) -> Technique {
         Technique(
-            id: slug,
+            id: TechniqueId(rawValue: slug.rawValue),
             slug: slug,
-            name: slug,
+            name: slug.rawValue,
             summary: "",
             goal: goal,
             stages: [Stage(phases: [Phase(kind: .inhale, duration: .seconds(4))], cycles: 1)],
@@ -20,7 +20,7 @@ struct HomeSuggestionTests {
         )
     }
 
-    private func session(slug: String, at seconds: TimeInterval = 0) -> SessionRecord {
+    private func session(slug: TechniqueSlug, at seconds: TimeInterval = 0) -> SessionRecord {
         SessionRecord(
             techniqueSlug: slug,
             startedAt: Date(timeIntervalSince1970: seconds),

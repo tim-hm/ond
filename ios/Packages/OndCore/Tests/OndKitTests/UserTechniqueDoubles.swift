@@ -67,8 +67,8 @@ func sequence() -> TechniqueDraft {
 /// lungs state derived — which is exactly the resolution the server performs.
 func stored(_ draft: TechniqueDraft, id: String) -> Technique {
     Technique(
-        id: id,
-        slug: "own-\(id)",
+        id: TechniqueId(rawValue: id),
+        slug: TechniqueSlug(rawValue: "own-\(id)"),
         name: draft.name,
         summary: draft.summary,
         goal: draft.goal,
@@ -132,20 +132,20 @@ actor FakeStore: UserTechniqueStoring, UserTechniqueReading {
     }
 
     func updateUserTechnique(
-        id: UserTechniqueId,
+        id: TechniqueId,
         to draft: TechniqueDraft
     ) async throws -> Technique {
         if let refusal {
             throw refusal
         }
-        return stored(draft, id: id.value)
+        return stored(draft, id: id.rawValue)
     }
 
-    func deleteUserTechnique(id: UserTechniqueId) async throws {
+    func deleteUserTechnique(id: TechniqueId) async throws {
         if let refusal {
             throw refusal
         }
-        techniques.removeAll { $0.id == id.value }
+        techniques.removeAll { $0.id == id }
     }
 
     func refuse(with error: UserTechniqueRepositoryError) {

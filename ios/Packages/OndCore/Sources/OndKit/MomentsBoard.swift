@@ -25,7 +25,7 @@ public struct MomentsBoard: Sendable, Hashable {
     public init(
         techniques: [Technique],
         occasions: OccasionCatalogue,
-        dialled: [String: TechniqueOverrides] = [:]
+        dialled: [TechniqueSlug: TechniqueOverrides] = [:]
     ) {
         moments = DialStop.occasions(
             of: occasions,

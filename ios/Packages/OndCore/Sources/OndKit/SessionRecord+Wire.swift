@@ -21,13 +21,13 @@ extension SessionRecord {
 
         self.init(
             id: id,
-            techniqueSlug: proto.techniqueSlug,
+            techniqueSlug: TechniqueSlug(rawValue: proto.techniqueSlug),
             startedAt: proto.startedAt.date,
             duration: .milliseconds(proto.durationMs),
             cyclesCompleted: Int(proto.cyclesCompleted),
             breathCount: Int(proto.breathCount),
             completed: proto.completed,
-            occasionSlug: proto.hasOccasionSlug ? proto.occasionSlug : nil,
+            occasionSlug: proto.hasOccasionSlug ? OccasionSlug(rawValue: proto.occasionSlug) : nil,
             surface: surface
         )
     }
@@ -40,7 +40,7 @@ extension SessionRecord {
         get throws {
             var message = Ond_V1_SessionRecord()
             message.clientSessionID = id.uuidString
-            message.techniqueSlug = techniqueSlug
+            message.techniqueSlug = techniqueSlug.rawValue
             let started = try timestampParts(startedAt)
             message.startedAt.seconds = started.seconds
             message.startedAt.nanos = started.nanos
@@ -49,7 +49,7 @@ extension SessionRecord {
             message.breathCount = try onTheWire(breathCount, "a breath count", of: id)
             message.completed = completed
             if let occasionSlug {
-                message.occasionSlug = occasionSlug
+                message.occasionSlug = occasionSlug.rawValue
             }
             message.surface = switch surface {
             case .fullScreen: .fullScreen

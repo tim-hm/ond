@@ -95,7 +95,7 @@ struct SessionTurnGapTests {
 
     @Test("Both shipped sighs use the full stacked pause")
     func pausesBothShippedSighs() throws {
-        for slug in ["physiological-sigh", "cyclic-sighing"] {
+        for slug: TechniqueSlug in ["physiological-sigh", "cyclic-sighing"] {
             let technique = SeededCatalogue.technique(slug)
             let timeline = SessionTimeline(technique: technique)
             let stacked = try #require(timeline.beats.first { $0.stacksOnPrevious })

@@ -158,8 +158,8 @@ struct PracticeProgressView: View {
     /// load a page, and it is absent when there is nothing left to load.
     private func rows(
         of day: SessionDay,
-        names: [String: String],
-        goals: [String: TechniqueGoal],
+        names: [TechniqueSlug: String],
+        goals: [TechniqueSlug: TechniqueGoal],
         pagesOn: Bool
     ) -> some View {
         VStack(spacing: 0) {
@@ -168,7 +168,7 @@ struct PracticeProgressView: View {
 
                 SessionHistoryRow(
                     record: record,
-                    name: names[record.techniqueSlug] ?? record.techniqueSlug,
+                    name: names[record.techniqueSlug] ?? record.techniqueSlug.rawValue,
                     goal: goals[record.techniqueSlug]
                 )
                 .contextMenu {
@@ -221,7 +221,7 @@ struct PracticeProgressView: View {
 
     /// A missing exercise leaves its historical slug visible instead of hiding
     /// the session that outlived it.
-    private var techniqueNames: [String: String] {
+    private var techniqueNames: [TechniqueSlug: String] {
         Dictionary(
             techniques.map { ($0.slug, $0.name) }
         ) { _, latest in latest }
@@ -232,8 +232,8 @@ struct PracticeProgressView: View {
     /// The chart keeps sessions it cannot place in its totals but excludes them
     /// from the optional "mostly relax" caption; a guessed goal would make that
     /// sentence wrong. History keeps the same row and draws a neutral dot.
-    private var techniqueGoals: [String: TechniqueGoal] {
-        techniques.reduce(into: [String: TechniqueGoal]()) { result, technique in
+    private var techniqueGoals: [TechniqueSlug: TechniqueGoal] {
+        techniques.reduce(into: [TechniqueSlug: TechniqueGoal]()) { result, technique in
             result[technique.slug] = technique.goal
         }
     }

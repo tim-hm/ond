@@ -24,7 +24,7 @@ public struct WatchSessionOrder: Sendable, Equatable {
         /// The technique comes resolved: the wrist runs what the tapped card
         /// named, not what its own copy of the routes happens to send this
         /// occasion to.
-        case breathe(occasionSlug: String, techniqueSlug: String)
+        case breathe(occasionSlug: OccasionSlug, techniqueSlug: TechniqueSlug)
         /// Wear the sensor for a session running on the phone.
         ///
         /// No cadence, no record, nothing written to Health — the phone owns
@@ -66,8 +66,8 @@ public struct WatchSessionOrder: Sendable, Equatable {
         switch errand {
         case let .breathe(occasionSlug, techniqueSlug):
             order[Self.kindKey] = Self.breatheKind
-            order[Self.occasionKey] = occasionSlug
-            order[Self.techniqueKey] = techniqueSlug
+            order[Self.occasionKey] = occasionSlug.rawValue
+            order[Self.techniqueKey] = techniqueSlug.rawValue
 
         case .sharePulse:
             order[Self.kindKey] = Self.sharePulseKind
@@ -101,7 +101,10 @@ public struct WatchSessionOrder: Sendable, Equatable {
             else {
                 return nil
             }
-            return .breathe(occasionSlug: occasionSlug, techniqueSlug: techniqueSlug)
+            return .breathe(
+                occasionSlug: OccasionSlug(rawValue: occasionSlug),
+                techniqueSlug: TechniqueSlug(rawValue: techniqueSlug)
+            )
 
         case sharePulseKind:
             return .sharePulse

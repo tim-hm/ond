@@ -162,8 +162,8 @@ extension Technique {
         }
 
         try self.init(
-            id: proto.id,
-            slug: proto.slug,
+            id: TechniqueId(rawValue: proto.id),
+            slug: TechniqueSlug(rawValue: proto.slug),
             name: proto.name,
             summary: proto.summary,
             goal: goal,

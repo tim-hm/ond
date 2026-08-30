@@ -10,7 +10,7 @@ public struct OrderedMoment: Sendable, Equatable, Identifiable {
     public let technique: Technique
     /// The occasion whose promise this session keeps, stamped onto the record
     /// exactly as a wrist-chosen moment would be.
-    public let occasionSlug: String
+    public let occasionSlug: OccasionSlug
     /// What the screen calls this session. The occasion's own name where the
     /// wrist can see the route, and the technique's where it cannot.
     public let occasionName: String

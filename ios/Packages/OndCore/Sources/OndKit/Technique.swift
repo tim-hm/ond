@@ -133,9 +133,9 @@ public struct Stage: Sendable, Hashable, Codable {
 /// rename would break the contract for nothing a person would notice.
 /// `Hashable` for `NavigationStack` values; `Codable` for the offline cache.
 public struct Technique: Sendable, Identifiable, Hashable, Codable {
-    public let id: String
+    public let id: TechniqueId
     /// The stable key this app pins artwork and haptic patterns to.
-    public let slug: String
+    public let slug: TechniqueSlug
     public let name: String
 
     /// What it does and when to reach for it, in one sentence — a row's
@@ -207,8 +207,8 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
     public let origin: TechniqueOrigin
 
     public init(
-        id: String,
-        slug: String,
+        id: TechniqueId,
+        slug: TechniqueSlug,
         name: String,
         summary: String,
         goal: TechniqueGoal,

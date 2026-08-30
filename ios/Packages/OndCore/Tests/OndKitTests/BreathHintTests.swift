@@ -9,7 +9,7 @@ import Testing
 /// worth asserting about the exercise the app actually ships.
 @Suite("The hint under the cue")
 struct BreathHintTests {
-    private func timeline(_ slug: String) -> SessionTimeline {
+    private func timeline(_ slug: TechniqueSlug) -> SessionTimeline {
         SeededCatalogue.timeline(slug)
     }
 
@@ -100,7 +100,7 @@ struct BreathHintTests {
     /// spelling of every rung: only the manner is long enough to need one.
     @Test("Only a manner has a second, shorter form")
     func onlyAMannerHasAShorterForm() {
-        for slug in ["alternate-nostril", "box-breathing", "bellows-breath"] {
+        for slug: TechniqueSlug in ["alternate-nostril", "box-breathing", "bellows-breath"] {
             for beat in timeline(slug).beats {
                 #expect(beat.hint.glance == beat.hint.line)
             }
