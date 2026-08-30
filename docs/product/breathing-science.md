@@ -288,7 +288,7 @@ The best-evidenced programme is singing-based (ENO Breathe): [RCT N=150](<https:
 
 ## 7. Standing rules
 
-1. **The hyperventilation fence.** No occasion of any goal but `Energy` may resolve to a technique that can be breathed fast. Enforced by `no_route_but_an_energising_one_reaches_fast_breathing` in `crates/migrate/src/seed.rs`.
+1. **The hyperventilation fence.** No occasion of any goal but `Energy` may resolve to a technique that can be breathed fast. Enforced by `no_route_but_an_energising_one_reaches_fast_breathing` in `crates/migrate/src/seed/invariants.rs`.
 
    The subtlety that makes the test worth reading before changing it: an occasion's `phase_durations_ms` is **not** bounded by the technique's dial range — the client widens each phase range outward to admit whatever the prescription hands it. So the reachable floor is the per-phase _minimum_ of override and dial, and a fence that consults only the dial is blind to exactly the case that matters. That is not hypothetical: it first ran green against a child protocol overriding to a one-second-in, one-second-out rhythm, thirty breaths a minute, directly beneath a safety note reading "breath-holding and fast breathing are not for children".
 
@@ -301,7 +301,7 @@ The best-evidenced programme is singing-based (ENO Breathe): [RCT N=150](<https:
 6. **Wim Hof's honesty is load-bearing** — "thinner on trial evidence than its reputation suggests" is the single most valuable sentence in the catalogue for the athlete population and survives every copy pass, as do all "never in water" lines.
 7. **Breath-focus aversion gets an exit** — permission to follow the external pacer, shorten, or stop, without it being failure (§5.4).
 8. **Populations touch words, ordering and refusals — never efficacy.** A "weighting" over the catalogue implies differential efficacy that does not exist.
-9. **The timed-hold fence.** In a technique that breathes fast anywhere in it, no clock-driven hold may be long enough that reaching the end of it is an achievement. Enforced by `no_hold_after_fast_breathing_is_a_target` in `crates/migrate/src/seed.rs` against `crates/physiology`'s `TIMED_HOLD_CEILING_MS`; `api` applies the same constant to a technique somebody composed, because two copies of a safety threshold is a threshold that drifts.
+9. **The timed-hold fence.** In a technique that breathes fast anywhere in it, no clock-driven hold may be long enough that reaching the end of it is an achievement. Enforced by `no_hold_after_fast_breathing_is_a_target` in `crates/migrate/src/seed/invariants.rs` against `crates/physiology`'s `TIMED_HOLD_CEILING_MS`; `api` applies the same constant to a technique somebody composed, because two copies of a safety threshold is a threshold that drifts.
 
    The hazard is the shallow-water blackout mechanism of §3.8: hyperventilation blows off the carbon dioxide that would make somebody breathe, so the urge to breathe arrives after the oxygen has gone rather than before. The Wim Hof note says never push a hold to the limit and `BoltTestView` says the app runs no maximal-hold contest. Neither of those is a check. This is.
 
