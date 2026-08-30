@@ -17,17 +17,20 @@ struct SessionPlayerView: View {
 
     var body: some View {
         VStack(spacing: Theme.Spacing.loose) {
+            // The two flexible bands take an equal share of the slack, which
+            // puts the guide between them at the screen's centre whatever the
+            // header and the transport controls measure.
             header
                 // Capped with the words below, and for their reason: this row
                 // sits above three slots of reserved height.
                 .dynamicTypeSize(...SessionWords.mostGrowth)
-
-            Spacer()
+                .padding(.top, Theme.Spacing.loose)
+                .frame(maxHeight: .infinity, alignment: .top)
 
             breathGuide
             SessionWords(model: model)
 
-            // Inside the spacers so the slack falls beneath it and the rate
+            // Inside the bands so the slack falls beneath it and the rate
             // joins the exercise, not the transport controls. Its own row so
             // it survives Just the visuals' wordless screen. `expectsReadings`
             // is the only pulse property read here: the rate itself stays
@@ -36,9 +39,8 @@ struct SessionPlayerView: View {
                 PulseBadge()
             }
 
-            Spacer()
-
             controls
+                .frame(maxHeight: .infinity, alignment: .bottom)
         }
         .padding(Theme.Spacing.loose)
         // Set once for the screen: everything under here is text on the deep
@@ -55,9 +57,9 @@ struct SessionPlayerView: View {
             : nil
     }
 
-    /// The name, the remaining time, and the position. The name and position
-    /// change at phase boundaries; the remaining time ticks on its own
-    /// one-second timeline so the rest of the header is not rebuilt with it.
+    /// The name and the remaining time. The name is fixed for the session;
+    /// the remaining time ticks on its own one-second timeline so the rest of
+    /// the header is not rebuilt with it.
     private var header: some View {
         VStack(spacing: Theme.Spacing.tight) {
             Text(model.title)
@@ -78,20 +80,7 @@ struct SessionPlayerView: View {
                         .foregroundStyle(Theme.Ink.secondary)
                 }
             }
-
-            Text(position)
-                .font(.footnote)
-                .foregroundStyle(Theme.Ink.secondary)
         }
-    }
-
-    /// "Cycle 3 of 8", or "Round 2 of 3 · cycle 12 of 30" once there are rounds
-    /// to keep track of. The round is the number that matters in a staged
-    /// protocol, and the cycle is meaningless without it.
-    private var position: String {
-        let cycle = "Cycle \(model.currentCycle) of \(model.cyclesInCurrentStage)"
-        guard model.timeline.rounds > 1 else { return cycle }
-        return "Round \(model.currentRound) of \(model.timeline.rounds) · \(cycle.lowercased())"
     }
 
     /// The orb, on the session's own clock and paused with it. `drawsArc`
@@ -109,21 +98,6 @@ struct SessionPlayerView: View {
 
     private var controls: some View {
         VStack(spacing: Theme.Spacing.standard) {
-            // Honest only when a channel actually follows the screen out:
-            // iOS withholds haptics from a locked device, so sound is the
-            // only carrier and a haptics-only session pauses instead —
-            // `SessionCueMode.screenOffNote` carries the device finding.
-            if settings.cueMode.playsAudio {
-                HStack(spacing: Theme.Spacing.close) {
-                    Circle()
-                        .fill(Theme.Breath.inhale)
-                        .frame(width: 6, height: 6)
-                    Text("Screen off is fine — the sound carries it")
-                        .font(.footnote)
-                        .foregroundStyle(Theme.Ink.secondary)
-                }
-            }
-
             // An icon, and the one round control on the screen: pausing is the
             // thing a hand reaches for without reading, and a word beside
             // "End session" made the pair read as a choice between two exits.
@@ -149,10 +123,6 @@ struct SessionPlayerView: View {
             .foregroundStyle(Theme.Ink.secondary)
             .tapTarget()
             .accessibilityHint("Ends the session and shows what it recorded")
-
-            Text("Ending early is recorded as ending early. Nothing else.")
-                .font(.caption)
-                .foregroundStyle(Theme.Ink.tertiary)
         }
         .padding(.bottom, Theme.Spacing.standard)
     }
