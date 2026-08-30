@@ -6,36 +6,17 @@
 
 use std::sync::Arc;
 
-use api::assistant::{ModelChunk, ModelClient, ModelError, ModelRequest, ModelStream};
+use api::assistant::ModelClient;
 use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
 
-pub(super) use crate::harness::CHAT;
 use crate::harness::{
     self, TestDatabase, UPDATE_PROFILE, call_grpc_web_stream_with, call_grpc_web_with,
 };
+pub(super) use crate::harness::{CHAT, HalfAnswer};
 
 pub(super) const USER: &str = "5c4d3e2f-0000-4000-8000-000000000001";
 pub(super) const OTHER_USER: &str = "5c4d3e2f-0000-4000-8000-000000000002";
-
-/// A model that starts answering and then breaks — the one shape
-/// [`ScriptedModel`] cannot express, because a scripted reply either fails the
-/// call or answers it and this case does both.
-pub(super) struct HalfAnswer;
-
-#[tonic::async_trait]
-impl ModelClient for HalfAnswer {
-    async fn complete(&self, _request: &ModelRequest) -> Result<String, ModelError> {
-        Err(ModelError::Failed("down".to_owned()))
-    }
-
-    async fn stream(&self, _request: &ModelRequest) -> Result<ModelStream, ModelError> {
-        Ok(Box::pin(tokio_stream::iter(vec![
-            Ok(ModelChunk::Text("First the mechanism.".to_owned())),
-            Err(ModelError::Failed("the stream broke mid-answer".to_owned())),
-        ])))
-    }
-}
 
 /// Asks for a recommendation as a subscriber.
 ///
