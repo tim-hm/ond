@@ -81,6 +81,10 @@ final class SessionAudioPlayer {
     /// gone — but a sentence runs to two and a half.
     private weak var talking: AVAudioPlayer?
 
+    /// The beat whose line was started early, in the gap before its boundary.
+    /// Cleared as that boundary arrives, so the line is not said twice.
+    private var spokenAhead: SessionTimeline.Beat.ID?
+
     private let voice: SessionVoice?
 
     /// - Parameter voice: whose voice speaks the phases, or nil for the tones.
@@ -150,10 +154,10 @@ final class SessionAudioPlayer {
         talking?.play()
     }
 
-    /// Speaks the phase, or sounds it, depending on what there is room for.
-    /// The choice is `Breath.spokenCue`'s, made against the beat as it will
-    /// be breathed — a dial moves these — and against the slowest voice, so
-    /// it does not change when somebody changes voice.
+    /// Speaks the phase, or sounds it, depending on what the schedule leaves
+    /// and what there is room for. The choice is `Beat.clipStem`'s, made
+    /// against the beat as it will be breathed — a dial moves these — and
+    /// against the slowest voice, so it does not change with the voice.
     func play(_ beat: SessionTimeline.Beat) {
         // Rung under the cue rather than instead of it: the seam and the breath
         // are two different things to say, and the breath still needs saying.
@@ -163,18 +167,12 @@ final class SessionAudioPlayer {
             bell?.play()
         }
 
-        let stem = beat.clipStem
-        // `spoken` is empty for a session breathing to tones, so this is the
-        // whole condition — no separate check for whether there is a voice.
-        if let stem, let player = spoken[stem] {
-            // Cut rather than left to finish: a sentence still talking at the
-            // next phase describes a breath nobody is taking. `pause()`, not
-            // `stop()`, which undoes `prepareToPlay`: nothing re-warms these,
-            // so stopping put a decode back inside every cue after cycle one.
-            talking?.pause()
-            player.currentTime = 0
-            player.play()
-            talking = player
+        // Already speaking, started in the gap this boundary closed.
+        if spokenAhead == beat.id {
+            spokenAhead = nil
+            return
+        }
+        if let stem = beat.clipStem, speak(stem) {
             return
         }
 
@@ -183,6 +181,30 @@ final class SessionAudioPlayer {
         // arrives should be replaced by it, not queued behind it.
         player.currentTime = 0
         player.play()
+    }
+
+    /// Starts this beat's line inside the gap before it, so its word lands on
+    /// the boundary. Nothing to say leaves the boundary to `play(_:)`, which
+    /// sounds the tone there as it always did.
+    func speakAhead(_ beat: SessionTimeline.Beat) {
+        guard spokenAhead != beat.id, let stem = beat.clipStem, speak(stem) else { return }
+        spokenAhead = beat.id
+    }
+
+    /// Plays `stem` if this voice has it, cutting off whatever was talking.
+    /// `pause()`, not `stop()`, which undoes `prepareToPlay`: nothing re-warms
+    /// these, so stopping put a decode back inside every cue after cycle one.
+    /// A sentence still talking at the next phase describes a breath nobody
+    /// is taking, so the cut is deliberate.
+    private func speak(_ stem: String) -> Bool {
+        // `spoken` is empty for a session breathing to tones, so this is the
+        // whole condition — no separate check for whether there is a voice.
+        guard let player = spoken[stem] else { return false }
+        talking?.pause()
+        player.currentTime = 0
+        player.play()
+        talking = player
+        return true
     }
 
     func playCompletion() {
@@ -200,6 +222,7 @@ final class SessionAudioPlayer {
         }
         spoken.removeAll()
         talking = nil
+        spokenAhead = nil
         stageBell?.stop()
         stageBell = nil
         roundBell?.stop()

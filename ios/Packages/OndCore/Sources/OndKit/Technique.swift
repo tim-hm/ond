@@ -135,6 +135,13 @@ public struct Stage: Sendable, Hashable, Codable {
         cycleDuration * max(cycles, 1)
     }
 
+    /// Which phase of the pattern has the most room to be spoken into — where
+    /// a line that teaches rather than instructs goes. The first of equals,
+    /// and zero for an empty pattern, which the repository already refuses.
+    var longestPhase: Int {
+        phases.indices.max { phases[$0].duration < phases[$1].duration } ?? 0
+    }
+
     /// Whether the stage outruns a second-by-second count: a phase under two
     /// seconds prints two digits before it ends, so the session screen drops
     /// the count. Whole-stage, because a per-phase count would flicker on the

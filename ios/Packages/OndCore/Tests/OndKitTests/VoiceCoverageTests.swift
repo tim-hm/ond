@@ -113,17 +113,32 @@ struct VoiceCoverageTests {
         #expect(SessionVoice.preferred?.slug == "faye")
     }
 
+    /// The form cues are one deliverable, rendered together from one manifest.
+    /// A partial set is the failure worth catching: an exercise missing its own
+    /// keeps the tone on every fourth cycle and says nothing about it. None at
+    /// all is the state before the render, which the schedule already answers.
+    @Test("The form cues ship for every exercise, or for none")
+    func formCuesShipTogether() {
+        let owed = Set(SeededCatalogue.techniques.map(\.formCue))
+
+        for voice in SessionVoice.all {
+            let shipped = Set(VoiceClips.lines(for: voice).keys.filter { $0.hasPrefix("form-") })
+            #expect(shipped.isEmpty || shipped == owed, "\(voice.slug) shipped \(shipped.count)")
+        }
+    }
+
     /// A clip is bounded at both ends. Nothing under a fifth of a second is a
     /// word, and the render's trimming is what would fail quietly enough to
-    /// produce one. The ceiling is alternate-nostril's authored four seconds, the
-    /// longest phase that ever takes a passage cue — a clip past it could not be
-    /// spoken anywhere, which is the render having drifted.
+    /// produce one. Two ceilings, because the two kinds of line are spoken
+    /// into different phases: a phase cue must fit alternate-nostril's
+    /// authored four-second inhale, and a form cue its six-second exhale.
     @Test("No clip is too short to be a word or too long for a phase")
     func clipsAreOfAPlausibleLength() {
         for voice in SessionVoice.all {
             for (key, line) in VoiceClips.lines(for: voice) {
+                let ceiling = key.hasPrefix("form-") ? 5.0 : 4.0
                 #expect(line.seconds > 0.2, "\(voice.slug)/\(key) is \(line.seconds)s")
-                #expect(line.seconds < 4.0, "\(voice.slug)/\(key) is \(line.seconds)s")
+                #expect(line.seconds < ceiling, "\(voice.slug)/\(key) is \(line.seconds)s")
             }
         }
     }
