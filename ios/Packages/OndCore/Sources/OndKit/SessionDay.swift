@@ -12,15 +12,14 @@ public struct SessionDay: Sendable, Equatable, Identifiable {
     /// That day's sessions, in the order they were handed over.
     public let sessions: [SessionRecord]
 
-    public var id: Date {
-        date
-    }
-
     /// The day's practice in whole minutes, rounded to the nearest and never
     /// below one: a header standing over rows that happened must not read zero.
-    public var minutes: Int {
-        let total = sessions.reduce(0) { $0 + $1.durationMs }
-        return max(1, (total + 30000) / 60000)
+    /// Stored rather than computed, because a pinned header re-reads it
+    /// through every frame of a scroll.
+    public let minutes: Int
+
+    public var id: Date {
+        date
     }
 
     /// The day as its header names it: `Today`, `Yesterday`, then the weekday
@@ -63,6 +62,14 @@ public struct SessionDay: Sendable, Equatable, Identifiable {
             byDay[day, default: []].append(record)
         }
 
-        return order.map { SessionDay(date: $0, sessions: byDay[$0] ?? []) }
+        return order.map { day in
+            let sessions = byDay[day, default: []]
+            let total = sessions.reduce(0) { $0 + $1.durationMs }
+            return SessionDay(
+                date: day,
+                sessions: sessions,
+                minutes: max(1, (total + 30000) / 60000)
+            )
+        }
     }
 }

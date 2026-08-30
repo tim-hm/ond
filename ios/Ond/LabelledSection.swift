@@ -23,12 +23,3 @@ struct LabelledSection<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
-
-extension LabelledSection where Content == EmptyView {
-    /// The heading on its own, for a list whose rows have to be siblings of it
-    /// rather than children: a header only sticks to the scroll when its
-    /// section sits directly inside the lazy stack.
-    init(title: String) {
-        self.init(title: title) { EmptyView() }
-    }
-}

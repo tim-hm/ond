@@ -26,15 +26,9 @@ struct PracticeChartView: View {
 
             plot
 
-            if rhythm.sessions == 0 {
-                Text(Self.zeroLine)
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.Ink.secondary)
-            } else {
-                Text(caption)
-                    .font(.caption)
-                    .foregroundStyle(Theme.Ink.tertiary)
-            }
+            Text(summary)
+                .font(hasPractice ? .caption : .subheadline)
+                .foregroundStyle(hasPractice ? Theme.Ink.tertiary : Theme.Ink.secondary)
         }
         .accessibilityIdentifier("practice-chart")
     }
@@ -95,12 +89,13 @@ struct PracticeChartView: View {
     /// width and the bar is what should get it.
     private static let gap: CGFloat = 2
 
-    /// What an untouched install reads under its twenty-eight stubs.
-    private static let zeroLine = "Your first session starts this chart."
+    private var hasPractice: Bool {
+        rhythm.sessions > 0
+    }
 
-    /// What the bars say, in the words printed under them.
+    /// What the bars say, printed under them and spoken as their value.
     private var summary: String {
-        rhythm.sessions == 0 ? Self.zeroLine : caption
+        hasPractice ? caption : "Your first session starts this chart."
     }
 
     /// How many of the four weeks carried practice, and what most of it was for.

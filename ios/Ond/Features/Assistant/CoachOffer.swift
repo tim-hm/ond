@@ -22,7 +22,7 @@ struct CoachOffer: View {
 
             CoachComposer(
                 draft: $draft,
-                isReplying: true,
+                isReplying: false,
                 lastReplySource: nil,
                 isComposing: $isComposing,
                 send: {}

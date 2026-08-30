@@ -16,6 +16,13 @@ struct SessionHistoryRow: View {
     /// What the session was for, or nil where its exercise is gone.
     let goal: TechniqueGoal?
 
+    /// The hour the row prints, hoisted so a lazily built list does not
+    /// construct the style once a row.
+    private static let clock = Date.FormatStyle(date: .omitted, time: .shortened)
+
+    /// The length beside it — minutes and seconds, as a stopwatch reads.
+    private static let length = Duration.TimeFormatStyle(pattern: .minuteSecond)
+
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.close) {
             dot
@@ -41,9 +48,6 @@ struct SessionHistoryRow: View {
         .accessibilityLabel(spokenLabel)
     }
 
-    /// The one mark the goal makes on the row. An ending by hand takes the
-    /// neutral vapour instead: the row already says it stopped, and a goal
-    /// accent there would colour it like practice that ran its course.
     private var dot: some View {
         Circle()
             .fill(mark)
@@ -54,6 +58,9 @@ struct SessionHistoryRow: View {
             .accessibilityHidden(true)
     }
 
+    /// The one mark the goal makes on the row. An ending by hand takes the
+    /// neutral vapour instead: the row already says it stopped, and a goal
+    /// accent there would colour it like practice that ran its course.
     private var mark: Color {
         guard record.completed, let goal else {
             return Theme.Breath.exhale.opacity(0.30)
@@ -92,21 +99,16 @@ struct SessionHistoryRow: View {
     /// hand. The length is what was breathed either way: `SessionRecord` never
     /// carries the plan it fell short of.
     private var stampLine: String {
-        let clock = record.startedAt.formatted(.dateTime.hour().minute())
-        let length = record.duration.formatted(.time(pattern: .minuteSecond))
-
-        return record.completed ? "\(clock) · \(length)" : "\(clock) · stopped \(length)"
+        let ending = record.completed ? "" : "stopped "
+        return "\(record.startedAt.formatted(Self.clock)) · \(ending)"
+            + record.duration.formatted(Self.length)
     }
 
     /// The row as one sentence. Spoken in words rather than in the printed
     /// separators, which read as punctuation nobody wrote.
     private var spokenLabel: String {
-        let clock = record.startedAt.formatted(date: .omitted, time: .shortened)
-        let length = record.duration
-            .formatted(.units(allowed: [.minutes, .seconds], width: .wide))
-
-        return record.completed
-            ? "\(name), \(clock), \(length)"
-            : "\(name), \(clock), stopped after \(length)"
+        let ending = record.completed ? "" : "stopped after "
+        return "\(name), \(record.startedAt.formatted(Self.clock)), "
+            + "\(ending)\(record.duration.spelled)"
     }
 }

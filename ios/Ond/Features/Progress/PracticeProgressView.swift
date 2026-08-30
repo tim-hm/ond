@@ -31,7 +31,8 @@ struct PracticeProgressView: View {
     /// figure above are deleted together.
     @State private var toDelete: SessionRecord?
 
-    /// What the summary and the log are set apart by.
+    /// What the summary and the log are set apart by. The refresh spec's own
+    /// number rather than a step off the spacing scale, as the page margin is.
     private static let historyGap: CGFloat = 30
 
     var body: some View {
@@ -106,7 +107,12 @@ struct PracticeProgressView: View {
 
                 ForEach(days) { day in
                     Section {
-                        rows(of: day, names: names, goals: goals)
+                        rows(
+                            of: day,
+                            names: names,
+                            goals: goals,
+                            isLast: day.id == days.last?.id
+                        )
                     } header: {
                         SessionDayHeader(day: day)
                     }
@@ -125,7 +131,9 @@ struct PracticeProgressView: View {
         VStack(alignment: .leading, spacing: 0) {
             Divider().overlay(Theme.Surface.line)
 
-            LabelledSection(title: historyTitle)
+            // A heading with nothing under it: its rows are pinned sections,
+            // which only stick when they sit directly in the lazy stack.
+            LabelledSection(title: historyTitle) { EmptyView() }
                 .padding(.top, Self.historyGap)
         }
         .padding(.horizontal, Theme.Spacing.page)
@@ -137,13 +145,18 @@ struct PracticeProgressView: View {
         return lifetime == 1 ? "History · 1 session" : "History · \(lifetime) sessions"
     }
 
+    /// One day's rows. Reaching the last row of the last day asks for the next
+    /// page — the trigger travels with the data, so a page cannot load a page.
     private func rows(
         of day: SessionDay,
         names: [String: String],
-        goals: [String: TechniqueGoal]
+        goals: [String: TechniqueGoal],
+        isLast: Bool
     ) -> some View {
         VStack(spacing: 0) {
-            ForEach(Array(day.sessions.enumerated()), id: \.element.id) { index, record in
+            ForEach(day.sessions) { record in
+                let isFinal = record.id == day.sessions.last?.id
+
                 SessionHistoryRow(
                     record: record,
                     name: names[record.techniqueSlug] ?? record.techniqueSlug,
@@ -154,8 +167,13 @@ struct PracticeProgressView: View {
                         toDelete = record
                     }
                 }
+                .onAppear {
+                    if isLast, isFinal {
+                        model.revealEarlierSessions()
+                    }
+                }
 
-                if index < day.sessions.count - 1 {
+                if !isFinal {
                     Divider().overlay(Theme.Surface.line)
                 }
             }
@@ -163,9 +181,8 @@ struct PracticeProgressView: View {
         .padding(.horizontal, Theme.Spacing.page)
     }
 
-    /// The next page. Reaching the bottom is itself the request for it, so the
-    /// page loads on appearance; the button stays for somebody who navigates
-    /// here rather than scrolls, and for whom nothing has appeared.
+    /// The explicit way to the next page, for somebody who reaches the end by
+    /// a means the last row's appearance does not cover.
     @ViewBuilder
     private var earlierSessions: some View {
         if model.hasEarlierSessions {
@@ -179,7 +196,6 @@ struct PracticeProgressView: View {
             .foregroundStyle(Theme.Accent.brandText)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.top, Theme.Spacing.standard)
-            .onAppear { model.revealEarlierSessions() }
         }
     }
 
