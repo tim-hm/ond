@@ -191,24 +191,20 @@ data "aws_iam_policy_document" "assume_ec2" {
   }
 }
 
+# What the box may do with the dumps: write one, and list the bucket to see what
+# landed. `PutObject` alone was enough while nothing checked, which is how a
+# nightly dump of the wrong database went unnoticed for eight days. No
+# `s3:GetObject` — nothing on the box reads a dump back, and a restore runs from
+# the operator's machine. docs/deployment.md § What the instance role holds.
 data "aws_iam_policy_document" "write_backups" {
   statement {
     actions   = ["s3:PutObject"]
     resources = ["${module.backups.s3_bucket_arn}/*"]
   }
 
-  # Reading back what was written. `PutObject` alone was enough while nothing
-  # ever checked, which is precisely how a nightly dump of the wrong database
-  # went unnoticed for eight days — the operator could not `aws s3 ls` from the
-  # box to see what had actually landed. Verification needs the read side.
   statement {
     actions   = ["s3:ListBucket"]
     resources = [module.backups.s3_bucket_arn]
-  }
-
-  statement {
-    actions   = ["s3:GetObject"]
-    resources = ["${module.backups.s3_bucket_arn}/*"]
   }
 }
 
