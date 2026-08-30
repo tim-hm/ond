@@ -66,6 +66,14 @@ extension OndApp {
             .onChange(of: plus.tier) { _, _ in
                 watch.push()
             }
+            // The wrist skips its own terms while this phone's agreement
+            // stands, so agreeing here is news the pairing has to carry before
+            // somebody raises their wrist. The app is already foregrounded
+            // while the wall is up, so nothing else would push until it is
+            // backgrounded and brought back.
+            .onChange(of: consent.agreed) { _, _ in
+                watch.push()
+            }
             .task { await open() }
             // Its own task because it never returns: the first thing it does is
             // read the entitlement off the device and push anything the server

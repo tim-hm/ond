@@ -23,6 +23,7 @@
 | [product/home-sentence.md](product/home-sentence.md) | Before changing Home's one line of state: the cases, the exact strings, the order they are tested in, and the cases that deliberately say nothing. |
 | [product/breathing-foundations.md](product/breathing-foundations.md) | Before changing The basics — the claim-by-claim evidence, limitations, word budgets and presentation rule behind the page. |
 | [product/session-summary.md](product/session-summary.md) | Before changing what a session says when it ends: the cases, the exact strings, which figures are shown, and when the mood check is skipped. |
+| [product/watch-consent.md](product/watch-consent.md) | Before changing what the watch asks before a first session: the words it uses, when the phone's agreement stands in for its own, and what a deletion does to both. |
 
 ## Documentation policy
 

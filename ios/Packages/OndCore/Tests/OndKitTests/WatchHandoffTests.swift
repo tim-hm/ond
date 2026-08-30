@@ -15,12 +15,27 @@ struct WatchHandoffTests {
             userId: UUID(),
             sessionCredential: "a-credential-the-phone-was-issued",
             boltBestSeconds: 42,
-            erasesPriorHistory: true
+            erasesPriorHistory: true,
+            agreedConsentVersion: 3
         )
 
         let received = try #require(WatchHandoff(dictionary: sent.dictionary))
 
         #expect(received == sent)
+    }
+
+    /// Deleting the account leaves the phone with nothing to read a version
+    /// from, and the key has to go with it: the wrist reads absent as "no
+    /// longer covered" and asks for the terms itself. A key that stayed behind
+    /// would leave a deleted person's agreement standing on their watch.
+    @Test("A phone that has agreed to nothing carries no version at all")
+    func omitsAnAbsentConsentVersion() throws {
+        let unasked = WatchHandoff(userId: UUID())
+
+        #expect(!unasked.dictionary.keys.contains("agreedConsentVersion"))
+
+        let decoded = try #require(WatchHandoff(dictionary: unasked.dictionary))
+        #expect(decoded.agreedConsentVersion == nil)
     }
 
     /// The credential the wrist has to present once the phone has signed in; an

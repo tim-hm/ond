@@ -53,6 +53,10 @@ struct OndWatchApp: App {
     /// switch.
     @State private var settings = WatchSettings()
 
+    /// What this wrist has agreed to, and where an agreement made on it is
+    /// kept. Nothing else in this app is reachable while the terms are owed.
+    @State private var safety: SafetyConsentStore
+
     /// Held only so the system installs it: the delegate answers the phone's
     /// launch, and nothing here reads it.
     @WKApplicationDelegateAdaptor(WatchAppDelegate.self) private var delegate
@@ -104,6 +108,8 @@ struct OndWatchApp: App {
             )
         )
 
+        let safety = SafetyConsentStore()
+
         // Everything on this wrist that is about the person rather than the
         // app: the sessions breathed here, the empty check-in files beside
         // them, and the ledger of what has gone up. The queue leads: erased
@@ -111,13 +117,18 @@ struct OndWatchApp: App {
         // erased after it.
         let inbox = WatchHandoffInbox(
             identity: identity,
-            stores: [queue, sessions, scores, rates],
+            // The consent record joins the practice here. A deletion promises
+            // nothing of that person is left, and a dated statement that they
+            // agreed to something is exactly that, so the next wrist raised on
+            // this watch is asked again.
+            stores: [queue, sessions, scores, rates, safety],
             // Named here rather than defaulted inside the inbox: it is a fourth
             // thing this wrist persists, and this list is where those are said
             // out loud.
             orders: WatchOrderLedger(defaults: .standard)
         )
         _phone = State(wrappedValue: inbox)
+        _safety = State(wrappedValue: safety)
         let link = PhoneLink(inbox: inbox)
         self.link = link
 
@@ -131,6 +142,13 @@ struct OndWatchApp: App {
                 // one before there is anything to spend it on, so that
                 // question declines every order.
                 isBusy: { WorkoutRuntime.shared.isClaimed },
+                // The other way to a session, and the one the front door does
+                // not cover. Read at the order rather than captured, so a wrist
+                // that agrees while a context is in flight is not still
+                // refusing.
+                needsConsent: {
+                    safety.needsConsent(whenAnotherDeviceAgreedTo: inbox.agreedConsentVersion)
+                },
                 answer: { link.acknowledge($0) }
             )
         )
@@ -139,12 +157,18 @@ struct OndWatchApp: App {
     var body: some Scene {
         WindowGroup {
             NavigationStack {
-                RootMenuView(
-                    catalogue: catalogue,
-                    occasions: occasions,
-                    sessions: recorder,
-                    journey: journey
-                )
+                // Instead of the front door, not in front of it: a wrist that
+                // has agreed to nothing has no session to go back to.
+                if needsConsent {
+                    WristConsentView(store: safety)
+                } else {
+                    RootMenuView(
+                        catalogue: catalogue,
+                        occasions: occasions,
+                        sessions: recorder,
+                        journey: journey
+                    )
+                }
             }
             .tint(Theme.Accent.brand)
             // In the environment rather than passed down: the screens that read
@@ -203,6 +227,13 @@ struct OndWatchApp: App {
                 }
             }
         }
+    }
+
+    /// Whether the terms are still owed here — this wrist's own agreement, or
+    /// the phone's, mirrored over the pairing. Read in two places, so the front
+    /// door and an order the phone places cannot answer it differently.
+    private var needsConsent: Bool {
+        safety.needsConsent(whenAnotherDeviceAgreedTo: phone.agreedConsentVersion)
     }
 
     /// What the sheet presents, read from `WristOrderModel` so that model stays

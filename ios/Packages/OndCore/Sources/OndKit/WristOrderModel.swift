@@ -44,6 +44,13 @@ public final class WristOrderModel {
     /// workout is running" declined every order until `WorkoutRuntime.isClaimed`.
     private let isBusy: @MainActor () -> Bool
 
+    /// Whether the safety terms are still owed on this wrist. A closure
+    /// because the answer joins what this watch has agreed to with what its
+    /// phone has said, and only the composition root holds both. Defaulted to
+    /// false at the initialiser, so a caller with nothing to say about consent
+    /// leaves the other rules here under test.
+    private let needsConsent: @MainActor () -> Bool
+
     /// The order being resolved right now, if one is — the guard that makes
     /// `take(up:)` single-flight across its own suspension. See there.
     private var resolving: UUID?
@@ -58,11 +65,13 @@ public final class WristOrderModel {
         catalogue: TechniqueListModel,
         occasions: OccasionCatalogueModel,
         isBusy: @escaping @MainActor () -> Bool,
+        needsConsent: @escaping @MainActor () -> Bool = { false },
         answer: @escaping @MainActor (WatchOrderAck) -> Void
     ) {
         self.catalogue = catalogue
         self.occasions = occasions
         self.isBusy = isBusy
+        self.needsConsent = needsConsent
         self.answer = answer
     }
 
@@ -79,6 +88,12 @@ public final class WristOrderModel {
             // reports that the wrist did not take it up. One line here is the
             // difference between reading a log and reading the source.
             Self.logger.notice("declined an order: this wrist is already engaged")
+            answer(WatchOrderAck(orderId: order.id, accepted: false))
+            return
+        }
+
+        guard !needsConsent() else {
+            Self.logger.notice("declined an order: this wrist has agreed to nothing")
             answer(WatchOrderAck(orderId: order.id, accepted: false))
             return
         }

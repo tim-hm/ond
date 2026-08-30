@@ -51,6 +51,18 @@ public final class SafetyConsentStore: PersonalStore {
         return agreed.version < terms.version
     }
 
+    /// Whether this person still has to be asked, given the terms version
+    /// another of their devices agreed to — nil where it has agreed to nothing.
+    /// The wrist is a session surface on its own, so it asks for itself, but
+    /// not where the phone has already covered these terms. Nothing known reads
+    /// as ask; `docs/product/watch-consent.md` says why that direction.
+    public func needsConsent(whenAnotherDeviceAgreedTo version: Int?) -> Bool {
+        guard needsConsent else { return false }
+        guard let version else { return true }
+
+        return version < terms.version
+    }
+
     /// Records agreement to the terms as they currently read. Idempotent while
     /// `needsConsent` is false: someone stepping back and forward through
     /// onboarding must not overwrite the timestamp of the agreement that counted.

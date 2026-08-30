@@ -32,6 +32,13 @@ public struct WatchHandoff: Sendable, Equatable {
     /// `WatchOrderLedger` makes the replay run it only once.
     public let order: WatchSessionOrder?
 
+    /// The `SafetyConsent.version` this person agreed to on the phone, or nil
+    /// while they have not. The wrist asks for itself wherever this does not
+    /// cover its own terms, so absent has to mean ask — which is what a context
+    /// that never arrived reads as. A version, not a flag, so terms that move
+    /// stop being covered by an agreement to the words before them.
+    public let agreedConsentVersion: Int?
+
     /// What the person is entitled to, so the wrist need not ask the App
     /// Store itself. Absent decodes `.free`, the direction that cannot give
     /// anything away. This channel is never itself gated: the tier travels on
@@ -47,6 +54,7 @@ public struct WatchHandoff: Sendable, Equatable {
         boltBestSeconds: Int? = nil,
         erasesPriorHistory: Bool = false,
         order: WatchSessionOrder? = nil,
+        agreedConsentVersion: Int? = nil,
         entitledTier: SubscriptionTier = .free
     ) {
         self.userId = userId
@@ -54,6 +62,7 @@ public struct WatchHandoff: Sendable, Equatable {
         self.boltBestSeconds = boltBestSeconds.flatMap { $0 > 0 ? $0 : nil }
         self.erasesPriorHistory = erasesPriorHistory
         self.order = order
+        self.agreedConsentVersion = agreedConsentVersion
         self.entitledTier = entitledTier
     }
 
@@ -62,6 +71,7 @@ public struct WatchHandoff: Sendable, Equatable {
     private static let boltBestKey = "boltBestSeconds"
     private static let erasesKey = "erasesPriorHistory"
     private static let orderKey = "order"
+    private static let consentKey = "agreedConsentVersion"
     private static let tierKey = "entitledTier"
 
     public var dictionary: [String: Any] {
@@ -85,6 +95,9 @@ public struct WatchHandoff: Sendable, Equatable {
         // Absent while nothing is ordered, which is almost always.
         if let order {
             context[Self.orderKey] = order.dictionary
+        }
+        if let agreedConsentVersion {
+            context[Self.consentKey] = agreedConsentVersion
         }
         // Absent for free, so the majority of contexts carry exactly the keys
         // they always have — and so the decoder's default is the one value a
@@ -114,6 +127,7 @@ public struct WatchHandoff: Sendable, Equatable {
             erasesPriorHistory: dictionary[Self.erasesKey] as? Bool ?? false,
             order: (dictionary[Self.orderKey] as? [String: Any])
                 .flatMap(WatchSessionOrder.init(dictionary:)),
+            agreedConsentVersion: dictionary[Self.consentKey] as? Int,
             entitledTier: (dictionary[Self.tierKey] as? Int)
                 .flatMap(SubscriptionTier.init(rawValue:)) ?? .free
         )

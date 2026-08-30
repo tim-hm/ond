@@ -50,6 +50,7 @@ struct WristOrderModelTests {
     private final class Wrist {
         var acks: [WatchOrderAck] = []
         var isBusy = false
+        var needsConsent = false
     }
 
     private static let meeting = Occasion(
@@ -81,6 +82,7 @@ struct WristOrderModelTests {
                 catalogue: TechniqueListModel(techniques: reader),
                 occasions: occasions,
                 isBusy: { wrist.isBusy },
+                needsConsent: { wrist.needsConsent },
                 answer: { wrist.acks.append($0) }
             ),
             occasions
@@ -159,6 +161,22 @@ struct WristOrderModelTests {
         let wrist = Wrist()
         let model = model(on: wrist).order
         wrist.isBusy = true
+
+        await model.take(up: order())
+
+        #expect(model.engagement == nil)
+        #expect(wrist.acks.map(\.accepted) == [false])
+    }
+
+    /// The wrist's own front door puts the safety terms in front of somebody
+    /// who has agreed to nothing, and an order arriving would otherwise open a
+    /// session over them. Declined rather than held, so the phone's sheet is
+    /// answered rather than left waiting out its ten seconds.
+    @Test("A wrist that has agreed to nothing declines")
+    func declinesWithoutConsent() async {
+        let wrist = Wrist()
+        let model = model(on: wrist).order
+        wrist.needsConsent = true
 
         await model.take(up: order())
 
