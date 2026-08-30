@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT technique_id, ordinal, cycles, open_ended\n          FROM technique_stages\n          ORDER BY technique_id, ordinal",
+  "query": "SELECT\n            technique_id AS \"technique_id: TechniqueId\",\n            ordinal,\n            cycles,\n            open_ended\n         FROM technique_stages\n         ORDER BY technique_id, ordinal",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "technique_id",
+        "name": "technique_id: TechniqueId",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -58,5 +58,5 @@
       false
     ]
   },
-  "hash": "37fff2df81382794c769a50ee25b1d954baf4e611761e775d38fc2394a50f3cd"
+  "hash": "f8b2a3e28e5cec425c54e15aa2fcf7b26af130884f84cccec024aae0feb3e882"
 }

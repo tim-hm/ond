@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT client_session_id, technique_slug, started_at,\n                duration_ms, cycles_completed, breath_count, completed,\n                occasion_slug, surface AS \"surface: DeliverySurface\"\n         FROM sessions\n         WHERE user_id = $1\n           AND ($3::timestamptz IS NULL\n                OR (started_at, client_session_id) < ($3, $4::uuid))\n         ORDER BY started_at DESC, client_session_id DESC\n         LIMIT $2",
+  "query": "SELECT client_session_id,\n                technique_slug AS \"technique_slug: TechniqueSlug\",\n                started_at,\n                duration_ms, cycles_completed, breath_count, completed,\n                occasion_slug AS \"occasion_slug: OccasionSlug\",\n                surface AS \"surface: DeliverySurface\"\n         FROM sessions\n         WHERE user_id = $1\n           AND ($3::timestamptz IS NULL\n                OR (started_at, client_session_id) < ($3, $4::uuid))\n         ORDER BY started_at DESC, client_session_id DESC\n         LIMIT $2",
   "describe": {
     "columns": [
       {
@@ -16,7 +16,7 @@
       },
       {
         "ordinal": 1,
-        "name": "technique_slug",
+        "name": "technique_slug: TechniqueSlug",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -82,7 +82,7 @@
       },
       {
         "ordinal": 7,
-        "name": "occasion_slug",
+        "name": "occasion_slug: OccasionSlug",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -133,5 +133,5 @@
       true
     ]
   },
-  "hash": "a9fc064e47fc6a52e8eed3fcdc1c1b2f49ffe2cc8bae9b75db03caf25862e737"
+  "hash": "1f3238edfd01e6f960dc5a7c55110236248f00fd0174a5d0b22fc5095c29405e"
 }

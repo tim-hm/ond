@@ -173,7 +173,7 @@ pub(super) fn practice_lines(practice: &PracticeSnapshot, catalogue: &[Technique
         let mut other_sessions: u32 = 0;
         let mut other_minutes: u32 = 0;
         for entry in &practice.by_technique {
-            if resolve(catalogue, &entry.technique_slug).is_some() {
+            if resolve(catalogue, entry.technique_slug.as_str()).is_some() {
                 let _ = writeln!(
                     lines,
                     "- {}: {} sessions, {} minutes",

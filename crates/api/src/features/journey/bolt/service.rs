@@ -5,7 +5,6 @@
 //! contains zero raw queries: SQL lives in `super::repository`.
 
 use sqlx::PgPool;
-use uuid::Uuid;
 
 use super::super::errors::JourneyError;
 use super::super::wire::timestamp_from_proto;
@@ -13,7 +12,7 @@ use super::repository;
 use super::types::BoltSnapshot;
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
-use crate::wire::counted;
+use crate::wire::{self, counted};
 
 /// Matches the `CHECK` on `bolt_scores.seconds`.
 const MAX_BOLT_SECONDS: u32 = 600;
@@ -43,12 +42,7 @@ pub async fn record_bolt_score(
     let seconds = i32::try_from(request.seconds)
         .map_err(|_| JourneyError::Invalid("`seconds` is out of range".to_owned()))?;
 
-    let client_score_id = Uuid::parse_str(&request.client_score_id).map_err(|_| {
-        JourneyError::Invalid(format!(
-            "`client_score_id` `{}` is not a UUID",
-            request.client_score_id
-        ))
-    })?;
+    let client_score_id = wire::uuid("client_score_id", &request.client_score_id)?;
 
     let measured_at = request
         .measured_at

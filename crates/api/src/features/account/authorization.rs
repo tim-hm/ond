@@ -12,23 +12,20 @@ use super::errors::AccountError;
 const NONCE_BYTES: usize = 32;
 const CHALLENGE_LIFETIME: TimeDelta = TimeDelta::minutes(5);
 
-/// The account action an Apple authorization may approve.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// The account action an Apple authorization may approve. Mirrors the
+/// `apple_authorization_purpose` Postgres enum, and binds as one rather than
+/// as text through a `::text::` cast — the one way every other enum in the
+/// crate reaches its column. Labels are spelled per variant, as
+/// `LeaderboardBoard` does, so renaming a variant cannot rename a stored value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[sqlx(type_name = "apple_authorization_purpose")]
 pub enum AuthorizationPurpose {
     /// Bind or recover an Apple account.
+    #[sqlx(rename = "SIGN_IN")]
     SignIn,
     /// Permanently erase an Apple-bound account.
+    #[sqlx(rename = "DELETE_ACCOUNT")]
     DeleteAccount,
-}
-
-impl AuthorizationPurpose {
-    /// The migration's enum spelling.
-    pub const fn as_database(self) -> &'static str {
-        match self {
-            Self::SignIn => "SIGN_IN",
-            Self::DeleteAccount => "DELETE_ACCOUNT",
-        }
-    }
 }
 
 /// A freshly minted raw nonce and the digest the database keeps.

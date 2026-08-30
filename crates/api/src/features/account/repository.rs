@@ -22,12 +22,12 @@ pub async fn begin_authorization(
     sqlx::query!(
         "INSERT INTO apple_authorization_challenges (
              user_id, purpose, nonce_hash, expires_at
-         ) VALUES ($1, $2::text::apple_authorization_purpose, $3, $4)
+         ) VALUES ($1, $2, $3, $4)
          ON CONFLICT (user_id, purpose) DO UPDATE SET
              nonce_hash = EXCLUDED.nonce_hash,
              expires_at = EXCLUDED.expires_at",
         caller.0,
-        purpose.as_database(),
+        purpose as _,
         challenge.hash().as_bytes(),
         challenge.expires_at()
     )
@@ -162,11 +162,11 @@ async fn consume_authorization(
     let consumed = sqlx::query!(
         "DELETE FROM apple_authorization_challenges
           WHERE user_id = $1
-            AND purpose = $2::text::apple_authorization_purpose
+            AND purpose = $2
             AND nonce_hash = $3
             AND expires_at > now()",
         caller.0,
-        purpose.as_database(),
+        purpose as _,
         nonce.as_bytes()
     )
     .execute(&mut **tx)

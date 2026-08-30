@@ -8,7 +8,6 @@ use std::collections::HashSet;
 
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
-use uuid::Uuid;
 
 use super::super::bolt;
 use super::super::bolt::types::BoltSnapshot;
@@ -22,10 +21,10 @@ use super::types::{
     StreakSummary, TechniquePractice,
 };
 use crate::features::technique::convert::surface_to_proto;
-use crate::features::technique::types::{DeliverySurface, MAX_SLUG_CHARS};
+use crate::features::technique::types::{DeliverySurface, OccasionSlug, TechniqueSlug};
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
-use crate::wire::{counted, timestamp_to_proto};
+use crate::wire::{self, counted, timestamp_to_proto};
 
 /// How many sessions one call may carry.
 ///
@@ -136,9 +135,7 @@ pub async fn delete_sessions(
 
     let mut ids = Vec::with_capacity(submitted.len());
     for raw in &submitted {
-        ids.push(Uuid::parse_str(raw).map_err(|_| {
-            JourneyError::Invalid(format!("`client_session_ids` entry `{raw}` is not a UUID"))
-        })?);
+        ids.push(wire::uuid("client_session_ids entry", raw)?);
     }
 
     let removed = repository::delete_sessions(pool, user_id, &ids).await?;
@@ -396,19 +393,8 @@ fn hours_since(started_at: DateTime<Utc>) -> u32 {
 /// whole batch fails rather than dropping the offending record: recording the
 /// other ninety-nine would hide the client bug and leave an untraceable gap.
 fn session_from_proto(record: &pb::SessionRecord) -> Result<SessionRow, JourneyError> {
-    let client_session_id = Uuid::parse_str(&record.client_session_id).map_err(|_| {
-        JourneyError::Invalid(format!(
-            "`client_session_id` `{}` is not a UUID",
-            record.client_session_id
-        ))
-    })?;
-
-    let technique_slug = record.technique_slug.trim().to_owned();
-    if technique_slug.is_empty() || technique_slug.chars().count() > MAX_SLUG_CHARS {
-        return Err(JourneyError::Invalid(format!(
-            "`technique_slug` must be between 1 and {MAX_SLUG_CHARS} characters"
-        )));
-    }
+    let client_session_id = wire::uuid("client_session_id", &record.client_session_id)?;
+    let technique_slug = TechniqueSlug::parse("technique_slug", &record.technique_slug)?;
 
     let started_at = record
         .started_at
@@ -420,15 +406,11 @@ fn session_from_proto(record: &pb::SessionRecord) -> Result<SessionRow, JourneyE
     // Absent is the ordinary case — a person picking a technique themselves —
     // but a client that *set* an empty or oversized slug has a bug, and the
     // batch fails on it like any other impossible value.
-    let occasion_slug = match record.occasion_slug.as_deref().map(str::trim) {
-        None => None,
-        Some(slug) if slug.is_empty() || slug.chars().count() > MAX_SLUG_CHARS => {
-            return Err(JourneyError::Invalid(format!(
-                "`occasion_slug` must be between 1 and {MAX_SLUG_CHARS} characters"
-            )));
-        }
-        Some(slug) => Some(slug.to_owned()),
-    };
+    let occasion_slug = record
+        .occasion_slug
+        .as_deref()
+        .map(|raw| OccasionSlug::parse("occasion_slug", raw))
+        .transpose()?;
 
     // Unspecified is a record from before the field existed and stores as
     // null; a value outside the enum is a client this server does not know.
@@ -464,13 +446,13 @@ fn session_from_proto(record: &pb::SessionRecord) -> Result<SessionRow, JourneyE
 fn session_to_proto(row: SessionRow) -> Result<pb::SessionRecord, JourneyError> {
     Ok(pb::SessionRecord {
         client_session_id: row.client_session_id.to_string(),
-        technique_slug: row.technique_slug,
+        technique_slug: row.technique_slug.into_string(),
         started_at: Some(timestamp_to_proto(row.started_at)),
         duration_ms: counted("duration_ms", row.duration_ms)?,
         cycles_completed: counted("cycles_completed", row.cycles_completed)?,
         breath_count: counted("breath_count", row.breath_count)?,
         completed: row.completed,
-        occasion_slug: row.occasion_slug,
+        occasion_slug: row.occasion_slug.map(OccasionSlug::into_string),
         surface: row
             .surface
             .map_or(pb::DeliverySurface::Unspecified, surface_to_proto) as i32,
@@ -510,6 +492,8 @@ fn validate_started_at(started_at: DateTime<Utc>, now: DateTime<Utc>) -> Result<
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
+
     use super::*;
 
     fn record(started_at: DateTime<Utc>) -> pb::SessionRecord {
@@ -595,7 +579,7 @@ mod tests {
 
     fn practice_row(slug: &str, sessions: i64, duration_ms: i64) -> TechniquePracticeRow {
         TechniquePracticeRow {
-            technique_slug: slug.to_owned(),
+            technique_slug: TechniqueSlug::parse("slug", slug).expect("a fixture slug"),
             sessions,
             duration_ms,
         }
@@ -636,7 +620,8 @@ mod tests {
 
         assert_eq!(snapshot.by_technique.len(), MAX_SNAPSHOT_TECHNIQUES);
         assert_eq!(
-            snapshot.by_technique[0].technique_slug, "technique-0",
+            snapshot.by_technique[0].technique_slug.as_str(),
+            "technique-0",
             "the repository's busiest-first order is kept"
         );
         assert_eq!(snapshot.sessions, 10 + 9 + 8 + 7 + 6 + 5 + 4);

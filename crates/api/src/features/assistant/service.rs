@@ -364,7 +364,7 @@ fn clamp_health(health: Option<pb::HealthContext>) -> Option<HealthContext> {
 
 fn to_proto(recommendation: Recommendation) -> pb::Recommendation {
     pb::Recommendation {
-        technique_slug: recommendation.technique_slug,
+        technique_slug: recommendation.technique_slug.into_string(),
         reason: recommendation.reason,
     }
 }

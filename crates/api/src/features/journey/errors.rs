@@ -81,6 +81,15 @@ impl From<JourneyError> for Status {
     }
 }
 
+/// Carries `crate::wire`'s refusals of a client's own values as this feature's
+/// own invalid-argument case, on the same terms — a bare `?` at the call site,
+/// and the caller reads the field name they got wrong.
+impl From<crate::wire::Malformed> for JourneyError {
+    fn from(error: crate::wire::Malformed) -> Self {
+        Self::Invalid(error.0)
+    }
+}
+
 /// Carries `crate::wire`'s narrowing failures as this feature's own
 /// corrupt-data case, which is what lets a call site stay a bare `?`.
 impl From<crate::wire::Unrepresentable> for JourneyError {

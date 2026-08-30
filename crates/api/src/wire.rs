@@ -7,11 +7,28 @@
 use std::fmt::Display;
 
 use chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 /// What a failed narrowing carries: the message a feature wraps into its own
 /// corrupt-data case via a `From` impl beside its `Status` mapping.
 #[derive(Debug)]
 pub struct Unrepresentable(pub String);
+
+/// What a refused client value carries: the message a feature wraps into its
+/// own invalid-argument case via a `From` impl. Separate from
+/// [`Unrepresentable`] because the two answer different callers — corrupt data
+/// is this server's fault and travels as `internal`, while a value only the
+/// client could have sent travels back verbatim so they can fix it.
+#[derive(Debug)]
+pub struct Malformed(pub String);
+
+/// Reads a client-minted identifier off the wire. proto3 has no UUID scalar, so
+/// every one of these arrives as a `string` and has to be narrowed somewhere;
+/// here rather than per service, because the message a caller gets for a
+/// mistyped id should not depend on which RPC they mistyped it on.
+pub fn uuid(field: &str, raw: &str) -> Result<Uuid, Malformed> {
+    Uuid::parse_str(raw).map_err(|_| Malformed(format!("`{field}` `{raw}` is not a UUID")))
+}
 
 /// Narrows a counted value to the width the wire states it in. The schema's
 /// `CHECK`s make a negative value unreachable, so a value that does not fit is
@@ -71,6 +88,22 @@ mod tests {
         assert!(counted::<u32, _>("sessions", -1_i32).is_err());
         assert!(counted::<u32, _>("sessions", i64::from(u32::MAX) + 1).is_err());
         assert!(counted::<u64, _>("breaths", -1_i64).is_err());
+    }
+
+    /// The narrowing a client can fail, and the one message they get for it
+    /// whichever RPC they failed it on. The field name is in the message
+    /// because a batch of a hundred sessions is otherwise unsearchable.
+    #[test]
+    fn a_client_id_that_is_not_a_uuid_names_its_field() {
+        assert_eq!(
+            uuid("client_session_id", "00000000-0000-0000-0000-000000000000")
+                .expect("a canonical UUID"),
+            Uuid::nil()
+        );
+
+        let refused = uuid("client_score_id", "not-a-uuid").expect_err("prose is not a UUID");
+        assert!(refused.0.contains("client_score_id"));
+        assert!(refused.0.contains("not-a-uuid"));
     }
 
     /// Zero passes `counted` — a streak of nothing is a real streak — and

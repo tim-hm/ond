@@ -70,7 +70,7 @@ fn goal_gap(
     if practice
         .by_technique
         .iter()
-        .any(|entry| entry.minutes > 0 && goal_of(&entry.technique_slug) == Some(stated))
+        .any(|entry| entry.minutes > 0 && goal_of(entry.technique_slug.as_str()) == Some(stated))
     {
         return None;
     }
@@ -81,7 +81,7 @@ fn goal_gap(
         .by_technique
         .iter()
         .filter(|entry| entry.minutes > 0)
-        .find_map(|entry| goal_of(&entry.technique_slug).filter(|goal| *goal != stated))?;
+        .find_map(|entry| goal_of(entry.technique_slug.as_str()).filter(|goal| *goal != stated))?;
 
     Some((stated, practised))
 }
@@ -126,6 +126,7 @@ mod tests {
     use super::*;
     use crate::features::journey::sessions::types::{PRACTICE_WINDOW_DAYS, TechniquePractice};
     use crate::features::technique::types::TechniqueGoal;
+    use crate::features::technique::types::TechniqueSlug;
 
     fn catalogue() -> Vec<Technique> {
         vec![
@@ -167,7 +168,7 @@ mod tests {
             minutes,
             active_days: 1,
             by_technique: vec![TechniquePractice {
-                technique_slug: slug.to_owned(),
+                technique_slug: TechniqueSlug::parse("slug", slug).expect("a fixture slug"),
                 sessions,
                 minutes,
             }],
@@ -186,7 +187,7 @@ mod tests {
             &practice_of("box-breathing", 5, 12),
         );
 
-        assert_eq!(list[0].technique_slug, "four-seven-eight");
+        assert_eq!(list[0].technique_slug.as_str(), "four-seven-eight");
         assert_eq!(
             list[0].reason,
             "You've been practising to settle in the moment, but you said you want to \
