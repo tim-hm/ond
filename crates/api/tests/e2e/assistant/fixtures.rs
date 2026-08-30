@@ -21,7 +21,7 @@ pub(super) const OTHER_USER: &str = "5c4d3e2f-0000-4000-8000-000000000002";
 /// Asks for a recommendation as a subscriber.
 ///
 /// The subscription is arranged here so no test in this suite has to say it:
-/// what may reach the model is `entitlement.rs`'s question, and this suite is
+/// what may reach the model is `entitlement/`'s question, and this suite is
 /// about what the model says once it is reached.
 pub(super) async fn recommend(
     db: &TestDatabase,

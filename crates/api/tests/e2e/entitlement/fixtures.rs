@@ -272,7 +272,7 @@ pub(super) async fn read(app: Router, user: &str) -> pb::Entitlement {
     .expect("every response carries an entitlement")
 }
 
-/// No `subscribe` here, unlike `assistant.rs`'s helper of the same name: this
+/// No `subscribe` here, unlike `assistant/`'s helper of the same name: this
 /// suite exists to find out who may reach the model, so a tier is always the
 /// thing a test has set up for itself.
 pub(super) async fn recommend(

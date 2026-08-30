@@ -365,8 +365,8 @@ pub fn hours_ago(hours: i64) -> DateTime<Utc> {
 
 /// Asks `GetRecommendation` over the wire, on a router the caller has built.
 /// Two suites drive this RPC for opposite reasons, so only the call itself is
-/// shared; taking an assembled `Router` keeps the subscription `assistant.rs`
-/// wants and `entitlement.rs` must not have with the suite that wants it. One
+/// shared; taking an assembled `Router` keeps the subscription `assistant/`
+/// wants and `entitlement/` must not have with the suite that wants it. One
 /// construction site for the request, so a new field lands here, not in two places.
 pub async fn recommend(
     app: Router,
