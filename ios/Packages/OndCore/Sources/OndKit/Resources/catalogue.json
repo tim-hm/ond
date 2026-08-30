@@ -54,7 +54,7 @@
               "durationMs": 4000,
               "minDurationMs": 2000,
               "maxDurationMs": 8000,
-              "turnGapMs": null,
+              "turnGapMs": 150,
               "hapticPattern": null,
               "voiceScript": null
             },
@@ -76,7 +76,7 @@
               "durationMs": 4000,
               "minDurationMs": 2000,
               "maxDurationMs": 8000,
-              "turnGapMs": null,
+              "turnGapMs": 120,
               "hapticPattern": null,
               "voiceScript": null
             }
@@ -208,7 +208,7 @@
               "durationMs": 7000,
               "minDurationMs": 4000,
               "maxDurationMs": 10000,
-              "turnGapMs": null,
+              "turnGapMs": 250,
               "hapticPattern": null,
               "voiceScript": null
             },
@@ -219,7 +219,7 @@
               "durationMs": 8000,
               "minDurationMs": 6000,
               "maxDurationMs": 12000,
-              "turnGapMs": null,
+              "turnGapMs": 200,
               "hapticPattern": null,
               "voiceScript": null
             }
@@ -340,9 +340,9 @@
               "durationMs": 1500,
               "minDurationMs": 1000,
               "maxDurationMs": 2500,
-              "turnGapMs": null,
+              "turnGapMs": 250,
               "hapticPattern": null,
-              "voiceScript": null
+              "voiceScript": "sigh-in"
             },
             {
               "kind": "INHALE",
@@ -351,9 +351,9 @@
               "durationMs": 1000,
               "minDurationMs": 500,
               "maxDurationMs": 1200,
-              "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": null
+              "turnGapMs": 0,
+              "hapticPattern": "sip",
+              "voiceScript": "sigh-and-in"
             },
             {
               "kind": "EXHALE",
@@ -364,7 +364,7 @@
               "maxDurationMs": 8000,
               "turnGapMs": null,
               "hapticPattern": null,
-              "voiceScript": null
+              "voiceScript": "sigh-and-out"
             }
           ],
           "cycles": 3,
@@ -417,9 +417,9 @@
               "durationMs": 2000,
               "minDurationMs": 1500,
               "maxDurationMs": 3000,
-              "turnGapMs": null,
+              "turnGapMs": 250,
               "hapticPattern": null,
-              "voiceScript": null
+              "voiceScript": "sigh-in"
             },
             {
               "kind": "INHALE",
@@ -428,9 +428,9 @@
               "durationMs": 1000,
               "minDurationMs": 500,
               "maxDurationMs": 1500,
-              "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": null
+              "turnGapMs": 0,
+              "hapticPattern": "sip",
+              "voiceScript": "sigh-and-in"
             },
             {
               "kind": "EXHALE",
@@ -441,7 +441,7 @@
               "maxDurationMs": 10000,
               "turnGapMs": null,
               "hapticPattern": null,
-              "voiceScript": null
+              "voiceScript": "sigh-and-out"
             }
           ],
           "cycles": 30,
@@ -494,7 +494,7 @@
               "durationMs": 2000,
               "minDurationMs": 2000,
               "maxDurationMs": 4000,
-              "turnGapMs": null,
+              "turnGapMs": 200,
               "hapticPattern": null,
               "voiceScript": null
             },
@@ -506,7 +506,7 @@
               "minDurationMs": 4000,
               "maxDurationMs": 8000,
               "turnGapMs": null,
-              "hapticPattern": null,
+              "hapticPattern": "press",
               "voiceScript": null
             }
           ],
@@ -560,7 +560,7 @@
               "durationMs": 4000,
               "minDurationMs": 3000,
               "maxDurationMs": 6000,
-              "turnGapMs": null,
+              "turnGapMs": 150,
               "hapticPattern": null,
               "voiceScript": null
             },
@@ -571,8 +571,8 @@
               "durationMs": 8000,
               "minDurationMs": 6000,
               "maxDurationMs": 15000,
-              "turnGapMs": null,
-              "hapticPattern": null,
+              "turnGapMs": 200,
+              "hapticPattern": "press",
               "voiceScript": null
             }
           ],
@@ -629,7 +629,7 @@
               "durationMs": 4000,
               "minDurationMs": 3000,
               "maxDurationMs": 6000,
-              "turnGapMs": null,
+              "turnGapMs": 200,
               "hapticPattern": null,
               "voiceScript": null
             },
@@ -640,7 +640,7 @@
               "durationMs": 6000,
               "minDurationMs": 4000,
               "maxDurationMs": 8000,
-              "turnGapMs": null,
+              "turnGapMs": 200,
               "hapticPattern": null,
               "voiceScript": null
             }
@@ -695,9 +695,9 @@
               "durationMs": 1000,
               "minDurationMs": 700,
               "maxDurationMs": 1500,
-              "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": null
+              "turnGapMs": 0,
+              "hapticPattern": "drum",
+              "voiceScript": "silent"
             },
             {
               "kind": "EXHALE",
@@ -706,9 +706,9 @@
               "durationMs": 1000,
               "minDurationMs": 700,
               "maxDurationMs": 1500,
-              "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": null
+              "turnGapMs": 0,
+              "hapticPattern": "drum",
+              "voiceScript": "silent"
             }
           ],
           "cycles": 20,
@@ -761,9 +761,9 @@
               "durationMs": 1500,
               "minDurationMs": 1000,
               "maxDurationMs": 2500,
-              "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": null
+              "turnGapMs": 0,
+              "hapticPattern": "drum",
+              "voiceScript": "silent"
             },
             {
               "kind": "EXHALE",
@@ -772,9 +772,9 @@
               "durationMs": 1500,
               "minDurationMs": 1000,
               "maxDurationMs": 2500,
-              "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": null
+              "turnGapMs": 0,
+              "hapticPattern": "drum",
+              "voiceScript": "silent"
             }
           ],
           "cycles": 30,
@@ -817,8 +817,8 @@
               "durationMs": 30000,
               "minDurationMs": 30000,
               "maxDurationMs": 120000,
-              "turnGapMs": null,
-              "hapticPattern": null,
+              "turnGapMs": 0,
+              "hapticPattern": "long-hold",
               "voiceScript": null
             }
           ],
@@ -834,7 +834,7 @@
               "durationMs": 3000,
               "minDurationMs": 2000,
               "maxDurationMs": 5000,
-              "turnGapMs": null,
+              "turnGapMs": 0,
               "hapticPattern": null,
               "voiceScript": null
             },
@@ -845,8 +845,8 @@
               "durationMs": 15000,
               "minDurationMs": 10000,
               "maxDurationMs": 20000,
-              "turnGapMs": null,
-              "hapticPattern": null,
+              "turnGapMs": 150,
+              "hapticPattern": "long-hold",
               "voiceScript": null
             },
             {
@@ -922,7 +922,7 @@
               "durationMs": 6000,
               "minDurationMs": 4000,
               "maxDurationMs": 10000,
-              "turnGapMs": null,
+              "turnGapMs": 150,
               "hapticPattern": null,
               "voiceScript": null
             },
@@ -944,7 +944,7 @@
               "durationMs": 6000,
               "minDurationMs": 4000,
               "maxDurationMs": 10000,
-              "turnGapMs": null,
+              "turnGapMs": 120,
               "hapticPattern": null,
               "voiceScript": null
             }
@@ -1002,7 +1002,7 @@
               "durationMs": 4000,
               "minDurationMs": 3000,
               "maxDurationMs": 6000,
-              "turnGapMs": null,
+              "turnGapMs": 300,
               "hapticPattern": null,
               "voiceScript": null
             },
@@ -1013,7 +1013,7 @@
               "durationMs": 6000,
               "minDurationMs": 4000,
               "maxDurationMs": 8000,
-              "turnGapMs": null,
+              "turnGapMs": 0,
               "hapticPattern": null,
               "voiceScript": null
             },
@@ -1024,7 +1024,7 @@
               "durationMs": 4000,
               "minDurationMs": 3000,
               "maxDurationMs": 6000,
-              "turnGapMs": null,
+              "turnGapMs": 300,
               "hapticPattern": null,
               "voiceScript": null
             },
@@ -1035,7 +1035,7 @@
               "durationMs": 6000,
               "minDurationMs": 4000,
               "maxDurationMs": 8000,
-              "turnGapMs": null,
+              "turnGapMs": 0,
               "hapticPattern": null,
               "voiceScript": null
             }

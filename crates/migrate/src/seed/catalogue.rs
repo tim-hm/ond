@@ -5,9 +5,9 @@
 //! the seed structs and their `const fn` builders stay unreachable elsewhere.
 
 use super::{
-    CopyRegister, DeliverySurface, EvidenceGrade, FoundationSeed, Manner, OccasionSeed, Passage,
-    ProgressionStepSeed, ReadingContentSeed, TechniqueGoal, TechniqueSeed, exhale, hold_in,
-    hold_out, inhale, open_ended_stage, shaped_exhale, shaped_inhale, stage,
+    CopyRegister, DeliverySurface, EvidenceGrade, FoundationSeed, HapticPattern, Manner,
+    OccasionSeed, Passage, ProgressionStepSeed, ReadingContentSeed, TechniqueGoal, TechniqueSeed,
+    exhale, hold_in, hold_out, inhale, open_ended_stage, shaped_exhale, shaped_inhale, stage,
 };
 
 const fn prose(lead: &'static str) -> ReadingContentSeed {
@@ -59,9 +59,11 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         stages: &[stage(
             &[
                 inhale(Passage::Nose, 4000, (3000, 8000)),
-                hold_in(4000, (2000, 8000)),
+                // The release out of a held chest is the one turn in a square
+                // that is not square, and the empty hold is nearly as slow.
+                hold_in(4000, (2000, 8000)).with_gap(150),
                 exhale(Passage::Nose, 4000, (3000, 8000)),
-                hold_out(4000, (2000, 8000)),
+                hold_out(4000, (2000, 8000)).with_gap(120),
             ],
             // Five minutes at sixteen seconds a cycle. Four of these is still
             // four of these; the cycle dial is right there for the version
@@ -137,8 +139,10 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         stages: &[stage(
             &[
                 inhale(Passage::Nose, 4000, (3000, 6000)),
-                hold_in(7000, (4000, 10000)),
-                exhale(Passage::Mouth, 8000, (6000, 12000)),
+                // 250 opens the mouth after a seven-second hold. 200 stops the
+                // hurried inhale that is this exercise's classic failure.
+                hold_in(7000, (4000, 10000)).with_gap(250),
+                exhale(Passage::Mouth, 8000, (6000, 12000)).with_gap(200),
             ],
             // Weil's own ceiling for a first month, and the one place the
             // five-minute convention gives way: five minutes of this would be
@@ -221,9 +225,17 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             // technique. The sip stays the smaller of the pair and long enough
             // that the cue announcing it lands before the phase is over.
             &[
-                inhale(Passage::Nose, 1500, (1000, 2500)),
-                inhale(Passage::Nose, 1000, (500, 1200)),
-                exhale(Passage::Nose, 5000, (4000, 8000)),
+                // 250 is the motor turn between a full breath and finding
+                // more on top of it. The zero after the sip is the technique
+                // itself: you top up and you let go, without a pause between.
+                inhale(Passage::Nose, 1500, (1000, 2500))
+                    .with_gap(250)
+                    .with_script("sigh-in"),
+                inhale(Passage::Nose, 1000, (500, 1200))
+                    .with_gap(0)
+                    .with_haptic(HapticPattern::Sip)
+                    .with_script("sigh-and-in"),
+                exhale(Passage::Nose, 5000, (4000, 8000)).with_script("sigh-and-out"),
             ],
             // The summary promises "one or two rounds"; three is the generous
             // end of that, and the technique loses its point when stretched
@@ -269,9 +281,14 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             // five minutes of this sustainable. The sip's 0.5s floor is the
             // watch haptic floor, matching the sigh.
             &[
-                inhale(Passage::Nose, 2000, (1500, 3000)),
-                inhale(Passage::Nose, 1000, (500, 1500)),
-                exhale(Passage::Nose, 7000, (5000, 10000)),
+                inhale(Passage::Nose, 2000, (1500, 3000))
+                    .with_gap(250)
+                    .with_script("sigh-in"),
+                inhale(Passage::Nose, 1000, (500, 1500))
+                    .with_gap(0)
+                    .with_haptic(HapticPattern::Sip)
+                    .with_script("sigh-and-in"),
+                exhale(Passage::Nose, 7000, (5000, 10000)).with_script("sigh-and-out"),
             ],
             // Thirty ten-second cycles is the trial's five minutes a day, which
             // is the entire claim this technique makes. Shortening it would
@@ -312,8 +329,11 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         goal: TechniqueGoal::Calm,
         stages: &[stage(
             &[
-                inhale(Passage::Nose, 2000, (2000, 4000)),
-                shaped_exhale(Passage::Mouth, Manner::PursedLips, 4000, (4000, 8000)),
+                // 200 is purse time. The exhale's turn is the ordinary one, so
+                // it is derived: pursed lips are already shaped by then.
+                inhale(Passage::Nose, 2000, (2000, 4000)).with_gap(200),
+                shaped_exhale(Passage::Mouth, Manner::PursedLips, 4000, (4000, 8000))
+                    .with_haptic(HapticPattern::Press),
             ],
             // Not a sitting, so not the five minutes one opens on: this is a
             // recovery taken standing up, and the cycle dial reaches down to
@@ -351,13 +371,17 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         goal: TechniqueGoal::Calm,
         stages: &[stage(
             &[
-                inhale(Passage::Nose, 4000, (3000, 6000)),
+                // 150 to find the note. 200 because a throat that has hummed
+                // for eight seconds does not inhale on the beat.
+                inhale(Passage::Nose, 4000, (3000, 6000)).with_gap(150),
                 // The hum runs the length of the exhale, so the dial reaches
                 // fifteen seconds, the widest exhale in the catalogue.
                 // `user_technique::repository::phase_limits` takes the widest
                 // of each kind as what anybody may author, so this raises the
                 // authored exhale ceiling from twelve seconds to fifteen.
-                shaped_exhale(Passage::Nose, Manner::Hum, 8000, (6000, 15000)),
+                shaped_exhale(Passage::Nose, Manner::Hum, 8000, (6000, 15000))
+                    .with_gap(200)
+                    .with_haptic(HapticPattern::Press),
             ],
             // The five minutes a sitting opens on, at twelve seconds a cycle.
             // Nothing about a hum argues for an exception.
@@ -412,8 +436,11 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         goal: TechniqueGoal::Calm,
         stages: &[stage(
             &[
-                shaped_inhale(Passage::Mouth, Manner::CurledTongue, 4000, (3000, 6000)),
-                exhale(Passage::Nose, 6000, (4000, 8000)),
+                // Two mechanical changes a cycle, tongue and mouth, so both
+                // turns are authored and at the same length.
+                shaped_inhale(Passage::Mouth, Manner::CurledTongue, 4000, (3000, 6000))
+                    .with_gap(200),
+                exhale(Passage::Nose, 6000, (4000, 8000)).with_gap(200),
             ],
             // Five minutes at ten seconds a cycle — the sitting the catalogue
             // opens on. Nothing about a cooling breath argues for an exception.
@@ -449,8 +476,9 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         goal: TechniqueGoal::Energy,
         stages: &[stage(
             &[
-                inhale(Passage::Nose, 1000, (700, 1500)),
-                exhale(Passage::Nose, 1000, (700, 1500)),
+                // Thirty breaths a minute, with continuity as the technique.
+                inhale(Passage::Nose, 1000, (700, 1500)).continuous(),
+                exhale(Passage::Nose, 1000, (700, 1500)).continuous(),
             ],
             // Twenty two-second breaths is forty seconds — a short bout, which
             // is the only kind this technique should be practised in.
@@ -489,8 +517,9 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         stages: &[
             stage(
                 &[
-                    inhale(Passage::Nose, 1500, (1000, 2500)),
-                    exhale(Passage::Nose, 1500, (1000, 2500)),
+                    // Bellows at a slower count, and the same cadence for it.
+                    inhale(Passage::Nose, 1500, (1000, 2500)).continuous(),
+                    exhale(Passage::Nose, 1500, (1000, 2500)).continuous(),
                 ],
                 // Thirty is the count the protocol is described with, and the
                 // bottom of the thirty-to-forty range people practise it at.
@@ -513,11 +542,22 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             // the stage: any phase sharing it would wait for a tap nothing asks
             // for. The duration is the first round's aim and the session grows
             // it by that much each round — a suggestion, never a requirement.
-            open_ended_stage(&[hold_out(30000, (30000, 120_000))]),
+            open_ended_stage(&[
+                // The zero states what an open-ended stage already does: it has
+                // no next boundary to turn on. You breathe when you need to.
+                hold_out(30000, (30000, 120_000))
+                    .with_gap(0)
+                    .with_haptic(HapticPattern::LongHold),
+            ]),
             stage(
                 &[
-                    inhale(Passage::Nose, 3000, (2000, 5000)),
-                    hold_in(15000, (10000, 20000)),
+                    // The recovery breath runs straight into its hold. The
+                    // reminder tap is for the dial: at the seeded fifteen
+                    // seconds the hold ends before the first one is due.
+                    inhale(Passage::Nose, 3000, (2000, 5000)).with_gap(0),
+                    hold_in(15000, (10000, 20000))
+                        .with_gap(150)
+                        .with_haptic(HapticPattern::LongHold),
                     exhale(Passage::Nose, 4000, (2000, 6000)),
                 ],
                 1,
@@ -556,9 +596,11 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         stages: &[stage(
             &[
                 inhale(Passage::Nose, 6000, (4000, 10000)),
-                hold_in(6000, (4000, 10000)),
+                // Box breathing's turns, unchanged: the same body leaves a
+                // longer hold, so a longer square does not widen them.
+                hold_in(6000, (4000, 10000)).with_gap(150),
                 exhale(Passage::Nose, 6000, (4000, 10000)),
-                hold_out(6000, (4000, 10000)),
+                hold_out(6000, (4000, 10000)).with_gap(120),
             ],
             // Five minutes at twenty-four seconds a cycle — the same dose as
             // box breathing at a pace that asks more of you.
@@ -602,10 +644,12 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         goal: TechniqueGoal::Focus,
         stages: &[stage(
             &[
-                inhale(Passage::LeftNostril, 4000, (3000, 6000)),
-                exhale(Passage::RightNostril, 6000, (4000, 8000)),
-                inhale(Passage::RightNostril, 4000, (3000, 6000)),
-                exhale(Passage::LeftNostril, 6000, (4000, 8000)),
+                // The gaps encode the hand: 300 where the fingers move to a
+                // new nostril, 0 where the nostril is already open.
+                inhale(Passage::LeftNostril, 4000, (3000, 6000)).with_gap(300),
+                exhale(Passage::RightNostril, 6000, (4000, 8000)).with_gap(0),
+                inhale(Passage::RightNostril, 4000, (3000, 6000)).with_gap(300),
+                exhale(Passage::LeftNostril, 6000, (4000, 8000)).with_gap(0),
             ],
             // Five minutes at twenty seconds a cycle. The switching stops
             // needing thought around three minutes in, which the mechanism
