@@ -18,6 +18,8 @@ Each entry says what is open, why it was left, and what closes it.
 
 ## Decisions somebody has to look at
 
+**The board ranks minutes, and the consent screen warns about over-practice.** Leaderboards rank streaks, minutes and comfortable pauses. Ranking minutes rewards practising longer, in an app whose safety terms caution against exactly that. Ranking days practised would carry the same social proof without the dose incentive. _Closes when design decides what the board ranks._
+
 **Tab icons lost their selected chrome.** The spec asked for SF Symbols and the app now uses them. The custom set existed to draw an outline when selected; SwiftUI substitutes its own filled variants instead. Built the spec's way on purpose. _Closes when design has seen the result on a device and confirms it._
 
 **History rows lost the cycle count.** The refreshed row is a dot, an exercise name and a right-aligned time. The count is gone from the screen and from what a screen reader hears. _Closes when design confirms the count is not wanted, or names where it goes._
