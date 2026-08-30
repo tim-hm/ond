@@ -10,6 +10,7 @@
 | [observability.md](observability.md)   | Before adding a log line.                                                           |
 | [voice.md](voice.md)                   | Before rewording a spoken cue, adding a voice, or re-rendering the clips.           |
 | [deployment.md](deployment.md)         | Before touching `infra/` or shipping a release.                                     |
+| [follow-ups.md](follow-ups.md)         | When picking up work: what was deliberately left open, and what closes it.          |
 
 ## Product
 
