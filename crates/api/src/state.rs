@@ -7,6 +7,7 @@ use sqlx::PgPool;
 use crate::config::Config;
 use crate::features::account::verifier::IdentityTokenVerifier;
 use crate::features::assistant::model::ModelClient;
+use crate::features::assistant::prompt::PrefixCache;
 use crate::features::entitlement::cache::CensusCache;
 use crate::features::entitlement::verifier::TransactionVerifier;
 use crate::features::technique::cache::CuratedCache;
@@ -60,6 +61,12 @@ pub struct AppState {
     /// restarts the process" invariant, and the assistant as a second reader.
     pub curated: CuratedCache,
 
+    /// The assistant's cacheable prompt prefix, rendered once per process from
+    /// [`AppState::curated`]. Here rather than beside the data it is built
+    /// from, because building it there would make `technique` depend on
+    /// `assistant`, which already depends on `technique`.
+    pub assistant_prefix: PrefixCache,
+
     /// The population scan behind the private metrics endpoint. Feature-owned
     /// because active-subscription meaning and gross monthly value are
     /// entitlement rules; on the shared state so every scrape shares one
@@ -108,6 +115,7 @@ impl AppState {
             throttle,
             phase_limits: PhaseLimitsCache::new(),
             curated: CuratedCache::new(),
+            assistant_prefix: PrefixCache::new(),
             census: CensusCache::new(),
         })
     }

@@ -42,6 +42,7 @@ impl AssistantService for AssistantServiceImpl {
             &self.state.pool,
             self.state.assistant.as_ref(),
             &self.state.curated,
+            &self.state.assistant_prefix,
             user_id,
             health,
         )
@@ -67,6 +68,7 @@ impl AssistantService for AssistantServiceImpl {
             &self.state.pool,
             self.state.assistant.as_ref(),
             &self.state.curated,
+            &self.state.assistant_prefix,
             user_id,
             request,
             // A refcount rather than a borrow: the stream outlives this call,

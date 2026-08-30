@@ -5,7 +5,7 @@
 //! rules, card etiquette, refusals — is here because no database holds it.
 
 use std::fmt::Write as _;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock, OnceLock};
 
 use super::super::types::{
     BOLT_BAND_BUILDING, BOLT_BAND_SOLID, BOLT_BAND_STRONG, BOLT_BAND_TARGET,
@@ -35,6 +35,26 @@ pub fn catalogue_prefix(catalogue: &[Technique], reference: &Reference) -> Strin
         ("bolt_strong", &BOLT_BAND_STRONG.to_string()),
         ("bolt_target", &BOLT_BAND_TARGET.to_string()),
     ])
+}
+
+/// [`catalogue_prefix`]'s output, rendered on the first call and then handed
+/// out by refcount. One cache per transport instance rather than a process
+/// global, for [`CuratedCache`](crate::features::technique::cache::CuratedCache)'s
+/// reason: each e2e stack derives from its own database, and a global would
+/// serve one stack's catalogue against another's.
+pub struct PrefixCache(OnceLock<Arc<str>>);
+
+impl PrefixCache {
+    pub const fn new() -> Self {
+        Self(OnceLock::new())
+    }
+
+    pub fn get(&self, catalogue: &[Technique], reference: &Reference) -> Arc<str> {
+        Arc::clone(
+            self.0
+                .get_or_init(|| catalogue_prefix(catalogue, reference).into()),
+        )
+    }
 }
 
 /// The prompt's prose, verbatim and compiled in. A file rather than a string

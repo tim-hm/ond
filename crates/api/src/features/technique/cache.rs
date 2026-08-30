@@ -12,7 +12,6 @@ use tokio::sync::OnceCell;
 use super::errors::TechniqueError;
 use super::service;
 use super::types::{Reference, Technique};
-use crate::features::assistant::prompt::catalogue_prefix;
 
 /// Everything curated that an assistant request reads.
 ///
@@ -22,12 +21,6 @@ use crate::features::assistant::prompt::catalogue_prefix;
 pub struct Curated {
     pub catalogue: Arc<Vec<Technique>>,
     pub reference: Arc<Reference>,
-
-    /// The assistant's cacheable prompt prefix, rendered once from the two
-    /// fields above. Derived here rather than in the assistant because it must
-    /// share this cell's lifetime: a process-wide cache would serve one e2e
-    /// stack's catalogue to another's database.
-    pub assistant_prefix: Arc<str>,
 }
 
 /// [`Curated`], derived once per process and then read from memory.
@@ -58,11 +51,9 @@ impl CuratedCache {
                 }
 
                 let reference = service::reference(pool).await?;
-                let assistant_prefix = catalogue_prefix(&catalogue, &reference).into();
                 Ok(Curated {
                     catalogue: Arc::new(catalogue),
                     reference: Arc::new(reference),
-                    assistant_prefix,
                 })
             })
             .await
