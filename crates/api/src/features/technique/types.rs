@@ -190,6 +190,13 @@ pub struct PlayablePhase {
     pub duration_ms: i32,
     pub min_duration_ms: i32,
     pub max_duration_ms: i32,
+
+    /// The authored cadence — the stillness closing the phase, the tap it
+    /// plays, the line it speaks. Carried for the wire projection on
+    /// `passage`'s terms; the assistant never reads any of the three.
+    pub turn_gap_ms: Option<i32>,
+    pub haptic_pattern: Option<String>,
+    pub voice_script: Option<String>,
 }
 
 #[cfg(test)]
@@ -218,6 +225,9 @@ impl Technique {
                         duration_ms: 4000,
                         min_duration_ms: 2000,
                         max_duration_ms: 8000,
+                        turn_gap_ms: None,
+                        haptic_pattern: None,
+                        voice_script: None,
                     },
                     PlayablePhase {
                         kind: PhaseKind::Exhale,
@@ -226,6 +236,9 @@ impl Technique {
                         duration_ms: 4000,
                         min_duration_ms: 2000,
                         max_duration_ms: 8000,
+                        turn_gap_ms: None,
+                        haptic_pattern: None,
+                        voice_script: None,
                     },
                 ],
             }],

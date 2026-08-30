@@ -250,6 +250,11 @@ fn assemble_playable_stages(
                 duration_ms: row.duration_ms,
                 min_duration_ms: row.min_duration_ms,
                 max_duration_ms: row.max_duration_ms,
+                // Nothing stores a cadence yet; the column arrives with the
+                // seed that can hold one.
+                turn_gap_ms: None,
+                haptic_pattern: None,
+                voice_script: None,
             });
     }
 
@@ -292,6 +297,17 @@ fn stage_to_proto(stage: PlayableStage) -> Result<pb::Stage, TechniqueError> {
                     max_duration_ms: wire::positive("phase maximum", phase.max_duration_ms)?,
                     passage: passage_to_proto(phase.passage) as i32,
                     manner: manner_to_proto(phase.manner) as i32,
+                    // `counted` rather than `positive`: an authored zero says
+                    // this rhythm turns without a gap, which is what a
+                    // continuous exercise means. The 0–600 ms bound is the
+                    // column's, and presence is what carries the distinction
+                    // a bare zero could not.
+                    turn_gap_ms: phase
+                        .turn_gap_ms
+                        .map(|gap| wire::counted("phase turn gap", gap))
+                        .transpose()?,
+                    haptic_pattern: phase.haptic_pattern,
+                    voice_script: phase.voice_script,
                 })
             })
             .collect::<Result<Vec<_>, TechniqueError>>()?,

@@ -148,6 +148,14 @@ fn phase_to_proto(
         // physiology. Mapped rather than written as the zero value, so this
         // module keeps a single domain-to-wire translation for the field.
         manner: manner_to_proto(None) as i32,
+        // Nor a cadence, for the same reason: the gap between two breaths, the
+        // tap and the spoken line are one authored deliverable per exercise,
+        // and the composer does not invite an author to design one. Absent
+        // leaves the client deriving all three, which is what it does for the
+        // curated catalogue too.
+        turn_gap_ms: None,
+        haptic_pattern: None,
+        voice_script: None,
     })
 }
 
