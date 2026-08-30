@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT technique_slug, note\n          FROM progression_steps\n          ORDER BY ordinal",
+  "query": "SELECT technique_slug AS \"technique_slug: TechniqueSlug\", note\n          FROM progression_steps\n          ORDER BY ordinal",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "technique_slug",
+        "name": "technique_slug: TechniqueSlug",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -34,5 +34,5 @@
       false
     ]
   },
-  "hash": "e9aade99172d6053080cedaca78fd1cf08f9b9f7af727e3a2c7573ab53d87da7"
+  "hash": "638afd78e43215331dc7dccb4890ad4eb4263288ae556aa9ace910145dbe3d7e"
 }

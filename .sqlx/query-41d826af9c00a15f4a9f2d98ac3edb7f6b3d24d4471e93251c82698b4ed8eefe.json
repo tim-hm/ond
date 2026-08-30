@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n            technique_id,\n            stage_ordinal,\n            kind AS \"kind: PhaseKind\",\n            passage AS \"passage: Passage\",\n            manner AS \"manner: Manner\",\n            duration_ms,\n            min_duration_ms,\n            max_duration_ms\n         FROM technique_phases\n         ORDER BY technique_id, stage_ordinal, ordinal",
+  "query": "SELECT\n            technique_id AS \"technique_id: TechniqueId\",\n            stage_ordinal,\n            kind AS \"kind: PhaseKind\",\n            passage AS \"passage: Passage\",\n            manner AS \"manner: Manner\",\n            duration_ms,\n            min_duration_ms,\n            max_duration_ms\n         FROM technique_phases\n         ORDER BY technique_id, stage_ordinal, ordinal",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "technique_id",
+        "name": "technique_id: TechniqueId",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -141,5 +141,5 @@
       false
     ]
   },
-  "hash": "001dbc7c852ad34ff7df86c9d2c63635b3264ffd0e5a1e71292b7d363c8d9910"
+  "hash": "41d826af9c00a15f4a9f2d98ac3edb7f6b3d24d4471e93251c82698b4ed8eefe"
 }

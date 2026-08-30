@@ -27,10 +27,18 @@ mod tests {
     };
     use crate::features::profile::types::{BirthYearBand, Gender, ProfileSnapshot};
     use crate::features::technique::types::{
-        DeliverySurface, FoundationHeading, Occasion, ProgressionStep, Reference, Technique,
-        TechniqueGoal,
+        DeliverySurface, FoundationHeading, Occasion, OccasionSlug, ProgressionStep, Reference,
+        Technique, TechniqueGoal, TechniqueSlug,
     };
     use crate::features::user_technique::types::SavedSummary;
+
+    fn technique_slug(slug: &str) -> TechniqueSlug {
+        TechniqueSlug::parse("slug", slug).expect("a fixture slug")
+    }
+
+    fn occasion_slug(slug: &str) -> OccasionSlug {
+        OccasionSlug::parse("slug", slug).expect("a fixture slug")
+    }
 
     fn catalogue() -> Vec<Technique> {
         ["box-breathing", "four-seven-eight"]
@@ -42,15 +50,15 @@ mod tests {
     fn reference() -> Reference {
         Reference {
             occasions: vec![Occasion {
-                slug: "before-a-presentation".to_owned(),
-                technique_slug: "box-breathing".to_owned(),
+                slug: occasion_slug("before-a-presentation"),
+                technique_slug: technique_slug("box-breathing"),
                 surface: DeliverySurface::FullScreen,
                 duration_ms: 180_000,
                 phase_durations_ms: vec![],
                 safety_note: String::new(),
             }],
             progression: vec![ProgressionStep {
-                technique_slug: "box-breathing".to_owned(),
+                technique_slug: technique_slug("box-breathing"),
             }],
             foundations: vec![FoundationHeading {
                 slug: "nose-or-mouth".to_owned(),
@@ -87,7 +95,7 @@ mod tests {
 
     fn entry(slug: &str, sessions: u32, minutes: u32) -> TechniquePractice {
         TechniquePractice {
-            technique_slug: slug.to_owned(),
+            technique_slug: technique_slug(slug),
             sessions,
             minutes,
         }
@@ -105,7 +113,7 @@ mod tests {
         assert_eq!(prefix, catalogue_prefix(&catalogue, &reference()));
         for technique in &catalogue {
             assert!(
-                prefix.contains(&technique.slug),
+                prefix.contains(technique.slug.as_str()),
                 "the catalogue carries `{}`",
                 technique.slug
             );
@@ -434,7 +442,7 @@ mod tests {
     #[test]
     fn the_prefix_carries_no_foundation_answers_and_no_occasion_copy() {
         let mut reference = reference();
-        reference.occasions[0].slug = "winding-down".to_owned();
+        reference.occasions[0].slug = occasion_slug("winding-down");
 
         let prefix = catalogue_prefix(&catalogue(), &reference);
         assert!(prefix.contains("winding-down → box-breathing"));

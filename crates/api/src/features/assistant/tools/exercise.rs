@@ -110,7 +110,7 @@ pub(super) fn payload(
         None
     };
     Some(pb::chat_response::Payload::Offer(pb::ExerciseOffer {
-        technique_slug: technique.slug.clone(),
+        technique_slug: technique.slug.clone().into_string(),
         overrides,
     }))
 }

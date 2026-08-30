@@ -22,10 +22,10 @@ use crate::proto::ond::v1 as pb;
 use crate::wire;
 
 /// The slug a personal technique travels under, in `sessions.technique_slug`
-/// above all.
-///
-/// Prefixed so a slug that resolves to nothing in the catalogue reads as a
-/// personal technique, not a corrupt curated one. Nothing parses it back out.
+/// above all. Prefixed so a slug that resolves to nothing in the catalogue
+/// reads as a personal technique, not a corrupt curated one. A `String` and
+/// not a `TechniqueSlug` because it is minted here rather than narrowed from a
+/// client; the test below pins the bound the constructor would apply.
 fn slug_for(id: Uuid) -> String {
     format!("own-{id}")
 }
@@ -229,6 +229,7 @@ pub(super) fn assemble_stages(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::features::technique::types::MAX_SLUG_CHARS;
     use crate::features::user_technique::types::PhaseLimit;
 
     /// A stand-in for what the seed derives to, wide enough that a test can put
@@ -294,6 +295,6 @@ mod tests {
         let slug = slug_for(Uuid::nil());
 
         assert!(slug.starts_with("own-"));
-        assert!(slug.chars().count() <= 64);
+        assert!(slug.chars().count() <= MAX_SLUG_CHARS);
     }
 }

@@ -5,7 +5,6 @@
 //! contains zero raw queries: SQL lives in `super::repository`.
 
 use sqlx::PgPool;
-use uuid::Uuid;
 
 use super::super::errors::JourneyError;
 use super::super::wire::timestamp_from_proto;
@@ -13,7 +12,7 @@ use super::repository;
 use super::types::RestingRateSnapshot;
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
-use crate::wire::counted;
+use crate::wire::{self, counted};
 
 /// The slowest accepted rate, matching `resting_rates.breaths_per_minute`'s `CHECK`.
 ///
@@ -53,12 +52,8 @@ pub async fn record_resting_rate(
     let breaths_per_minute = i32::try_from(rate)
         .map_err(|_| JourneyError::Invalid("`breaths_per_minute` is out of range".to_owned()))?;
 
-    let client_measurement_id = Uuid::parse_str(&request.client_measurement_id).map_err(|_| {
-        JourneyError::Invalid(format!(
-            "`client_measurement_id` `{}` is not a UUID",
-            request.client_measurement_id
-        ))
-    })?;
+    let client_measurement_id =
+        wire::uuid("client_measurement_id", &request.client_measurement_id)?;
 
     let measured_at = request
         .measured_at

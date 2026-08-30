@@ -98,6 +98,19 @@ The one documented exception is `CopyRegister`, and it names what an exception h
 
 That refusal has a consequence worth stating as policy: **adding an enum value to the contract strands installed clients.** An older build receiving the new value refuses the whole message it arrived in — a new catalogue passage or goal fails the entire `ListTechniques` decode, masked only by `CachedReferenceRepository` serving its last good snapshot. Pre-launch this costs nothing, and `buf breaking` will not flag it because an addition is not a wire break. Post-launch, an enum addition needs a migration story before the value ships: release the client that decodes it first and add the value to the server's data only after that build has adoption, or version the surface. The per-value refusal stays — a silent default that draws the wrong exercise is worse than a refused decode — so the rollout order is the whole of the discipline.
 
+## Identifier boundaries
+
+proto3 has no scalar for a UUID or a slug, so every identifier crosses as a `string`. They narrow at the same repository boundary the enums narrow at, for the same reason: above it, nothing should be able to pass one kind of identifier where another belongs.
+
+Four kinds travel, and they are different types on both sides of the boundary:
+
+- **A catalogue slug** — `TechniqueSlug` and `OccasionSlug` in `crates/api/src/features/technique/types.rs`. The stable key a client navigates by and a `sessions` row records. Two types, not one, because `occasions.slug` and `occasions.technique_slug` are different columns. This is the only kind that validates: `TechniqueSlug::parse` applies the 1–64 character bound that `sessions.technique_slug`'s `CHECK` states, in one place rather than in each feature that reads a client's slug.
+- **A technique's surrogate key** — `TechniqueId`, the cuid2 the seed mints. Nothing checks its shape. It is a type only so it cannot be handed to something expecting the slug, which compiles and fails as a `NOT_FOUND` the client cannot explain.
+- **A client-minted UUID** — `client_session_id`, `client_score_id`, `client_measurement_id`. Already `Uuid` inside the server; they need narrowing, not a type, so `crate::wire::uuid` does it once and every RPC refuses a mistyped id with the same sentence.
+- **The caller** — `UserId` in `crates/api/src/identity/`, which the middleware resolves and every scoped query binds.
+
+A slug that fails its bound is the caller's fault, so it travels back verbatim as `INVALID_ARGUMENT` through `wire::Malformed`. That is the whole reason `Malformed` is a separate type from `Unrepresentable`, which describes this server's own corrupt data and travels as `internal`.
+
 ## Changing the contract
 
 ```bash

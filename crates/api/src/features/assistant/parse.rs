@@ -31,20 +31,21 @@ pub fn parse_recommendations(reply: &str, catalogue: &[Technique]) -> Vec<Recomm
         }
 
         // The catalogue is the authority. A slug is kept because a row has it,
-        // never because it looks like one.
-        if resolve(catalogue, slug).is_none() {
+        // never because it looks like one — and what is kept is the row's own
+        // slug, so no model-written string survives the parse.
+        let Some(technique) = resolve(catalogue, slug) else {
             continue;
-        }
+        };
 
         if recommendations
             .iter()
-            .any(|kept| kept.technique_slug == slug)
+            .any(|kept| kept.technique_slug == technique.slug)
         {
             continue;
         }
 
         recommendations.push(Recommendation {
-            technique_slug: slug.to_owned(),
+            technique_slug: technique.slug.clone(),
             reason: reason.to_owned(),
         });
 
@@ -59,7 +60,7 @@ pub fn parse_recommendations(reply: &str, catalogue: &[Technique]) -> Vec<Recomm
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::features::technique::types::TechniqueGoal;
+    use crate::features::technique::types::{TechniqueGoal, TechniqueSlug};
 
     fn catalogue() -> Vec<Technique> {
         vec![
@@ -83,7 +84,8 @@ mod tests {
         assert_eq!(
             parsed,
             vec![Recommendation {
-                technique_slug: "box-breathing".to_owned(),
+                technique_slug: TechniqueSlug::parse("slug", "box-breathing")
+                    .expect("a fixture slug"),
                 reason: "Real one.".to_owned(),
             }]
         );
@@ -121,8 +123,8 @@ mod tests {
         );
 
         assert_eq!(parsed.len(), 2);
-        assert_eq!(parsed[0].technique_slug, "box-breathing");
-        assert_eq!(parsed[1].technique_slug, "four-seven-eight");
+        assert_eq!(parsed[0].technique_slug.as_str(), "box-breathing");
+        assert_eq!(parsed[1].technique_slug.as_str(), "four-seven-eight");
     }
 
     /// A repeated technique is one recommendation, and the list stays bounded

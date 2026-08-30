@@ -15,7 +15,7 @@ use super::errors::TechniqueError;
 use super::repository::{self, PhaseRow, StageRow};
 use super::types::{
     FoundationHeading, Occasion, PlayablePhase, PlayableStage, ProgressionStep, Reference,
-    Technique,
+    Technique, TechniqueId,
 };
 use crate::proto::ond::v1 as pb;
 use crate::wire;
@@ -49,8 +49,8 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
             let recommended_rounds = wire::positive("recommended rounds", row.recommended_rounds)?;
 
             Ok(pb::Technique {
-                id: row.id,
-                slug: row.slug,
+                id: row.id.into_string(),
+                slug: row.slug.into_string(),
                 name: row.name,
                 summary: row.summary,
                 mechanism: row.mechanism,
@@ -199,11 +199,11 @@ pub async fn list_routes(pool: &PgPool) -> Result<pb::ListRoutesResponse, Techni
                 .collect::<Result<Vec<_>, TechniqueError>>()?;
 
             Ok(pb::Occasion {
-                slug: row.slug,
+                slug: row.slug.into_string(),
                 name: row.name,
                 summary: row.summary,
                 prescription: Some(pb::Prescription {
-                    technique_slug: row.technique_slug,
+                    technique_slug: row.technique_slug.into_string(),
                     goal: goal_to_proto(row.goal) as i32,
                     surface: surface_to_proto(row.surface) as i32,
                     register: register_to_proto(row.register) as i32,
@@ -218,7 +218,7 @@ pub async fn list_routes(pool: &PgPool) -> Result<pb::ListRoutesResponse, Techni
     let progression = progression
         .into_iter()
         .map(|row| pb::ProgressionStep {
-            technique_slug: row.technique_slug,
+            technique_slug: row.technique_slug.into_string(),
             note: row.note,
         })
         .collect();
@@ -237,8 +237,8 @@ pub async fn list_routes(pool: &PgPool) -> Result<pb::ListRoutesResponse, Techni
 fn assemble_playable_stages(
     stages: Vec<StageRow>,
     phases: Vec<PhaseRow>,
-) -> Result<HashMap<String, Vec<PlayableStage>>, TechniqueError> {
-    let mut phases_by_stage: HashMap<(String, i32), Vec<PlayablePhase>> = HashMap::new();
+) -> Result<HashMap<TechniqueId, Vec<PlayableStage>>, TechniqueError> {
+    let mut phases_by_stage: HashMap<(TechniqueId, i32), Vec<PlayablePhase>> = HashMap::new();
     for row in phases {
         phases_by_stage
             .entry((row.technique_id, row.stage_ordinal))
@@ -253,7 +253,7 @@ fn assemble_playable_stages(
             });
     }
 
-    let mut stages_by_technique: HashMap<String, Vec<PlayableStage>> = HashMap::new();
+    let mut stages_by_technique: HashMap<TechniqueId, Vec<PlayableStage>> = HashMap::new();
     for row in stages {
         let key = (row.technique_id, row.ordinal);
         let phases = phases_by_stage.remove(&key).ok_or_else(|| {
@@ -305,18 +305,18 @@ mod tests {
     use super::*;
     use crate::features::technique::types::{Passage, PhaseKind};
 
-    fn stage_row(technique_id: &str, ordinal: i32) -> StageRow {
+    fn stage_row(technique_id: &TechniqueId, ordinal: i32) -> StageRow {
         StageRow {
-            technique_id: technique_id.to_owned(),
+            technique_id: technique_id.clone(),
             ordinal,
             cycles: 1,
             open_ended: false,
         }
     }
 
-    fn phase_row(technique_id: &str, stage_ordinal: i32, kind: PhaseKind) -> PhaseRow {
+    fn phase_row(technique_id: &TechniqueId, stage_ordinal: i32, kind: PhaseKind) -> PhaseRow {
         PhaseRow {
-            technique_id: technique_id.to_owned(),
+            technique_id: technique_id.clone(),
             stage_ordinal,
             kind,
             passage: kind.is_breathing().then_some(Passage::Nose),
@@ -344,16 +344,17 @@ mod tests {
     /// whichever order the map happens to iterate.
     #[test]
     fn stages_keep_their_play_order_through_the_grouping() {
-        let stages = vec![stage_row("wim-hof", 0), stage_row("wim-hof", 1)];
+        let wim_hof = TechniqueId::test("wim-hof");
+        let stages = vec![stage_row(&wim_hof, 0), stage_row(&wim_hof, 1)];
         let phases = vec![
-            phase_row("wim-hof", 0, PhaseKind::Inhale),
-            phase_row("wim-hof", 0, PhaseKind::Exhale),
-            phase_row("wim-hof", 1, PhaseKind::HoldOut),
+            phase_row(&wim_hof, 0, PhaseKind::Inhale),
+            phase_row(&wim_hof, 0, PhaseKind::Exhale),
+            phase_row(&wim_hof, 1, PhaseKind::HoldOut),
         ];
 
         let assembled =
             assemble_playable_stages(stages, phases).expect("the fixture is consistent");
-        let stages = &assembled["wim-hof"];
+        let stages = &assembled[&wim_hof];
 
         assert_eq!(stages.len(), 2);
         assert_eq!(
@@ -372,7 +373,10 @@ mod tests {
     #[test]
     fn a_phaseless_stage_is_inconsistent() {
         assert!(matches!(
-            assemble_playable_stages(vec![stage_row("box-breathing", 0)], vec![]),
+            assemble_playable_stages(
+                vec![stage_row(&TechniqueId::test("box-breathing"), 0)],
+                vec![]
+            ),
             Err(TechniqueError::Inconsistent(_))
         ));
     }

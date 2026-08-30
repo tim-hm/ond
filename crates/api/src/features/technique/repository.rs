@@ -5,14 +5,14 @@ use sqlx::types::Json;
 
 use super::errors::TechniqueError;
 use super::types::{
-    CopyRegister, DeliverySurface, EvidenceGrade, Manner, Passage, PhaseKind, ReadingContent,
-    TechniqueGoal,
+    CopyRegister, DeliverySurface, EvidenceGrade, Manner, OccasionSlug, Passage, PhaseKind,
+    ReadingContent, TechniqueGoal, TechniqueId, TechniqueSlug,
 };
 
 /// A technique without its stages.
 pub struct TechniqueRow {
-    pub id: String,
-    pub slug: String,
+    pub id: TechniqueId,
+    pub slug: TechniqueSlug,
     pub name: String,
     pub summary: String,
     /// Why it works, as curated copy — empty for a technique nobody has written
@@ -44,7 +44,7 @@ pub struct TechniqueRow {
 /// One stage, carrying the id of the technique it belongs to so the caller can
 /// group without a second lookup.
 pub struct StageRow {
-    pub technique_id: String,
+    pub technique_id: TechniqueId,
     pub ordinal: i32,
     pub cycles: i32,
     pub open_ended: bool,
@@ -52,7 +52,7 @@ pub struct StageRow {
 
 /// One phase, carrying the stage it belongs to for the same reason.
 pub struct PhaseRow {
-    pub technique_id: String,
+    pub technique_id: TechniqueId,
     pub stage_ordinal: i32,
     pub kind: PhaseKind,
     /// `None` exactly when `kind` is a hold, which the column's `CHECK` is what
@@ -79,10 +79,10 @@ pub struct FoundationTopicRow {
 /// surrogate id, so the route arrives already speaking the key a client
 /// navigates by and this read needs no join.
 pub struct OccasionRow {
-    pub slug: String,
+    pub slug: OccasionSlug,
     pub name: String,
     pub summary: String,
-    pub technique_slug: String,
+    pub technique_slug: TechniqueSlug,
     pub goal: TechniqueGoal,
     pub surface: DeliverySurface,
     pub register: CopyRegister,
@@ -93,7 +93,7 @@ pub struct OccasionRow {
 
 /// One rung of the Start here progression, in curated order.
 pub struct ProgressionStepRow {
-    pub technique_slug: String,
+    pub technique_slug: TechniqueSlug,
     pub note: String,
 }
 
@@ -102,8 +102,8 @@ pub async fn list_techniques(pool: &PgPool) -> Result<Vec<TechniqueRow>, Techniq
     let rows = sqlx::query_as!(
         TechniqueRow,
         r#"SELECT
-            id,
-            slug,
+            id AS "id: TechniqueId",
+            slug AS "slug: TechniqueSlug",
             name,
             summary,
             mechanism,
@@ -134,9 +134,13 @@ pub async fn list_techniques(pool: &PgPool) -> Result<Vec<TechniqueRow>, Techniq
 pub async fn list_all_stages(pool: &PgPool) -> Result<Vec<StageRow>, TechniqueError> {
     let rows = sqlx::query_as!(
         StageRow,
-        r"SELECT technique_id, ordinal, cycles, open_ended
-          FROM technique_stages
-          ORDER BY technique_id, ordinal"
+        r#"SELECT
+            technique_id AS "technique_id: TechniqueId",
+            ordinal,
+            cycles,
+            open_ended
+         FROM technique_stages
+         ORDER BY technique_id, ordinal"#
     )
     .fetch_all(pool)
     .await?;
@@ -149,7 +153,7 @@ pub async fn list_all_phases(pool: &PgPool) -> Result<Vec<PhaseRow>, TechniqueEr
     let rows = sqlx::query_as!(
         PhaseRow,
         r#"SELECT
-            technique_id,
+            technique_id AS "technique_id: TechniqueId",
             stage_ordinal,
             kind AS "kind: PhaseKind",
             passage AS "passage: Passage",
@@ -171,10 +175,10 @@ pub async fn list_occasions(pool: &PgPool) -> Result<Vec<OccasionRow>, Technique
     let rows = sqlx::query_as!(
         OccasionRow,
         r#"SELECT
-            slug,
+            slug AS "slug: OccasionSlug",
             name,
             summary,
-            technique_slug,
+            technique_slug AS "technique_slug: TechniqueSlug",
             goal AS "goal: TechniqueGoal",
             surface AS "surface: DeliverySurface",
             register AS "register: CopyRegister",
@@ -196,9 +200,9 @@ pub async fn list_progression_steps(
 ) -> Result<Vec<ProgressionStepRow>, TechniqueError> {
     let rows = sqlx::query_as!(
         ProgressionStepRow,
-        r"SELECT technique_slug, note
+        r#"SELECT technique_slug AS "technique_slug: TechniqueSlug", note
           FROM progression_steps
-          ORDER BY ordinal"
+          ORDER BY ordinal"#
     )
     .fetch_all(pool)
     .await?;

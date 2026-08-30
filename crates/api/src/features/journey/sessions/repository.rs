@@ -9,13 +9,13 @@ use uuid::Uuid;
 
 use super::super::errors::JourneyError;
 use super::types::{PRACTICE_WINDOW_DAYS, SessionCursor};
-use crate::features::technique::types::DeliverySurface;
+use crate::features::technique::types::{DeliverySurface, OccasionSlug, TechniqueSlug};
 use crate::identity::UserId;
 
 /// One row of `sessions`, in both directions.
 pub struct SessionRow {
     pub client_session_id: Uuid,
-    pub technique_slug: String,
+    pub technique_slug: TechniqueSlug,
     pub started_at: DateTime<Utc>,
     pub duration_ms: i32,
     pub cycles_completed: i32,
@@ -23,7 +23,7 @@ pub struct SessionRow {
     pub completed: bool,
     /// The occasion that prescribed the session, `None` when the person picked
     /// the technique themselves.
-    pub occasion_slug: Option<String>,
+    pub occasion_slug: Option<OccasionSlug>,
     /// `None` on rows recorded before the column existed, which every reader
     /// treats as full-screen — the only surface any client could deliver then.
     pub surface: Option<DeliverySurface>,
@@ -58,13 +58,23 @@ pub async fn insert_sessions(
     sessions: &[SessionRow],
 ) -> Result<usize, JourneyError> {
     let ids: Vec<Uuid> = sessions.iter().map(|s| s.client_session_id).collect();
-    let slugs: Vec<String> = sessions.iter().map(|s| s.technique_slug.clone()).collect();
+    let slugs: Vec<String> = sessions
+        .iter()
+        .map(|s| s.technique_slug.as_str().to_owned())
+        .collect();
     let started_at: Vec<DateTime<Utc>> = sessions.iter().map(|s| s.started_at).collect();
     let durations: Vec<i32> = sessions.iter().map(|s| s.duration_ms).collect();
     let cycles: Vec<i32> = sessions.iter().map(|s| s.cycles_completed).collect();
     let breaths: Vec<i32> = sessions.iter().map(|s| s.breath_count).collect();
     let completed: Vec<bool> = sessions.iter().map(|s| s.completed).collect();
-    let occasions: Vec<Option<String>> = sessions.iter().map(|s| s.occasion_slug.clone()).collect();
+    let occasions: Vec<Option<String>> = sessions
+        .iter()
+        .map(|s| {
+            s.occasion_slug
+                .as_ref()
+                .map(|slug| slug.as_str().to_owned())
+        })
+        .collect();
     let surfaces: Vec<Option<DeliverySurface>> = sessions.iter().map(|s| s.surface).collect();
 
     let inserted = sqlx::query_scalar!(
@@ -210,7 +220,7 @@ pub async fn streaks(
 
 /// One technique's aggregate over the snapshot window.
 pub struct TechniquePracticeRow {
-    pub technique_slug: String,
+    pub technique_slug: TechniqueSlug,
     pub sessions: i64,
     /// Summed rather than pre-divided, for the same reason as [`TotalsRow`].
     pub duration_ms: i64,
@@ -227,7 +237,7 @@ pub async fn recent_practice(
 ) -> Result<Vec<TechniquePracticeRow>, JourneyError> {
     let rows = sqlx::query_as!(
         TechniquePracticeRow,
-        r#"SELECT technique_slug,
+        r#"SELECT technique_slug AS "technique_slug: TechniqueSlug",
                 count(*) AS "sessions!",
                 sum(duration_ms)::bigint AS "duration_ms!"
          FROM sessions
@@ -294,9 +304,12 @@ pub async fn recent_sessions(
 ) -> Result<Vec<SessionRow>, JourneyError> {
     let rows = sqlx::query_as!(
         SessionRow,
-        r#"SELECT client_session_id, technique_slug, started_at,
+        r#"SELECT client_session_id,
+                technique_slug AS "technique_slug: TechniqueSlug",
+                started_at,
                 duration_ms, cycles_completed, breath_count, completed,
-                occasion_slug, surface AS "surface: DeliverySurface"
+                occasion_slug AS "occasion_slug: OccasionSlug",
+                surface AS "surface: DeliverySurface"
          FROM sessions
          WHERE user_id = $1
            AND ($3::timestamptz IS NULL

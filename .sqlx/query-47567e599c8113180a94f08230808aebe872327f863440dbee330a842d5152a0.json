@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO apple_authorization_challenges (\n             user_id, purpose, nonce_hash, expires_at\n         ) VALUES ($1, $2, $3, $4)\n         ON CONFLICT (user_id, purpose) DO UPDATE SET\n             nonce_hash = EXCLUDED.nonce_hash,\n             expires_at = EXCLUDED.expires_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "apple_authorization_purpose",
+            "kind": {
+              "Enum": [
+                "SIGN_IN",
+                "DELETE_ACCOUNT"
+              ]
+            }
+          }
+        },
+        "Bytea",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "47567e599c8113180a94f08230808aebe872327f863440dbee330a842d5152a0"
+}

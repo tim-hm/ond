@@ -4,6 +4,10 @@
 //! `_UNSPECIFIED` zero the wire format can always produce, and these carry no such variant, so a
 //! value that reaches the repository is already one the database accepts.
 
+use std::fmt;
+
+use crate::wire::Malformed;
+
 /// Mirrors the `technique_goal` Postgres enum.
 ///
 /// `Deserialize` is the assistant's tool arguments arriving as JSON: a model that invents a goal
@@ -122,7 +126,7 @@ pub enum Manner {
 pub struct Technique {
     /// The stable name a client navigates by, and the only string the assistant
     /// is ever allowed to emit as a technique.
-    pub slug: String,
+    pub slug: TechniqueSlug,
 
     pub name: String,
 
@@ -196,7 +200,7 @@ impl Technique {
     /// one place instead of one copy per test module.
     pub fn test(slug: &str, goal: TechniqueGoal) -> Self {
         Self {
-            slug: slug.to_owned(),
+            slug: TechniqueSlug::parse("slug", slug).expect("a fixture slug"),
             name: slug.to_owned(),
             summary: "a summary".to_owned(),
             mechanism: "a mechanism".to_owned(),
@@ -246,8 +250,8 @@ pub struct Reference {
 /// screen would fall out of step. So is `goal`: an occasion may borrow one its technique does not
 /// have, which the screens act on and the coach has no use for.
 pub struct Occasion {
-    pub slug: String,
-    pub technique_slug: String,
+    pub slug: OccasionSlug,
+    pub technique_slug: TechniqueSlug,
     pub surface: DeliverySurface,
     pub duration_ms: i32,
     pub phase_durations_ms: Vec<i32>,
@@ -257,7 +261,7 @@ pub struct Occasion {
 /// One rung of the Start here progression, in curated order. The seeded `note`
 /// is left behind for [`Occasion`]'s reason.
 pub struct ProgressionStep {
-    pub technique_slug: String,
+    pub technique_slug: TechniqueSlug,
 }
 
 /// One foundation topic's slug and question, without its answer.
@@ -266,21 +270,167 @@ pub struct ProgressionStep {
 /// the app holds a considered position on nose-versus-mouth and hold length. The thirteen answers
 /// would cost fourteen hundred for phrasings a model of this class already matches.
 pub struct FoundationHeading {
+    /// A `String` where the other three slugs are types: nothing beside it here
+    /// is an identifier, so there is nothing for a type to keep it apart from.
     pub slug: String,
     pub question: String,
 }
 
 /// The longest slug the wire accepts, in characters — matching the `CHECK` on
-/// `sessions.technique_slug`, and the bound every feature that reads a
-/// client-supplied slug shares. Beside [`resolve`] because the two questions —
-/// "could this be a slug" and "is it one" — must not drift apart per feature.
+/// `sessions.technique_slug`. Applied in one place, [`TechniqueSlug::parse`],
+/// so the bound cannot drift per feature the way it did while each feature
+/// that read a client-supplied slug checked it itself.
 pub const MAX_SLUG_CHARS: usize = 64;
 
-/// The technique a slug names, or `None` for one the catalogue does not hold.
+/// A catalogue technique's stable key: what a client navigates by and what a
+/// `sessions` row records. A type rather than a `String` because a technique
+/// carries this and a [`TechniqueId`] side by side, which to a compiler are
+/// one thing. It arrives from a column the `CHECK` has bounded, or through
+/// [`TechniqueSlug::parse`].
+#[derive(Debug, Clone, PartialEq, Eq, Hash, sqlx::Type)]
+#[sqlx(transparent)]
+pub struct TechniqueSlug(String);
+
+/// An occasion's own stable key, in the namespace beside the technique slug it
+/// prescribes — `occasions.slug` and `occasions.technique_slug` are different
+/// columns, and a row carries one of each.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, sqlx::Type)]
+#[sqlx(transparent)]
+pub struct OccasionSlug(String);
+
+/// A technique row's surrogate key, which the seed mints as a cuid2.
+///
+/// Nothing checks its shape: what it looks like is the seed's business. It is a
+/// type only so that it cannot be handed to something expecting the slug — the
+/// mistake that compiles and surfaces as a `NOT_FOUND` a client cannot explain.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, sqlx::Type)]
+#[sqlx(transparent)]
+pub struct TechniqueId(String);
+
+impl TechniqueSlug {
+    /// Narrows one of a client's strings, naming the field it arrived in.
+    pub fn parse(field: &str, raw: &str) -> Result<Self, Malformed> {
+        bounded(field, raw).map(Self)
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Gives the string back on the way out to the wire, where proto3 has no
+    /// type to carry the distinction this one exists for.
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl OccasionSlug {
+    /// [`TechniqueSlug::parse`]'s bound, applied to the other namespace.
+    pub fn parse(field: &str, raw: &str) -> Result<Self, Malformed> {
+        bounded(field, raw).map(Self)
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// [`TechniqueSlug::into_string`]'s exit, for the other namespace.
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl TechniqueId {
+    /// [`TechniqueSlug::into_string`]'s exit, for the surrogate key.
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+#[cfg(test)]
+impl TechniqueId {
+    /// Fixture-only. Every shipping path reads one out of a column, so nothing
+    /// outside a test has any business minting a surrogate key.
+    pub fn test(id: &str) -> Self {
+        Self(id.to_owned())
+    }
+}
+
+/// The one place the slug bound is applied. Trimmed first: a slug arriving with
+/// surrounding space is a client bug, and storing it would record a session
+/// against a technique nothing can ever match.
+fn bounded(field: &str, raw: &str) -> Result<String, Malformed> {
+    let slug = raw.trim();
+    if slug.is_empty() || slug.chars().count() > MAX_SLUG_CHARS {
+        return Err(Malformed(format!(
+            "`{field}` must be between 1 and {MAX_SLUG_CHARS} characters"
+        )));
+    }
+    Ok(slug.to_owned())
+}
+
+impl fmt::Display for TechniqueSlug {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+impl fmt::Display for OccasionSlug {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+impl fmt::Display for TechniqueId {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+/// The technique a string names, or `None` for one the catalogue does not hold.
 ///
 /// The one definition of "resolves in the catalogue", shared by the reply parser, the prompt's
 /// echo guard, and the fallback's goal attribution. An unresolvable slug is client free text and
 /// must never reach a client or a prompt, so any change to how a slug matches happens here.
 pub fn resolve<'a>(catalogue: &'a [Technique], slug: &str) -> Option<&'a Technique> {
-    catalogue.iter().find(|technique| technique.slug == slug)
+    // A `&str` and not a [`TechniqueSlug`]: untrusted text is what is tested
+    // here, and what comes back carries the catalogue's own slug.
+    catalogue
+        .iter()
+        .find(|technique| technique.slug.as_str() == slug)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The bound is the `CHECK`'s, and it is inclusive at the top: a slug of
+    /// exactly the limit is one the column accepts, and refusing it here would
+    /// make the documented number wrong by one.
+    #[test]
+    fn the_slug_bound_matches_the_column() {
+        let longest = "a".repeat(MAX_SLUG_CHARS);
+        assert_eq!(
+            TechniqueSlug::parse("technique_slug", &longest)
+                .expect("the limit itself is a slug")
+                .as_str(),
+            longest
+        );
+
+        assert!(TechniqueSlug::parse("technique_slug", &"a".repeat(MAX_SLUG_CHARS + 1)).is_err());
+        assert!(TechniqueSlug::parse("technique_slug", "").is_err());
+        assert!(TechniqueSlug::parse("technique_slug", "   ").is_err());
+    }
+
+    /// Surrounding space is trimmed rather than refused, so a client that pads
+    /// a slug records the session it meant instead of one nothing matches.
+    #[test]
+    fn a_padded_slug_is_the_slug_it_names() {
+        assert_eq!(
+            TechniqueSlug::parse("technique_slug", "  box-breathing\n")
+                .expect("padding is not a rejection")
+                .as_str(),
+            "box-breathing"
+        );
+    }
 }

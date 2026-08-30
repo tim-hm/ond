@@ -8,6 +8,7 @@ use super::super::bolt::types::BoltSnapshot;
 use super::super::errors::JourneyError;
 use super::super::resting_rate::types::RestingRateSnapshot;
 use super::repository::SessionRow;
+use crate::features::technique::types::TechniqueSlug;
 
 /// How far back the practice snapshot looks, in whole days ending now. Thirty
 /// days of UTC, with no client offset: the snapshot feeds offset-insensitive
@@ -87,7 +88,7 @@ pub struct StreakSummary {
 /// One technique's share of the window.
 #[derive(Debug, PartialEq, Eq)]
 pub struct TechniquePractice {
-    pub technique_slug: String,
+    pub technique_slug: TechniqueSlug,
     pub sessions: u32,
     pub minutes: u32,
 }

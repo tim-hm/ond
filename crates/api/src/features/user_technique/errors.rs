@@ -39,6 +39,14 @@ pub enum UserTechniqueError {
     Database(#[from] sqlx::Error),
 }
 
+/// Carries `crate::wire`'s refusals of a client's own values as this feature's
+/// invalid-argument case, so a call site narrowing an id stays a bare `?`.
+impl From<crate::wire::Malformed> for UserTechniqueError {
+    fn from(error: crate::wire::Malformed) -> Self {
+        Self::Invalid(error.0)
+    }
+}
+
 /// Logs server-side faults before converting them.
 ///
 /// Same rule as the other features: an `internal` status tells the client

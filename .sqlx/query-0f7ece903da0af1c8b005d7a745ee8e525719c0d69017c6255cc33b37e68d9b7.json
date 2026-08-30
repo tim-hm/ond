@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n            slug,\n            name,\n            summary,\n            technique_slug,\n            goal AS \"goal: TechniqueGoal\",\n            surface AS \"surface: DeliverySurface\",\n            register AS \"register: CopyRegister\",\n            duration_ms,\n            phase_durations_ms,\n            safety_note\n         FROM occasions\n         ORDER BY sort_order",
+  "query": "SELECT\n            slug AS \"slug: OccasionSlug\",\n            name,\n            summary,\n            technique_slug AS \"technique_slug: TechniqueSlug\",\n            goal AS \"goal: TechniqueGoal\",\n            surface AS \"surface: DeliverySurface\",\n            register AS \"register: CopyRegister\",\n            duration_ms,\n            phase_durations_ms,\n            safety_note\n         FROM occasions\n         ORDER BY sort_order",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "slug",
+        "name": "slug: OccasionSlug",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -38,7 +38,7 @@
       },
       {
         "ordinal": 3,
-        "name": "technique_slug",
+        "name": "technique_slug: TechniqueSlug",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -163,5 +163,5 @@
       false
     ]
   },
-  "hash": "4d105661ab33d8917b64652153529f3b6c3e4c49d09295ec20fe86906796c5ba"
+  "hash": "0f7ece903da0af1c8b005d7a745ee8e525719c0d69017c6255cc33b37e68d9b7"
 }

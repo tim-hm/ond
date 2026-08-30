@@ -5,7 +5,7 @@
 
 use crate::features::entitlement::types::Tier;
 use crate::features::profile::types::{BirthYearBand, ExperienceLevel, Gender};
-use crate::features::technique::types::TechniqueGoal;
+use crate::features::technique::types::{TechniqueGoal, TechniqueSlug};
 
 /// What a goal is called in prose.
 ///
@@ -166,7 +166,7 @@ pub const FIELD_SEPARATOR: char = '|';
 /// so nothing above the parser has to wonder whether a slug is real.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Recommendation {
-    pub technique_slug: String,
+    pub technique_slug: TechniqueSlug,
     pub reason: String,
 }
 

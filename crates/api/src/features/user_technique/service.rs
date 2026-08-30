@@ -5,7 +5,6 @@
 //! is `super::validation`; assembling a response is `super::convert`.
 
 use sqlx::PgPool;
-use uuid::Uuid;
 
 use super::convert::{
     StoredTechnique, assemble_stages, authored_to_proto, limits_to_proto, technique_to_proto,
@@ -16,6 +15,7 @@ use super::types::{MAX_TECHNIQUES, PhaseLimits, SavedSummary};
 use super::validation::validate;
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
+use crate::wire;
 
 /// Whether this draft is one this feature would accept, for another feature
 /// about to propose it. The assistant's save-this-pattern card runs the same
@@ -138,7 +138,7 @@ pub async fn update(
     draft: Option<pb::TechniqueDraft>,
     limits: &PhaseLimits,
 ) -> Result<pb::UpdateUserTechniqueResponse, UserTechniqueError> {
-    let id = parse_id(id)?;
+    let id = wire::uuid("id", id)?;
     let authored = validate(draft, limits)?;
 
     repository::replace(pool, user_id, id, &authored).await?;
@@ -154,13 +154,8 @@ pub async fn delete(
     user_id: UserId,
     id: &str,
 ) -> Result<pb::DeleteUserTechniqueResponse, UserTechniqueError> {
-    let id = parse_id(id)?;
+    let id = wire::uuid("id", id)?;
     repository::delete(pool, user_id, id).await?;
 
     Ok(pb::DeleteUserTechniqueResponse {})
-}
-
-fn parse_id(id: &str) -> Result<Uuid, UserTechniqueError> {
-    Uuid::parse_str(id)
-        .map_err(|_| UserTechniqueError::Invalid(format!("`{id}` is not a technique id")))
 }

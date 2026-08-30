@@ -67,7 +67,10 @@ async fn the_snapshot_counts_only_the_window() {
         "the forty-day-old session is history, not recent practice"
     );
     assert_eq!(snapshot.by_technique.len(), 1);
-    assert_eq!(snapshot.by_technique[0].technique_slug, "box-breathing");
+    assert_eq!(
+        snapshot.by_technique[0].technique_slug.as_str(),
+        "box-breathing"
+    );
     assert_eq!(
         (
             snapshot.by_technique[0].sessions,
