@@ -3,10 +3,9 @@ import OndUI
 import SwiftUI
 
 /// Where this person stands, inline on the Progress screen, and the way to
-/// the full board. It draws whichever board was last chosen: `JourneyModel.board`
-/// is the person's selection, and a card with an opinion of its own would
-/// overwrite it or fetch a second time to disagree. Never a rank for how calm
-/// anybody got — every board counts what somebody did, and the caption says so.
+/// the full board. It draws whichever board `JourneyModel.board` holds, which is
+/// the person's own selection. A card that picked its own board would overwrite
+/// that selection, or fetch a second board to disagree with it.
 struct BoardCard: View {
     let model: JourneyModel
     let profiles: ProfileStore
@@ -97,8 +96,8 @@ struct BoardCard: View {
     /// name is unset, and what the board measures once both are settled.
     private var caption: String {
         guard isUnlocked else {
-            return "Streaks, minutes and comfortable pauses, ranked against everybody practising. "
-                + "Part of \(SubscriptionTier.leaderboards.title)."
+            return "Streaks, comfortable pauses, resting breathing and minutes, ranked against "
+                + "everybody practising. Part of \(SubscriptionTier.leaderboards.title)."
         }
 
         guard case let .loaded(leaderboard) = model.leaderboard,
@@ -110,6 +109,7 @@ struct BoardCard: View {
 
     /// The opt-in, in the words the whole feature is bound by.
     private var unlisted: String {
-        "Off until you put a name to it. It ranks minutes practised, streaks and comfortable pauses."
+        "Off until you put a name to it. "
+            + "It ranks streaks, comfortable pauses, resting breathing and minutes."
     }
 }

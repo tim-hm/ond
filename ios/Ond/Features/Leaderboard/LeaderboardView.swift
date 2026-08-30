@@ -44,8 +44,8 @@ struct LeaderboardView: View {
             Label("See where you stand", systemImage: "trophy")
         } description: {
             Text(
-                "Streaks, minutes and comfortable pauses, ranked against everybody "
-                    + "practising, and against people born in the same decade as you."
+                "Streaks, comfortable pauses, resting breathing and minutes, ranked against "
+                    + "everybody practising, and against people born in the same decade as you."
             )
         } actions: {
             UpgradePrompt(reason: "The boards are part of", for: .leaderboards)
