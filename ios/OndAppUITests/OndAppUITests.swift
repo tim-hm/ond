@@ -255,10 +255,12 @@ final class OndAppUITests: XCTestCase {
         app.tabBars.buttons["Progress"].tap()
 
         XCTAssertTrue(app.navigationBars["Progress"].waitForExistence(timeout: 10))
-        XCTAssertFalse(app.descendants(matching: .any)["practice-summary"].exists)
-        XCTAssertTrue(app.buttons["leaderboards-door"].exists)
+
+        // The empty journal this harness launches on: the chart draws its
+        // baseline and says so, and nothing that needs a row draws at all.
         XCTAssertTrue(app.descendants(matching: .any)["practice-chart"].exists)
-        XCTAssertTrue(app.staticTexts["History"].exists)
+        XCTAssertTrue(app.staticTexts["Your first session starts this chart."].exists)
+        XCTAssertFalse(app.buttons["leaderboards-door"].exists)
 
         try app.performAccessibilityAudit { issue in
             guard issue.auditType == .contrast,

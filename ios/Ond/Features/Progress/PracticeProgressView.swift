@@ -2,11 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// Progress: the shape, record and shared context of this person's practice,
-/// ordered from the most folded to the least — a rhythm, a number, a reading,
-/// a record, a standing. Everything above the board is computed from the
-/// sessions on this phone, so the tab is complete in airplane mode;
-/// `BoardCard` is the only thing that can wait on a network.
+/// Progress: the shape, record and shared context of this person's practice.
+/// The summary sits first and whole — chart, figures, board — because it is
+/// what "how am I doing" is asked of; the log follows it under a rule and
+/// never pushes it off the screen. Everything above the board is computed from
+/// the sessions on this phone, so the tab is complete in airplane mode.
 struct PracticeProgressView: View {
     let model: JourneyModel
 
@@ -31,11 +31,13 @@ struct PracticeProgressView: View {
     /// figure above are deleted together.
     @State private var toDelete: SessionRecord?
 
+    /// What the summary and the log are set apart by.
+    private static let historyGap: CGFloat = 30
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 content
-                    .padding(.horizontal, Theme.Spacing.page)
                     .padding(.top, Theme.Spacing.close)
                     .padding(.bottom, Theme.Spacing.loose)
             }
@@ -86,90 +88,98 @@ struct PracticeProgressView: View {
         }
     }
 
+    /// One lazy stack rather than nested ones, because the day headers stick to
+    /// the top of the scroll on the way past and only a section directly inside
+    /// the stack can be pinned.
     private var content: some View {
         let names = techniqueNames
         let goals = techniqueGoals
         let rhythm = PracticeRhythm(sessions: model.history, goals: goals)
+        let days = SessionDay.grouped(model.visibleHistory)
 
-        return VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
-                PracticeChartView(rhythm: rhythm)
-                PracticeFigures(rhythm: rhythm)
+        return LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+            PracticeSummary(rhythm: rhythm, model: model, profiles: profiles)
+                .padding(.horizontal, Theme.Spacing.page)
+
+            if !days.isEmpty {
+                historyHeading
+
+                ForEach(days) { day in
+                    Section {
+                        rows(of: day, names: names, goals: goals)
+                    } header: {
+                        SessionDayHeader(day: day)
+                    }
+                }
+
+                earlierSessions
             }
-            .padding(Theme.Spacing.standard)
-            .glassCard()
-
-            practiceHeart
-
-            LabelledSection(title: "History") {
-                sessionHistory(names: names, goals: goals)
-            }
-
-            BoardCard(model: model, profiles: profiles)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// The heart card, only where the tier includes it *and* the heartline is
-    /// non-nil. The heartline is nil for every silence there is — not read,
-    /// not allowed, no watch, too few readings — so there is no empty state
-    /// and no locked teaser: a card about a person's heartbeat is the last
-    /// place önd should advertise a subscription.
-    @ViewBuilder
-    private var practiceHeart: some View {
-        if plus.tier >= .healthTrends, let heartline = heart.practiceHeart {
-            PracticeHeartCard(heartline: heartline)
+    /// The rule and the gap that set the log apart from the summary, and the
+    /// log's own heading. The heading carries the lifetime count so the list's
+    /// depth is legible without scrolling it.
+    private var historyHeading: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Divider().overlay(Theme.Surface.line)
+
+            LabelledSection(title: historyTitle)
+                .padding(.top, Self.historyGap)
         }
+        .padding(.horizontal, Theme.Spacing.page)
+        .padding(.bottom, Theme.Spacing.close)
     }
 
-    @ViewBuilder
-    private func sessionHistory(
+    private var historyTitle: String {
+        let lifetime = model.stats.sessions
+        return lifetime == 1 ? "History · 1 session" : "History · \(lifetime) sessions"
+    }
+
+    private func rows(
+        of day: SessionDay,
         names: [String: String],
         goals: [String: TechniqueGoal]
     ) -> some View {
-        if model.history.isEmpty {
-            Text("Every session you breathe lands here.")
-                .font(.callout)
-                .foregroundStyle(Theme.Ink.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(Theme.Spacing.standard)
-                .glassCard()
-        } else {
-            // The bounded slice gives Dynamic Type a stable hierarchy to
-            // reflow. Revealing another page changes only this local view; the
-            // complete history already feeds the summary and chart.
-            VStack(spacing: 0) {
-                ForEach(
-                    Array(model.visibleHistory.enumerated()),
-                    id: \.element.id
-                ) { index, record in
-                    SessionHistoryRow(
-                        record: record,
-                        name: names[record.techniqueSlug] ?? record.techniqueSlug,
-                        goal: goals[record.techniqueSlug]
-                    )
-                    .contextMenu {
-                        Button("Delete session", systemImage: "trash", role: .destructive) {
-                            toDelete = record
-                        }
-                    }
-
-                    if index < model.visibleHistory.count - 1 {
-                        Divider().overlay(Theme.Surface.line)
+        VStack(spacing: 0) {
+            ForEach(Array(day.sessions.enumerated()), id: \.element.id) { index, record in
+                SessionHistoryRow(
+                    record: record,
+                    name: names[record.techniqueSlug] ?? record.techniqueSlug,
+                    goal: goals[record.techniqueSlug]
+                )
+                .contextMenu {
+                    Button("Delete session", systemImage: "trash", role: .destructive) {
+                        toDelete = record
                     }
                 }
-            }
-            .padding(.horizontal, Theme.Spacing.standard)
-            .glassCard()
 
-            if model.hasEarlierSessions {
-                Button("Show earlier sessions") {
-                    model.revealEarlierSessions()
+                if index < day.sessions.count - 1 {
+                    Divider().overlay(Theme.Surface.line)
                 }
-                .font(.callout)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.top, Theme.Spacing.tight)
             }
+        }
+        .padding(.horizontal, Theme.Spacing.page)
+    }
+
+    /// The next page. Reaching the bottom is itself the request for it, so the
+    /// page loads on appearance; the button stays for somebody who navigates
+    /// here rather than scrolls, and for whom nothing has appeared.
+    @ViewBuilder
+    private var earlierSessions: some View {
+        if model.hasEarlierSessions {
+            Button("Show earlier sessions") {
+                model.revealEarlierSessions()
+            }
+            .buttonStyle(.plain)
+            .font(.callout)
+            // The brand blue that reads as small type: `Breath.inhale`'s own
+            // light value measures 4.01:1 on this ground, under the floor.
+            .foregroundStyle(Theme.Accent.brandText)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, Theme.Spacing.standard)
+            .onAppear { model.revealEarlierSessions() }
         }
     }
 
