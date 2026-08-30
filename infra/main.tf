@@ -164,6 +164,18 @@ module "logs" {
     }
   }
 
+  # The same hardening the dumps bucket states rather than inherits, and for the
+  # same reason: an upstream default that relaxes under a major version bump
+  # must not be what decides. Thirty-five days of application logs cross the
+  # internet from the compactor, so refusing plaintext transport costs as little
+  # here as it does there.
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+
+  attach_deny_insecure_transport_policy = true
+
   # Belt as well as Loki's own compactor. `retention_period` in loki.yaml is
   # what actually deletes, and it only runs because the compactor is explicitly
   # enabled — a config that quietly stops honouring it would otherwise grow this
