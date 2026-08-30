@@ -1,6 +1,7 @@
 import OndKit
 import OndUI
 import SwiftUI
+import UIKit
 
 /// One conversation with the coach, drawn as a messenger thread. Reached from
 /// `CoachRootView` on an empty or resumed conversation, or pushed from an
@@ -33,6 +34,10 @@ struct CoachChatView: View {
     /// is not kept — there is one subscription to sell either way.
     @State private var isShowingPaywall = false
     @State private var isTakingBoltTest = false
+
+    /// How many messages this visit has copied. A count rather than the turn's
+    /// id, so copying the same bubble twice still fires the confirming haptic.
+    @State private var copies = 0
 
     /// The question this screen scrolled to the top, and therefore the start of
     /// the exchange being watched. Nil until the first send of the visit, which
@@ -114,6 +119,7 @@ struct CoachChatView: View {
             .fullScreenCover(item: $started) { session in
                 SessionView(model: session.model)
             }
+            .sensoryFeedback(.success, trigger: copies)
             .paywall(for: .general, isPresented: $isShowingPaywall)
             // A cover rather than a sheet, matching the door on the Check-ins
             // screen: the test is two minutes of holding still, and a card the
@@ -142,7 +148,8 @@ struct CoachChatView: View {
             bubble(
                 fill: Theme.Breath.inhale.opacity(Theme.Fill.selection),
                 border: Theme.Breath.inhale.opacity(0.35),
-                squaring: .bottomTrailing
+                squaring: .bottomTrailing,
+                copying: turn.text
             ) { Text(turn.text) }
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.leading, 2 * Theme.Spacing.loose)
@@ -154,7 +161,8 @@ struct CoachChatView: View {
                     bubble(
                         fill: Theme.Ink.primary.opacity(0.07),
                         border: nil,
-                        squaring: .bottomLeading
+                        squaring: .bottomLeading,
+                        copying: turn.text
                     ) {
                         RevealingText(
                             turn.text,
@@ -193,14 +201,15 @@ struct CoachChatView: View {
     }
 
     /// - Parameters:
-    ///   - border: the hairline around the fill, or nil where the fill is
-    ///     enough — the person's quiet inhale tint reads as a shadow without
-    ///     an edge to it.
+    ///   - border: the hairline, or nil where the fill is enough — the person's
+    ///     quiet inhale tint reads as a shadow without one.
     ///   - squaring: which corner is tightened towards the speaker.
+    ///   - copying: the text a long press copies.
     private func bubble(
         fill: Color,
         border: Color?,
         squaring corner: Corner,
+        copying text: String,
         @ViewBuilder content: () -> some View
     ) -> some View {
         let shape = corner.shape
@@ -216,6 +225,21 @@ struct CoachChatView: View {
                     shape.strokeBorder(border, lineWidth: 0.5)
                 }
             }
+            // On the bubble, not the row: a long press on an offer card below
+            // a reply has to reach that card, not copy the prose above it.
+            .contextMenu {
+                Button("Copy", systemImage: "doc.on.doc") { copy(text) }
+            }
+            // Stated as well as offered: a context menu is a long press, which
+            // VoiceOver does not reach on its own.
+            .accessibilityAction(named: "Copy") { copy(text) }
+    }
+
+    /// Never gated on whether the reply has finished — copying half an answer
+    /// that is still arriving is a thing people legitimately do.
+    private func copy(_ text: String) {
+        UIPasteboard.general.string = text
+        copies += 1
     }
 
     /// The one corner a bubble draws tight, on the side its speaker is on.

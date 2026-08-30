@@ -64,6 +64,38 @@ struct ThemeColorTests {
         }
     }
 
+    /// The coach's send button is a two-tone glyph: the ground's colour as the
+    /// arrow, `Breath/Inhale` as the circle under it. A glyph is a graphical
+    /// object, so the bar is WCAG 1.4.11's 3:1 rather than AA's 4.5:1. Measured
+    /// because nothing else in this file looks at `Breath/*` at all.
+    @Test("the coach's send arrow reads against its own circle")
+    func sendArrowIsLegibleOnItsCircle() throws {
+        let arrowSet = try #require(try ColorSet(
+            at: ColorSet.palette,
+            named: ColorToken.surfaceGround.rawValue
+        ))
+        let circleSet = try #require(try ColorSet(
+            at: ColorSet.palette,
+            named: ColorToken.breathInhale.rawValue
+        ))
+
+        for appearance in Appearance.allCases {
+            let background = try #require(circleSet[appearance]?.color)
+            let foreground = try #require(arrowSet[appearance]?.color)
+            let ratio = try #require(foreground.contrast(against: background))
+
+            #expect(
+                ratio >= 3,
+                """
+                Surface/Ground on Breath/Inhale is \
+                \(ratio.formatted(.number.precision(.fractionLength(2)))):1 in \
+                \(appearance.rawValue), below WCAG 1.4.11's 3:1 — which leaves the \
+                coach's send button an arrow nobody can pick out of its circle
+                """
+            )
+        }
+    }
+
     /// The strengths an accent wash carries a word at. 0.15 is `GoalBadge`;
     /// `Theme.Fill.selection` is an opaque control drawn as chosen — a
     /// schedule's weekday, the coach's selected reply, and a selected

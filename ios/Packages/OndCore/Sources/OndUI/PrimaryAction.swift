@@ -38,6 +38,18 @@ public extension View {
     #endif
 }
 
+private extension View {
+    /// What a style drawing its own capsule stands around its label. The side
+    /// inset is invisible at full width, where the label has already taken the
+    /// row: it is the only padding a capsule gets where the container offers
+    /// the label its own width instead — `ContentUnavailableView`'s action
+    /// column, where the text otherwise meets the capsule's edge.
+    func capsuleInset() -> some View {
+        padding(.vertical, Theme.Metrics.primaryActionInset)
+            .padding(.horizontal, Theme.Spacing.loose)
+    }
+}
+
 /// The session flow's one primary control: a full-width capsule washed with the
 /// accent. A `ButtonStyle` rather than a modifier, so the capsule the eye sees
 /// and the area the finger hits are the same rectangle. One style because the
@@ -56,7 +68,7 @@ public struct CapsuleActionStyle: ButtonStyle {
             // By hand, because this style draws its own material: a system
             // button at `.large` stands its label plus this much, and a capsule
             // without it would be the one short button in the set.
-            .padding(.vertical, Theme.Metrics.primaryActionInset)
+            .capsuleInset()
             .background(accent.opacity(configuration.isPressed ? 0.32 : 0.2), in: Capsule())
             .contentShape(Capsule())
     }
@@ -112,7 +124,7 @@ public struct InkActionStyle: ButtonStyle {
                 // By hand for the same reason `CapsuleActionStyle` does it: this
                 // style draws its own material, so nothing inserts the control
                 // size's inset on its behalf.
-                .padding(.vertical, Theme.Metrics.primaryActionInset)
+                .capsuleInset()
                 .background(Theme.Ink.primary, in: Capsule())
                 .contentShape(Capsule())
                 .opacity(dimming)
