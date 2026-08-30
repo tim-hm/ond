@@ -65,12 +65,13 @@ struct HomeChoiceSheet: View {
     }
 
     /// The three exercises, hairline-separated on one surface, the chosen one
-    /// raised. The goal's colour is the dot, and the rhythm under the name is
-    /// what the row would play at this person's dials.
+    /// raised and checked where it stands — choosing never reorders the rows.
+    /// The goal's colour is the dot, and the rhythm under the name is what the
+    /// row would play at this person's dials.
     private var rows: some View {
         VStack(spacing: 0) {
             ForEach(Array(offer.rows.enumerated()), id: \.element.id) { index, stop in
-                row(stop, isChosen: index == 0)
+                row(stop, isChosen: offer.isChosen(stop))
 
                 if index < offer.rows.count - 1 {
                     Divider().overlay(Theme.Surface.line)

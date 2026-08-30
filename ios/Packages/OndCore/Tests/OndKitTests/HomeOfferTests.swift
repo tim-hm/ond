@@ -42,6 +42,32 @@ struct HomeOfferTests {
         #expect(offer.minutes == 10)
     }
 
+    @Test("Choosing a row the sheet already offers moves nothing")
+    func choosingKeepsTheOrder() throws {
+        let unchosen = try OfferFixtures.offer(goals: [.sleep, .energy])
+        let last = try #require(slugs(unchosen).last)
+        let offer = try OfferFixtures.offer(
+            goals: [.sleep, .energy],
+            choice: HomeChoice(slug: last, minutes: 5)
+        )
+
+        #expect(slugs(offer) == slugs(unchosen))
+        #expect(offer.lead.technique.slug == last)
+    }
+
+    @Test("A choice the sheet does not already offer takes the last row")
+    func anOutsideChoiceTakesTheLastRow() throws {
+        let unchosen = try OfferFixtures.offer(goals: [.sleep])
+        let offer = try OfferFixtures.offer(
+            goals: [.sleep],
+            choice: HomeChoice(slug: OfferFixtures.unrouted.slug, minutes: 5)
+        )
+
+        #expect(!slugs(unchosen).contains(OfferFixtures.unrouted.slug))
+        #expect(slugs(offer).dropLast() == slugs(unchosen).dropLast())
+        #expect(slugs(offer).last == OfferFixtures.unrouted.slug)
+    }
+
     @Test("A choice naming an exercise the catalogue no longer holds is ignored")
     func anUnresolvableChoiceFallsBack() throws {
         let offer = try OfferFixtures.offer(
@@ -112,7 +138,7 @@ struct HomeOfferTests {
 
         #expect(offer.rows.count == HomeOffer.capacity)
         #expect(Set(slugs(offer)).count == HomeOffer.capacity)
-        #expect(slugs(offer).first == "box-breathing")
+        #expect(slugs(offer).contains("box-breathing"), "the choice is a row, in its own place")
     }
 
     @Test("A stored length the sheet cannot show falls back to the default")
@@ -148,8 +174,9 @@ struct HomeOfferTests {
 
         #expect(offer.lead.dialled.stages.first?.cycleDuration == .seconds(20))
         #expect(offer.lead.duration == .seconds(300))
+        let row = try #require(offer.rows.first { $0.technique.slug == "box-breathing" })
         #expect(
-            offer.rows[0].dialled.stages.first?.cycleDuration == .seconds(20),
+            row.dialled.stages.first?.cycleDuration == .seconds(20),
             "the row shows the same breath"
         )
     }
@@ -160,6 +187,17 @@ struct HomeOfferTests {
 
         #expect(!offer.isFittable)
         #expect(offer.lead.duration == SeededCatalogue.technique("wim-hof-rounds").plannedDuration)
+    }
+
+    @Test("Exactly one row is the one the button starts", arguments: [
+        nil, HomeChoice(slug: "box-breathing", minutes: 5),
+        HomeChoice(slug: OfferFixtures.unrouted.slug, minutes: 3),
+        HomeChoice(slug: "gone", minutes: 5),
+    ] as [HomeChoice?])
+    func oneRowIsChosen(_ choice: HomeChoice?) throws {
+        let offer = try OfferFixtures.offer(goals: [.sleep, .energy], choice: choice)
+
+        #expect(offer.rows.filter(offer.isChosen).count == 1)
     }
 
     @Test("An empty catalogue offers nothing")
