@@ -90,6 +90,13 @@ public enum VoiceClips {
     /// phase is a beat, and one word is all a beat can carry. Public because
     /// `SpokenCueFitTests` states the rule in these terms.
     public static let sentenceFloor: Double = 2
+
+    /// The reserved `voice_script` value meaning "say nothing here". A phase
+    /// naming it keeps its tone at every cycle. Bellows breath is why: at
+    /// thirty breaths a minute a spoken cue is a second rhythm competing with
+    /// the first. Six characters, so the column's 1-64 check admits it and no
+    /// migration is owed. The form cue is the one line it does not silence.
+    public static let silentScript = "silent"
 }
 
 /// Which of a cue's two lengths a phase has room for. Several seeded phases
@@ -105,7 +112,61 @@ public enum SpokenCue: Sendable, Hashable {
     case tone
 }
 
+/// How much a beat is told, by where its cycle sits in the session. The
+/// density falls as the session goes on, because ten minutes of the same
+/// sentence is worse than silence. The fit rule runs underneath and can still
+/// take the line away, whatever this says.
+enum VoiceDensity: Sendable, Hashable {
+    /// The whole sentence, on the first cycle — the one that teaches.
+    case sentence
+    /// One word: In, Out, Hold. Cycles two to four, and the session's last
+    /// cycle, so the end is heard and not only felt.
+    case word
+    /// The exercise's form cue, on the longest phase of every fourth cycle —
+    /// the eighth is the first, the fourth still speaking the word. Longest
+    /// of the stage rather than of the exercise: per-exercise would bury
+    /// every Wim Hof-style form cue inside the retention. The one line that
+    /// teaches, and the one a silent table still speaks.
+    case formCue(String)
+    /// Nothing said; the phase keeps its tone.
+    case silence
+}
+
 public extension SessionTimeline.Beat {
+    /// What this beat has room to be told in. Carried by the beat rather than
+    /// recomputed: the player and `SessionView` both need it, and two
+    /// surfaces deriving the same answer is how they come to disagree.
+    var spokenCue: SpokenCue {
+        spokenLine.cue
+    }
+
+    /// The clip this beat plays, or nil where it takes its tone instead. One
+    /// place decides because the player and the fit rule would eventually
+    /// disagree — a beat that stacks on the one before does not name the same
+    /// clip as one that starts a breath.
+    var clipStem: String? {
+        spokenLine.stem
+    }
+}
+
+extension SessionTimeline.Beat {
+    /// Where this beat sits in the schedule that thins the voice. Counted
+    /// per stage and carried across rounds: a stage is a different
+    /// instruction and earns its sentence, a round is a repeat of one the
+    /// person has heard. The ending is the session's rather than a stage's,
+    /// so it is read off `isFinalCycle` instead.
+    var voiceDensity: VoiceDensity {
+        let number = stageCycle + 1
+        if number == 1 {
+            return .sentence
+        }
+        if number <= 4 || isFinalCycle {
+            return .word
+        }
+        guard number.isMultiple(of: 4), let stem = formCue else { return .silence }
+        return .formCue(stem)
+    }
+
     /// The connected line this beat speaks: the one its table authored, and
     /// the one its place in a sigh implies where no table has spoken. Nil
     /// where the render shipped no clip of that name — a name nothing matches
@@ -118,30 +179,61 @@ public extension SessionTimeline.Beat {
         return stem
     }
 
-    /// What this beat has room to be told in. Carried by the beat rather than
-    /// recomputed: the player and `SessionView` both need it, and two
-    /// surfaces deriving the same answer is how they come to disagree.
-    var spokenCue: SpokenCue {
-        if let stem = connectedClipStem {
-            let length = VoiceClips.longest(stem) ?? .infinity
-            return length <= duration.seconds ? .full : .tone
-        }
-        return breath.spokenCue(within: duration, in: register)
+    /// Whether this phase's table asked for silence rather than for a line.
+    private var isSilent: Bool {
+        voiceScript == VoiceClips.silentScript
     }
 
-    /// The clip this beat plays, or nil where it takes its tone instead. One
-    /// place decides because the player and the fit rule would eventually
-    /// disagree — a beat that stacks on the one before does not name the same
-    /// clip as one that starts a breath.
-    var clipStem: String? {
+    /// The cue and the clip in one answer, so the two cannot disagree. The
+    /// schedule names the line and the fit rule decides whether the phase has
+    /// room for it.
+    private var spokenLine: (cue: SpokenCue, stem: String?) {
+        switch voiceDensity {
+        case let .formCue(stem):
+            fitting(stem, as: .full)
+        case .silence:
+            (.tone, nil)
+        case .word:
+            isSilent ? (.tone, nil) : fitting(breath.shortClipName, as: .short)
+        case .sentence:
+            isSilent ? (.tone, nil) : sentenceLine
+        }
+    }
+
+    /// The full line for a beat the schedule has not thinned yet: the one its
+    /// table authored, the one its place in a sigh implies, or the ordinary
+    /// cue — which falls to the word and then to the tone as room runs out.
+    private var sentenceLine: (cue: SpokenCue, stem: String?) {
         if let stem = connectedClipStem {
-            return spokenCue == .tone ? nil : stem
+            return fitting(stem, as: .full)
         }
-        return switch spokenCue {
-        case .full: breath.clipName(in: register)
-        case .short: breath.shortClipName
-        case .tone: nil
+        let cue = breath.spokenCue(within: duration, in: register)
+        return switch cue {
+        case .full: (cue, breath.clipName(in: register))
+        case .short: (cue, breath.shortClipName)
+        case .tone: (cue, nil)
         }
+    }
+
+    /// Whether the phase has room for `stem`, measured against the slowest
+    /// voice. A clip still speaking after its phase ends names a breath
+    /// nobody is taking, and a stem the render never wrote is not a line.
+    /// `VoiceClips.sentenceFloor` does not apply: it decides whether to
+    /// derive a sentence, and this line was named rather than derived.
+    private func fitting(_ stem: String, as cue: SpokenCue) -> (cue: SpokenCue, stem: String?) {
+        guard let spoken = VoiceClips.longest(stem), spoken <= duration.seconds else {
+            return (.tone, nil)
+        }
+        return (cue, stem)
+    }
+}
+
+public extension Technique {
+    /// The clip that teaches this exercise's form, rendered under this stem
+    /// like every other clip. One per exercise; a build that ships without
+    /// one keeps the tone there rather than saying something else.
+    var formCue: String {
+        "form-\(slug.rawValue)"
     }
 }
 

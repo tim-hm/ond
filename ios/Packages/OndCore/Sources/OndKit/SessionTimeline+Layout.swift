@@ -13,6 +13,21 @@ extension SessionTimeline {
         var previousTurnGap: Duration?
     }
 
+    /// What every stage of one layout shares: the words a beat is said in,
+    /// the clip that teaches the exercise's form, and the shape of the plan
+    /// around the stage — which is what says whether a stage's last cycle
+    /// ends the session.
+    private struct Plan {
+        let register: CopyRegister
+        let formCue: String?
+        let rounds: Int
+        let stages: Int
+
+        func closesTheSession(round: Int, stage: Int) -> Bool {
+            round == rounds - 1 && stage == stages - 1
+        }
+    }
+
     struct Layout {
         let beats: [Beat]
         let rounds: Int
@@ -20,19 +35,19 @@ extension SessionTimeline {
         let totalDuration: Duration
         let hintsAnyBeat: Bool
 
-        init(stages: [Stage], rounds: Int, register: CopyRegister) {
+        init(stages: [Stage], rounds: Int, register: CopyRegister, formCue: String?) {
             let rounds = max(rounds, 1)
             var cursor = Cursor(level: Self.openingLevel(of: stages))
+            let plan = Plan(
+                register: register,
+                formCue: formCue,
+                rounds: rounds,
+                stages: stages.count
+            )
 
             for round in 0 ..< rounds {
                 for (stageIndex, stage) in stages.enumerated() {
-                    Self.layOut(
-                        stage,
-                        at: stageIndex,
-                        round: round,
-                        register: register,
-                        into: &cursor
-                    )
+                    Self.layOut(stage, at: stageIndex, round: round, in: plan, into: &cursor)
                 }
             }
 
@@ -48,7 +63,7 @@ extension SessionTimeline {
             _ stage: Stage,
             at stageIndex: Int,
             round: Int,
-            register: CopyRegister,
+            in plan: Plan,
             into cursor: inout Cursor
         ) {
             // Two thresholds, deliberately: one asks whether a phase outruns
@@ -58,8 +73,14 @@ extension SessionTimeline {
             let (isFastRhythm, breathesFast) = (stage.isFastRhythm, stage.breathesFast)
             let cueRoles = stage.cueRoles
             let hapticPatterns = stage.phases.map { HapticPattern.resolved($0.hapticPattern) }
+            let teaches = stage.longestPhase
+            let cycles = max(stage.cycles, 1)
+            let closesTheSession = plan.closesTheSession(round: round, stage: stageIndex)
 
-            for cycle in 0 ..< max(stage.cycles, 1) {
+            for cycle in 0 ..< cycles {
+                // Every round lays this stage out at the same cycle count, so
+                // the rounds before it are that many cycles of this stage.
+                let stageCycle = round * cycles + cycle
                 let levels = BreathRhythm.levels(through: stage.phases, from: cursor.level)
                 for (phaseIndex, phase) in stage.phases.enumerated() {
                     let startLevel = phaseIndex == 0 ? cursor.level : levels[phaseIndex - 1]
@@ -75,6 +96,9 @@ extension SessionTimeline {
                             stacksOnPrevious: stacksOnPrevious,
                             cueRole: cueRoles[phaseIndex],
                             cycle: cycle,
+                            stageCycle: stageCycle,
+                            isFinalCycle: closesTheSession && cycle == cycles - 1,
+                            formCue: phaseIndex == teaches ? plan.formCue : nil,
                             phase: phaseIndex,
                             isOpenEnded: stage.openEnded,
                             isFastRhythm: isFastRhythm,
@@ -82,7 +106,7 @@ extension SessionTimeline {
                             manner: phase.manner,
                             voiceScript: phase.voiceScript,
                             hapticPattern: hapticPatterns[phaseIndex],
-                            register: register,
+                            register: plan.register,
                             start: cursor.start,
                             duration: duration,
                             turnGap: turnGap(of: phase, playing: duration, in: stage),

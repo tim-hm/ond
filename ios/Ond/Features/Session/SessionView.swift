@@ -290,10 +290,10 @@ struct SessionView: View {
     }
 
     /// VoiceOver reads the screen once and would otherwise never hear that the
-    /// phase changed — the only information the session carries. Silent when
-    /// the session is about to speak this beat: the clip and the announcement
-    /// are the same sentence a beat apart. Asked of the beat, not the settings —
-    /// quick exercises fall back to a tone, and the setting silenced those too.
+    /// phase changed — the only information the session carries. Silent
+    /// wherever the session speaks, so only one voice is heard at a time; a
+    /// thinned cycle and a quick exercise both fall to the tone, and the
+    /// announcement is what fills them.
     private func announceCurrentPhase() {
         guard let beat = model.currentBeat else { return }
         guard !settings.speaksPhases || beat.spokenCue == .tone else { return }

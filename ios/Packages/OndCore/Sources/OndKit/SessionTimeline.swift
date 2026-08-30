@@ -50,6 +50,20 @@ public struct SessionTimeline: Sendable, Equatable {
 
         /// Zero-based index of the cycle within the stage.
         public let cycle: Int
+        /// Zero-based index of the cycle within its stage, counting on across
+        /// rounds. What the voice schedule reads: a stage is a new
+        /// instruction and earns the whole sentence, a round is a repeat of
+        /// one already spoken.
+        public let stageCycle: Int
+        /// Whether this beat belongs to the last cycle of the whole session —
+        /// the last cycle of the last stage of the last round. What the voice
+        /// reads to speak the ending: the short word again, so the end is
+        /// heard and not only felt.
+        public let isFinalCycle: Bool
+        /// The clip that teaches this exercise's form, on the one phase with
+        /// room for it — the longest of the stage's pattern. Nil on every
+        /// other beat, and on a session laid out from bare stages.
+        public let formCue: String?
         /// Zero-based index of the phase within the cycle's pattern.
         public let phase: Int
         /// Whether the person ends this beat rather than the clock. Its
@@ -240,8 +254,13 @@ public struct SessionTimeline: Sendable, Equatable {
     /// than asserted: a session is not worth trapping over, and zero rounds
     /// gets one. Empty `stages` is unreachable from the catalogue and yields
     /// an already-finished timeline rather than an unadvanceable one.
-    public init(stages: [Stage], rounds: Int, register: CopyRegister = .plain) {
-        let layout = Layout(stages: stages, rounds: rounds, register: register)
+    public init(
+        stages: [Stage],
+        rounds: Int,
+        register: CopyRegister = .plain,
+        formCue: String? = nil
+    ) {
+        let layout = Layout(stages: stages, rounds: rounds, register: register, formCue: formCue)
         beats = layout.beats
         self.rounds = layout.rounds
         self.register = register
@@ -255,7 +274,8 @@ public struct SessionTimeline: Sendable, Equatable {
         self.init(
             stages: technique.stages,
             rounds: rounds ?? technique.recommendedRounds,
-            register: register
+            register: register,
+            formCue: technique.formCue
         )
     }
 

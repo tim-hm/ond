@@ -49,6 +49,11 @@ final class SessionCues: SessionCueing {
         audio?.play(beat)
     }
 
+    /// Speech alone leads the boundary; the tap belongs on it.
+    func speakAhead(_ beat: SessionTimeline.Beat) {
+        audio?.speakAhead(beat)
+    }
+
     func playCompletion() {
         haptics?.playCompletion()
         audio?.playCompletion()
