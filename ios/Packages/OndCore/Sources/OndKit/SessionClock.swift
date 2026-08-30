@@ -20,6 +20,13 @@ protocol SessionClock {
 /// spans the screen locking is still a retention, and time the person spent
 /// holding their breath is not something a time-zone change may edit.
 struct SystemClock: SessionClock {
+    /// How much slop a wake-up may take, so the system can coalesce it with
+    /// the session's other timers. Stated rather than left to the system,
+    /// which is free to choose any amount: the cue loop's last wake-up is the
+    /// one that plays the mark ending a session, and it has to land inside
+    /// ``SessionModel/completionBound``.
+    static let tolerance: Duration = .milliseconds(20)
+
     private let clock = ContinuousClock()
 
     var now: ContinuousClock.Instant {
@@ -27,6 +34,6 @@ struct SystemClock: SessionClock {
     }
 
     func sleep(until deadline: ContinuousClock.Instant) async throws {
-        try await clock.sleep(until: deadline)
+        try await clock.sleep(until: deadline, tolerance: Self.tolerance)
     }
 }

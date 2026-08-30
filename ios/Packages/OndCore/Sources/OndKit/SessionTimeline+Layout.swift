@@ -57,6 +57,7 @@ extension SessionTimeline {
             // that separates them.
             let (isFastRhythm, breathesFast) = (stage.isFastRhythm, stage.breathesFast)
             let cueRoles = stage.cueRoles
+            let hapticPatterns = stage.phases.map { HapticPattern.resolved($0.hapticPattern) }
 
             for cycle in 0 ..< max(stage.cycles, 1) {
                 let levels = BreathRhythm.levels(through: stage.phases, from: cursor.level)
@@ -80,6 +81,7 @@ extension SessionTimeline {
                             breathesFast: breathesFast,
                             manner: phase.manner,
                             voiceScript: phase.voiceScript,
+                            hapticPattern: hapticPatterns[phaseIndex],
                             register: register,
                             start: cursor.start,
                             duration: duration,
