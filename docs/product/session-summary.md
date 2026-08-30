@@ -24,7 +24,7 @@ The mood row below the figures is **not** a reserved slot, and the difference is
 
 **Celebrate what happened, never grade it.** The headline says the session happened. It does not measure it, compare it with a better one, or rate the person who did it.
 
-**An early end is said as an early end.** The record distinguishes a session the timeline finished from one a person stopped, and the note volunteers it. `recorded as it happened` is the same clause Home's line uses, and it means the same thing here: the app states the shape of the record and passes no verdict on it.
+**An early end is said as an early end.** The record distinguishes a session the timeline finished from one a person stopped, and the note volunteers it. It states the fact and stops there, with no clause after it. The app states the shape of the record and passes no verdict on it.
 
 **A zero is not a measurement.** A figure with nothing in it is not shown. `0 cycles` is true and says nothing the time does not already say, and three figures reading zero turn a screen that refuses to score into a scorecard of failure.
 
@@ -32,10 +32,10 @@ The mood row below the figures is **not** a reserved slot, and the difference is
 
 ## The matrix
 
-| Case        | Condition             | Headline            | Note                                     |
-| :---------- | :-------------------- | :------------------ | :--------------------------------------- |
-| Completed   | The timeline ran out  | `Nicely done.`      | `Box breathing, all the way through.`    |
-| Ended early | The person stopped it | `That's a session.` | `Ended early — recorded as it happened.` |
+| Case        | Condition             | Headline            | Note                            |
+| :---------- | :-------------------- | :------------------ | :------------------------------ |
+| Completed   | The timeline ran out  | `Nicely done.`      | `You finished box breathing.`   |
+| Ended early | The person stopped it | `That's a session.` | `You ended this session early.` |
 
 Two headlines, not one. A single neutral headline for both would be the strictest reading of "never grade", but it would also take the warmth off the ordinary case to avoid praising the rare one. Two are honest because they describe two different records, not two different people.
 
@@ -47,7 +47,7 @@ It is the **exercise's** name, never the occasion's. A session started from `Whe
 
 ### The mark
 
-A session that crosses a rung says so, once, in the mark slot: `PracticeStage.arrival`'s existing sentence. This is where a first-ever session is answered — `Your first session. That's the hardest one done.` — so the headline needs no first-session case of its own. A session that crosses no rung leaves the slot empty, and the slot keeps its height.
+A session that crosses a rung says so, once, in the mark slot: `PracticeStage.arrival`'s existing sentence. This is where a first-ever session is answered — `That was your first session.` — so the headline needs no first-session case of its own. A session that crosses no rung leaves the slot empty, and the slot keeps its height.
 
 A first session that also ended early gets both lines, and both are true. The mark never displaces the note.
 
@@ -87,7 +87,9 @@ Every point keeps that word behind its numeral. It is what VoiceOver reads, so a
 
 An odd count is the point of five: the middle is `Okay`, so somebody can report that nothing changed without picking a side. The five map onto Health's own -1...1 pleasantness axis in equal steps, which is the whole of what a State of Mind sample carries.
 
-Both carry the same caption, `MoodCheckModel.caption`: `Context, not a score.` It is Progress's own line, and it belongs here more than anywhere — a pair of moods across a session is the one thing on this screen that invites reading a difference. It stands before the answer and stays after it: saying what the answer is for is cheaper than correcting a reading, and the pair it ends up captioning is exactly what invites one.
+Both carry the same caption, `MoodCheckModel.caption`: `Context, not a score.` It stands before the answer and stays after it, because a pair of moods across a session is the one thing on this screen that invites reading a difference, and saying what the answer is for is cheaper than correcting a reading later.
+
+The caption cannot say the answer is _used_ for anything. A mood is written to Apple Health on the phone it was tapped on and reaches nothing else — no field on the wire, no column, and not the coach. `HealthSettingsSection.swift` states that as a promise: `önd never sees them.` A caption that offered the answer to a coach would contradict the screen that asked for it.
 
 **What the pair says back.** `Not good before · Good now` when both halves were answered, the later word alone when the way in was skipped. The rule is `MoodCheckModel.note`, and it states the two words without grading the distance between them.
 
