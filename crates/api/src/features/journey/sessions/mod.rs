@@ -4,6 +4,8 @@
 //! The append-only half of the journey. Nothing here updates a row; a session is
 //! recorded once, deleted whole, or read back.
 
+mod convert;
 pub mod repository;
 pub mod service;
 pub mod types;
+mod validation;

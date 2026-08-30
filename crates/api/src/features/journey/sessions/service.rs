@@ -1,8 +1,7 @@
-//! Business logic — validates what a client claims it did, and converts both
-//! ways across the proto boundary.
-//!
-//! Receives explicit dependencies (`&PgPool`), never `Arc<AppState>`, and
-//! contains zero raw queries: SQL lives in `super::repository`.
+//! Business logic — orders the reads and writes one RPC needs, and folds the
+//! rows it gets back. Conversion is in `super::convert`, the clock checks in
+//! `super::validation`, and every raw query in `super::repository`. Receives
+//! explicit dependencies (`&PgPool`), never `Arc<AppState>`.
 
 use std::collections::HashSet;
 
@@ -14,17 +13,16 @@ use super::super::bolt::types::BoltSnapshot;
 use super::super::errors::JourneyError;
 use super::super::resting_rate;
 use super::super::resting_rate::types::RestingRateSnapshot;
-use super::super::wire::{timestamp_from_proto, validated_offset};
-use super::repository::{self, SessionRow, StreakRow, TechniquePracticeRow, TotalsRow};
+use super::super::wire::validated_offset;
+use super::convert::{session_from_proto, session_to_proto};
+use super::repository::{self, StreakRow, TechniquePracticeRow, TotalsRow};
 use super::types::{
     LifetimeTotals, MAX_SNAPSHOT_TECHNIQUES, PRACTICE_WINDOW_DAYS, PracticeSnapshot, SessionCursor,
     StreakSummary, TechniquePractice,
 };
-use crate::features::technique::convert::surface_to_proto;
-use crate::features::technique::types::{DeliverySurface, OccasionSlug, TechniqueSlug};
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
-use crate::wire::{self, counted, timestamp_to_proto};
+use crate::wire::{self, counted};
 
 /// How many sessions one call may carry.
 ///
@@ -32,26 +30,6 @@ use crate::wire::{self, counted, timestamp_to_proto};
 /// bounds a client that has lost track of what it sent rather than a client
 /// with a genuine backlog. The queue splits anything larger.
 const MAX_SESSIONS_PER_BATCH: u32 = 200;
-
-/// Twelve hours. Longer than any session the app can produce and short enough
-/// that a stuck timer arrives as a rejection rather than as a person's totals.
-const MAX_SESSION_DURATION_MS: u32 = 12 * 60 * 60 * 1000;
-
-const MAX_CYCLES_PER_SESSION: u32 = 10_000;
-const MAX_BREATHS_PER_SESSION: u32 = 100_000;
-
-/// 2025-01-01T00:00:00Z, as an epoch second. No session predates the first
-/// build of the app, and a row dated earlier is a broken clock rather than a
-/// memory. Rejected rather than clamped: a silently moved date would land in
-/// somebody's streak. A timestamp rather than a string, so the check is a
-/// comparison rather than a parse repeated for every record of a batch.
-const EARLIEST_SESSION_TIMESTAMP: i64 = 1_735_689_600;
-
-/// How far ahead of the server's clock a session may claim to have started.
-///
-/// Generous enough to absorb a device whose clock is a few hours out, tight
-/// enough that a session dated next year cannot hold a streak open forever.
-const MAX_CLOCK_SKEW_HOURS: i64 = 24;
 
 /// How much history one page carries when the caller does not say.
 ///
@@ -388,194 +366,10 @@ fn hours_since(started_at: DateTime<Utc>) -> u32 {
     u32::try_from(hours.max(0)).unwrap_or(u32::MAX)
 }
 
-/// Narrows one submitted session to something the database accepts. Every
-/// rejection is a value the wire format admits and no session can produce. The
-/// whole batch fails rather than dropping the offending record: recording the
-/// other ninety-nine would hide the client bug and leave an untraceable gap.
-fn session_from_proto(record: &pb::SessionRecord) -> Result<SessionRow, JourneyError> {
-    let client_session_id = wire::uuid("client_session_id", &record.client_session_id)?;
-    let technique_slug = TechniqueSlug::parse("technique_slug", &record.technique_slug)?;
-
-    let started_at = record
-        .started_at
-        .as_ref()
-        .ok_or_else(|| JourneyError::Invalid("`started_at` is required".to_owned()))
-        .and_then(|stamp| timestamp_from_proto(stamp, "started_at"))?;
-    validate_started_at(started_at, Utc::now())?;
-
-    // Absent is the ordinary case — a person picking a technique themselves —
-    // but a client that *set* an empty or oversized slug has a bug, and the
-    // batch fails on it like any other impossible value.
-    let occasion_slug = record
-        .occasion_slug
-        .as_deref()
-        .map(|raw| OccasionSlug::parse("occasion_slug", raw))
-        .transpose()?;
-
-    // Unspecified is a record from before the field existed and stores as
-    // null; a value outside the enum is a client this server does not know.
-    let surface = match pb::DeliverySurface::try_from(record.surface) {
-        Ok(pb::DeliverySurface::Unspecified) => None,
-        Ok(pb::DeliverySurface::FullScreen) => Some(DeliverySurface::FullScreen),
-        Ok(pb::DeliverySurface::Discreet) => Some(DeliverySurface::Discreet),
-        Err(_) => {
-            return Err(JourneyError::Invalid(format!(
-                "`surface` `{}` is not one we know",
-                record.surface
-            )));
-        }
-    };
-
-    Ok(SessionRow {
-        client_session_id,
-        technique_slug,
-        started_at,
-        duration_ms: bounded(record.duration_ms, MAX_SESSION_DURATION_MS, "duration_ms")?,
-        cycles_completed: bounded(
-            record.cycles_completed,
-            MAX_CYCLES_PER_SESSION,
-            "cycles_completed",
-        )?,
-        breath_count: bounded(record.breath_count, MAX_BREATHS_PER_SESSION, "breath_count")?,
-        completed: record.completed,
-        occasion_slug,
-        surface,
-    })
-}
-
-fn session_to_proto(row: SessionRow) -> Result<pb::SessionRecord, JourneyError> {
-    Ok(pb::SessionRecord {
-        client_session_id: row.client_session_id.to_string(),
-        technique_slug: row.technique_slug.into_string(),
-        started_at: Some(timestamp_to_proto(row.started_at)),
-        duration_ms: counted("duration_ms", row.duration_ms)?,
-        cycles_completed: counted("cycles_completed", row.cycles_completed)?,
-        breath_count: counted("breath_count", row.breath_count)?,
-        completed: row.completed,
-        occasion_slug: row.occasion_slug.map(OccasionSlug::into_string),
-        surface: row
-            .surface
-            .map_or(pb::DeliverySurface::Unspecified, surface_to_proto) as i32,
-    })
-}
-
-fn bounded(value: u32, maximum: u32, field: &str) -> Result<i32, JourneyError> {
-    if value > maximum {
-        return Err(JourneyError::Invalid(format!(
-            "`{field}` is larger than {maximum}"
-        )));
-    }
-
-    i32::try_from(value).map_err(|_| JourneyError::Invalid(format!("`{field}` is out of range")))
-}
-
-/// Refuses a start time that cannot be a real session.
-///
-/// Both bounds guard streaks rather than storage: a session dated 1970 would sit
-/// harmlessly in the table, but a session dated next year holds a current streak
-/// open indefinitely and nothing later can close it.
-fn validate_started_at(started_at: DateTime<Utc>, now: DateTime<Utc>) -> Result<(), JourneyError> {
-    if started_at.timestamp() < EARLIEST_SESSION_TIMESTAMP {
-        return Err(JourneyError::Invalid(
-            "`started_at` predates the app".to_owned(),
-        ));
-    }
-
-    if started_at > now + chrono::Duration::hours(MAX_CLOCK_SKEW_HOURS) {
-        return Err(JourneyError::Invalid(
-            "`started_at` is in the future".to_owned(),
-        ));
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
-    use uuid::Uuid;
-
     use super::*;
-
-    fn record(started_at: DateTime<Utc>) -> pb::SessionRecord {
-        pb::SessionRecord {
-            client_session_id: Uuid::nil().to_string(),
-            technique_slug: "box-breathing".to_owned(),
-            started_at: Some(timestamp_to_proto(started_at)),
-            duration_ms: 60_000,
-            cycles_completed: 4,
-            breath_count: 8,
-            completed: true,
-            occasion_slug: None,
-            surface: pb::DeliverySurface::Unspecified as i32,
-        }
-    }
-
-    /// A future-dated session would hold a current streak open forever, and
-    /// nothing recorded later could close it. Real clock skew is absorbed;
-    /// a date next year is not.
-    #[test]
-    fn a_future_session_is_refused_but_clock_skew_is_not() {
-        let now = DateTime::from_timestamp(1_777_000_000, 0).expect("a representable instant");
-
-        assert!(validate_started_at(now + chrono::Duration::hours(1), now).is_ok());
-        assert!(matches!(
-            validate_started_at(now + chrono::Duration::days(30), now),
-            Err(JourneyError::Invalid(_))
-        ));
-        assert!(matches!(
-            validate_started_at(
-                DateTime::from_timestamp(0, 0).expect("the epoch is representable"),
-                now
-            ),
-            Err(JourneyError::Invalid(_))
-        ));
-    }
-
-    /// A session the app cannot have produced fails the batch rather than being
-    /// stored — an hour-long "cycle count" of four billion would otherwise sit
-    /// in somebody's totals forever.
-    #[test]
-    fn an_impossible_session_fails_the_batch() {
-        let now = Utc::now();
-
-        let mut too_long = record(now);
-        too_long.duration_ms = MAX_SESSION_DURATION_MS + 1;
-        assert!(matches!(
-            session_from_proto(&too_long),
-            Err(JourneyError::Invalid(_))
-        ));
-
-        let mut no_slug = record(now);
-        no_slug.technique_slug = "   ".to_owned();
-        assert!(matches!(
-            session_from_proto(&no_slug),
-            Err(JourneyError::Invalid(_))
-        ));
-
-        let mut bad_id = record(now);
-        bad_id.client_session_id = "not-a-uuid".to_owned();
-        assert!(matches!(
-            session_from_proto(&bad_id),
-            Err(JourneyError::Invalid(_))
-        ));
-
-        // Absent is the ordinary case; *set* to blank is a client bug.
-        let mut blank_occasion = record(now);
-        blank_occasion.occasion_slug = Some("   ".to_owned());
-        assert!(matches!(
-            session_from_proto(&blank_occasion),
-            Err(JourneyError::Invalid(_))
-        ));
-
-        let mut alien_surface = record(now);
-        alien_surface.surface = 99;
-        assert!(matches!(
-            session_from_proto(&alien_surface),
-            Err(JourneyError::Invalid(_))
-        ));
-
-        assert!(session_from_proto(&record(now)).is_ok());
-    }
+    use crate::features::technique::types::TechniqueSlug;
 
     fn practice_row(slug: &str, sessions: i64, duration_ms: i64) -> TechniquePracticeRow {
         TechniquePracticeRow {
