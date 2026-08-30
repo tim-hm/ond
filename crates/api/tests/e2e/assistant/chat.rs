@@ -298,7 +298,7 @@ async fn a_saved_exercise_outside_the_safe_ranges_is_dropped() {
         r#"{
             "name": "Nine-minute inhale",
             "goal": "calm",
-            "stages": [{ "phases": [{ "kind": "inhale", "seconds": 540 }] }]
+            "stages": [{ "phases": [{ "kind": "inhale", "passage": "nose", "seconds": 540 }] }]
         }"#,
     )));
 

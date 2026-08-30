@@ -1,3 +1,7 @@
+//! The card that offers the breath-hold (BOLT) test. It takes no input at
+//! all, which is the whole of its safety story: there is nothing to invent
+//! and nothing to clamp.
+
 use super::super::model::ToolSpec;
 use crate::proto::ond::v1 as pb;
 

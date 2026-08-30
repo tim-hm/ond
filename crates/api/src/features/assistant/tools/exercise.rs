@@ -1,7 +1,12 @@
+//! The card that offers one catalogue exercise, optionally repaced. The slug
+//! is checked against the catalogue rather than trusted, and every duration
+//! and count is clamped into the ranges the catalogue seeds, so the offer can
+//! only ever be something the app already plays.
+
 use serde::Deserialize;
 
 use super::super::model::ToolSpec;
-use super::{clamped, clamped_ms};
+use super::dispatch::{clamped, clamped_ms};
 use crate::features::technique::types::{PlayableStage, Technique, resolve};
 use crate::features::user_technique::types::{MAX_CYCLES, MAX_ROUNDS};
 use crate::proto::ond::v1 as pb;

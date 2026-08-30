@@ -1,7 +1,12 @@
+//! The card that saves a pattern as one of the person's own exercises. It
+//! shapes the model's vocabulary only; `user_technique` owns the safety
+//! limits and validates the finished draft, so a card cannot propose an
+//! exercise the create RPC would refuse.
+
 use serde::Deserialize;
 
 use super::super::model::ToolSpec;
-use super::{clamped, clamped_ms};
+use super::dispatch::{clamped, clamped_ms};
 use crate::features::technique::convert::{goal_to_proto, passage_to_proto};
 use crate::features::technique::types::{Passage, TechniqueGoal};
 use crate::features::user_technique::service as user_technique;
@@ -115,25 +120,17 @@ struct SavedStageInput {
     phases: Vec<SavedPhaseInput>,
 }
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct SavedPhaseInput {
-    kind: SavedPhaseKind,
-    #[serde(default)]
-    passage: Option<Passage>,
-    seconds: f64,
-}
-
-/// The three movements the saved-exercise schema declares.
-///
-/// Holds do not encode full versus empty; the authored-technique validator
-/// derives that from phase order, while a fabricated movement fails decoding.
+/// One phase, tagged by the movement it makes and carrying only what that
+/// movement needs. A moving breath names its passage, so a phase without one
+/// fails to decode and the card is refused — a guessed passage is written
+/// back over the author's own the first time they edit it. A hold names no
+/// fullness; the authored-technique validator reads that from phase order.
 #[derive(Deserialize, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-enum SavedPhaseKind {
-    Inhale,
-    Exhale,
-    Hold,
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+enum SavedPhaseInput {
+    Inhale { passage: Passage, seconds: f64 },
+    Exhale { passage: Passage, seconds: f64 },
+    Hold { seconds: f64 },
 }
 
 /// The saved-exercise payload this input supports.
@@ -160,15 +157,20 @@ fn draft(input_json: &str) -> Option<pb::TechniqueDraft> {
                 .phases
                 .iter()
                 .map(|phase| {
-                    let air = passage_to_proto(Some(phase.passage.unwrap_or(Passage::Nose))) as i32;
-                    let movement = match phase.kind {
-                        SavedPhaseKind::Inhale => pb::draft_phase::Movement::Inhale(air),
-                        SavedPhaseKind::Exhale => pb::draft_phase::Movement::Exhale(air),
-                        SavedPhaseKind::Hold => pb::draft_phase::Movement::Hold(pb::Hold {}),
+                    let (movement, seconds) = match *phase {
+                        SavedPhaseInput::Inhale { passage, seconds } => {
+                            (pb::draft_phase::Movement::Inhale(air(passage)), seconds)
+                        }
+                        SavedPhaseInput::Exhale { passage, seconds } => {
+                            (pb::draft_phase::Movement::Exhale(air(passage)), seconds)
+                        }
+                        SavedPhaseInput::Hold { seconds } => {
+                            (pb::draft_phase::Movement::Hold(pb::Hold {}), seconds)
+                        }
                     };
                     pb::DraftPhase {
                         movement: Some(movement),
-                        duration_ms: clamped_ms(phase.seconds, 0, i32::MAX).unsigned_abs(),
+                        duration_ms: clamped_ms(seconds, 0, i32::MAX).unsigned_abs(),
                     }
                 })
                 .collect();
@@ -187,6 +189,10 @@ fn draft(input_json: &str) -> Option<pb::TechniqueDraft> {
         stages,
         rounds: clamped(input.rounds.unwrap_or(1), MAX_ROUNDS)?,
     })
+}
+
+fn air(passage: Passage) -> i32 {
+    passage_to_proto(Some(passage)) as i32
 }
 
 #[cfg(test)]
@@ -252,6 +258,7 @@ mod tests {
             r#"{ "name": "n", "goal": "calm", "stages": [{ "phases": [{ "kind": "sigh", "seconds": 4 }] }] }"#,
             r#"{ "name": "n", "goal": "calm", "stages": [{ "phases": [{ "kind": "inhale", "passage": "ears", "seconds": 4 }] }] }"#,
             r#"{ "name": "n", "goal": "calm", "stages": [], "intensity": "maximum" }"#,
+            r#"{ "name": "n", "goal": "calm", "stages": [{ "phases": [{ "kind": "hold", "seconds": 4, "passage": "nose" }] }] }"#,
             r#"{ "goal": "calm", "stages": [] }"#,
         ] {
             assert!(draft(invented).is_none(), "`{invented}` should be refused");
@@ -274,19 +281,25 @@ mod tests {
         );
     }
 
+    /// A guessed passage is written back over the author's own the first time
+    /// they edit the card, so an unnamed one refuses the whole draft — the
+    /// answer `technique::convert` and `user_technique::validation` already
+    /// give. A hold names none because a hold moves no air.
     #[test]
-    fn an_unnamed_breath_passage_is_the_nose() {
-        let input = r#"{ "name": "n", "goal": "calm", "stages": [{ "phases": [{ "kind": "inhale", "seconds": 4 }, { "kind": "exhale", "seconds": 4 }] }] }"#;
-        let draft = draft(input).expect("a shaped draft");
+    fn a_moving_breath_that_names_no_passage_is_refused() {
+        let unnamed = r#"{ "name": "n", "goal": "calm", "stages": [{ "phases": [{ "kind": "inhale", "seconds": 4 }, { "kind": "exhale", "passage": "mouth", "seconds": 4 }] }] }"#;
+        assert!(draft(unnamed).is_none());
+
+        let held = r#"{ "name": "n", "goal": "calm", "stages": [{ "phases": [{ "kind": "hold", "seconds": 4 }] }] }"#;
         assert_eq!(
-            draft.stages[0].phases[0].movement,
-            Some(pb::draft_phase::Movement::Inhale(pb::Passage::Nose as i32))
+            draft(held).expect("a shaped draft").stages[0].phases[0].movement,
+            Some(pb::draft_phase::Movement::Hold(pb::Hold {}))
         );
     }
 
     #[test]
     fn owning_validation_refuses_an_unsafe_duration() {
-        let input = r#"{ "name": "n", "goal": "calm", "stages": [{ "phases": [{ "kind": "inhale", "seconds": 60 }, { "kind": "exhale", "seconds": 4 }] }] }"#;
+        let input = r#"{ "name": "n", "goal": "calm", "stages": [{ "phases": [{ "kind": "inhale", "passage": "nose", "seconds": 60 }, { "kind": "exhale", "passage": "nose", "seconds": 4 }] }] }"#;
         assert!(
             draft(input).is_some(),
             "the model vocabulary shapes cleanly"
