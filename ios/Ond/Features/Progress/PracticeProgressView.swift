@@ -77,13 +77,14 @@ struct PracticeProgressView: View {
         .task { await own.loadIfNeeded() }
         // The heart card's read, keyed on all three things that change what
         // it should draw: the tier, the opt-in — granted in Settings, which
-        // nothing else here would notice — and the session ids, so a deletion
-        // or a restore moves the key. The model's own freshness window is
-        // what keeps a tab hop from re-reading.
+        // nothing else here would notice — and the shape of the history, so a
+        // deletion or a restore moves the key. The model's own freshness
+        // window is what keeps a tab hop from re-reading.
         .task(id: HeartRead(
             tier: plus.tier,
             readsHealth: heart.coachReadsHealthTrends,
-            sessions: model.history.map(\.id)
+            sessionCount: model.history.count,
+            newestSession: model.history.first?.id
         )) {
             await heart.loadPracticeHeart(from: model.history)
         }
@@ -93,8 +94,9 @@ struct PracticeProgressView: View {
     /// the top of the scroll on the way past and only a section directly inside
     /// the stack can be pinned.
     private var content: some View {
-        let names = techniqueNames
-        let goals = techniqueGoals
+        let known = techniques
+        let names = names(of: known)
+        let goals = goals(of: known)
         let rhythm = PracticeRhythm(sessions: model.history, goals: goals)
         // Whole days rather than the model's row slice: a header states its
         // day's total, so a day cut at the page boundary would understate it.
@@ -201,7 +203,7 @@ struct PracticeProgressView: View {
             .buttonStyle(.plain)
             .font(.callout)
             // The brand blue that reads as small type: `Breath.inhale`'s own
-            // light value measures 4.01:1 on this ground, under the floor.
+            // light value measures 4.06:1 on this ground, under the floor.
             .foregroundStyle(Theme.Accent.brandText)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.top, Theme.Spacing.standard)
@@ -221,7 +223,7 @@ struct PracticeProgressView: View {
 
     /// A missing exercise leaves its historical slug visible instead of hiding
     /// the session that outlived it.
-    private var techniqueNames: [TechniqueSlug: String] {
+    private func names(of techniques: [Technique]) -> [TechniqueSlug: String] {
         Dictionary(
             techniques.map { ($0.slug, $0.name) }
         ) { _, latest in latest }
@@ -232,7 +234,7 @@ struct PracticeProgressView: View {
     /// The chart keeps sessions it cannot place in its totals but excludes them
     /// from the optional "mostly relax" caption; a guessed goal would make that
     /// sentence wrong. History keeps the same row and draws a neutral dot.
-    private var techniqueGoals: [TechniqueSlug: TechniqueGoal] {
+    private func goals(of techniques: [Technique]) -> [TechniqueSlug: TechniqueGoal] {
         techniques.reduce(into: [TechniqueSlug: TechniqueGoal]()) { result, technique in
             result[technique.slug] = technique.goal
         }
@@ -241,10 +243,12 @@ struct PracticeProgressView: View {
 
 /// What has to change before the heart around your practice is read again. A
 /// named value because `task(id:)` wants one `Equatable` value and a tuple is
-/// not one. Session ids rather than records: the question is only whether the
-/// set of practices moved, not whether any field of one did.
+/// not one. The question is only whether the set of practices moved, which the
+/// count and the newest id answer: an array of every session's id would be
+/// built and compared on every draw of the tab.
 private struct HeartRead: Equatable {
     let tier: SubscriptionTier
     let readsHealth: Bool
-    let sessions: [UUID]
+    let sessionCount: Int
+    let newestSession: UUID?
 }
