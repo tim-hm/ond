@@ -45,6 +45,21 @@ Two headlines, not one. A single neutral headline for both would be the strictes
 
 It is the **exercise's** name, never the occasion's. A session started from `When you can't get a satisfying breath` is titled by that occasion everywhere else, but an occasion title is a sentence: it would be cut short in one line, and it reads as the wrong noun inside this one.
 
+### The playful register
+
+A session started from `With your child` speaks `CopyRegister.playful` throughout, and the summary is the last thing it says. It keeps the register rather than dropping back to the standard words at the end.
+
+| Case        | Headline              | Note                                     |
+| :---------- | :-------------------- | :--------------------------------------- |
+| Completed   | `You did it.`         | `You breathed extended exhale together.` |
+| Ended early | `That was breathing.` | `You stopped this one early.`            |
+
+The four lines are the plain four said to a small child, or to an adult sitting with one. They answer the same two questions, under the same two rules: `You did it.` states the record without measuring it, and `That was breathing.` answers the doubt an early end leaves — the playful reading of `That's a session.`
+
+`together` is the register's one added word, and only the finished note carries it. The playful register is reachable from one occasion, which is a breath shared with a child by definition. The early note spends its line on the ending, exactly as the plain one does.
+
+Nothing else about the screen changes. The figures, the mark, the mood check and the reserved heights are the same, and the colour is the session's own — `Accent.play`, which the whole session already wears.
+
 ### The mark
 
 A session that crosses a rung says so, once, in the mark slot: `PracticeStage.arrival`'s existing sentence. This is where a first-ever session is answered — `That was your first session.` — so the headline needs no first-session case of its own. A session that crosses no rung leaves the slot empty, and the slot keeps its height.

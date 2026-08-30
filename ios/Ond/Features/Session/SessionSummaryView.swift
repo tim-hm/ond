@@ -15,6 +15,10 @@ struct SessionSummaryView: View {
     /// would read as the wrong noun in the sentence around it.
     let exercise: String
 
+    /// Which words this session speaks, so the last screen of a session ends it
+    /// in the register the rest of it was spoken in.
+    let register: CopyRegister
+
     /// The stage this session earned, if it earned one. Arrives a moment after
     /// the screen does — see `SessionModel.reachedStage` — which is why the
     /// mark slot below holds its height whether or not it has a sentence.
@@ -75,13 +79,13 @@ struct SessionSummaryView: View {
     /// reason: an accessibility size would spill the words out of them.
     private var slots: some View {
         VStack(spacing: 0) {
-            Text(SessionSummaryLines.headline(for: record))
+            Text(SessionSummaryLines.headline(for: record, register: register))
                 .displaySerif(size: SessionSlots.actionSize)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .frame(height: SessionSlots.actionHeight)
 
-            Text(SessionSummaryLines.note(for: record, exercise: exercise))
+            Text(SessionSummaryLines.note(for: record, exercise: exercise, register: register))
                 .font(.body)
                 .foregroundStyle(Theme.Ink.secondary)
                 .lineLimit(1)

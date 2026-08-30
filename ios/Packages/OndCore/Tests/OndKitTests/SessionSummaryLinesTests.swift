@@ -27,8 +27,8 @@ struct SessionSummaryLinesTests {
     func aFinishedSessionIsNamed() {
         let session = record()
 
-        #expect(SessionSummaryLines.headline(for: session) == "Nicely done.")
-        #expect(SessionSummaryLines.note(for: session, exercise: "Box breathing")
+        #expect(SessionSummaryLines.headline(for: session, register: .plain) == "Nicely done.")
+        #expect(SessionSummaryLines.note(for: session, exercise: "Box breathing", register: .plain)
             == "You finished Box breathing.")
     }
 
@@ -38,8 +38,8 @@ struct SessionSummaryLinesTests {
     func anEarlyEndIsSaidPlainly() {
         let session = record(completed: false)
 
-        #expect(SessionSummaryLines.headline(for: session) == "That's a session.")
-        #expect(SessionSummaryLines.note(for: session, exercise: "Box breathing")
+        #expect(SessionSummaryLines.headline(for: session, register: .plain) == "That's a session.")
+        #expect(SessionSummaryLines.note(for: session, exercise: "Box breathing", register: .plain)
             == "You ended this session early.")
     }
 
@@ -48,9 +48,50 @@ struct SessionSummaryLinesTests {
     /// the session finished.
     @Test("An early end spends its line on the ending, not the exercise")
     func anEarlyEndDropsTheName() {
-        let note = SessionSummaryLines.note(for: record(completed: false), exercise: "Coherent 5.5")
+        let note = SessionSummaryLines.note(
+            for: record(completed: false),
+            exercise: "Coherent 5.5",
+            register: .plain
+        )
 
         #expect(!note.contains("Coherent"))
+    }
+
+    /// The playful register is only reached through a moment breathed with a
+    /// small child, so both lines are spoken to one. They state the record and
+    /// pass no verdict on it, exactly as the plain pair does.
+    @Test("The playful register says the same two facts to a child")
+    func thePlayfulRegisterSpeaksToAChild() {
+        let finished = record()
+        let stopped = record(completed: false)
+
+        #expect(SessionSummaryLines.headline(for: finished, register: .playful) == "You did it.")
+        #expect(playfulNote(for: finished) == "You breathed Extended exhale together.")
+        #expect(SessionSummaryLines.headline(for: stopped, register: .playful)
+            == "That was breathing.")
+        #expect(playfulNote(for: stopped) == "You stopped this one early.")
+    }
+
+    private func playfulNote(for record: SessionRecord) -> String {
+        SessionSummaryLines.note(for: record, exercise: "Extended exhale", register: .playful)
+    }
+
+    /// The playful early end spends its one line on the ending too: the rule is
+    /// the slot's, not the register's.
+    @Test("A playful early end drops the exercise as the plain one does")
+    func aPlayfulEarlyEndDropsTheName() {
+        #expect(!playfulNote(for: record(completed: false)).contains("Extended"))
+    }
+
+    /// Progress speaks this figure in its history row, so the rule is measured
+    /// once here rather than twice in two targets.
+    @Test("A counted figure drops a zero and agrees its noun")
+    func aCountedFigureAgreesItsNoun() {
+        #expect(SessionSummaryLines.counted(0, of: "cycle") == nil)
+        #expect(SessionSummaryLines.counted(1, of: "cycle")
+            == SessionSummaryLines.Figure(label: "cycle", value: "1"))
+        #expect(SessionSummaryLines.counted(19, of: "cycle")
+            == SessionSummaryLines.Figure(label: "cycles", value: "19"))
     }
 
     @Test("Three figures, in reading order, when all three have something in them")

@@ -109,14 +109,16 @@ struct SessionWords: View {
 
     /// The Qualifier slot: what the body is doing that the cue cannot say. It
     /// takes the session's accent only where it names the side being breathed
-    /// through — `Passage.Side`, never the wording of the line.
+    /// through — `Passage.Side`, never the wording of the line. It is the one
+    /// place a session sets small type in its own colour, so it takes
+    /// ``SessionModel/textAccent`` and not the colour poured into fills.
     private func qualifier(at moment: Moment) -> SessionSlots.Qualifier? {
         guard settings.guidance == .full, !moment.isPaused else { return nil }
         guard let beat = moment.beat, let line = beat.hint.line else { return nil }
 
         return SessionSlots.Qualifier(
             line: line,
-            accent: beat.passage?.side == nil ? nil : model.accent
+            accent: beat.passage?.side == nil ? nil : model.textAccent
         )
     }
 

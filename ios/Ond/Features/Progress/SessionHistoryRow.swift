@@ -121,8 +121,9 @@ struct SessionHistoryRow: View {
     /// cycles planned. Zero is dropped, because the length already says that
     /// much. It carries its own separator, as `ending` above does.
     private var cycles: String {
-        let count = record.cyclesCompleted
-        guard count > 0 else { return "" }
-        return "\(count) \(count == 1 ? "cycle" : "cycles"), "
+        guard let figure = SessionSummaryLines.counted(record.cyclesCompleted, of: "cycle") else {
+            return ""
+        }
+        return "\(figure.value) \(figure.label), "
     }
 }

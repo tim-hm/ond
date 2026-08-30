@@ -137,12 +137,12 @@ struct ThemeColorTests {
     }
 
     /// The other way to say a goal in its own colour: `rowCaption` sets the goal word
-    /// in the accent, and wherever an accent carries text (that row, the coach button)
-    /// the bar is AA's 4.5:1. That floor is why the light goal accents sit deeper than
-    /// the refresh spec's L−0.14 rule — at spec values the row missed AA, and the
-    /// margin stays thin. Against `Surface/Ground` alone: nothing draws the raised pair.
-    @Test("every goal accent carries the catalogue row's goal word", arguments: goalAccents)
-    func goalAccentIsLegibleAsSmallTextOnItsGround(_ accent: ColorToken) throws {
+    /// in the accent, and wherever an accent carries text on the ground itself (that
+    /// row, the coach button) the bar is AA's 4.5:1. That floor is why the light accents
+    /// sit deeper than the refresh spec's L−0.14 rule — at spec values the row missed
+    /// AA. Against `Surface/Ground` alone: nothing draws the raised pair.
+    @Test("every text accent carries the catalogue row's goal word", arguments: textAccents)
+    func textAccentIsLegibleAsSmallTextOnItsGround(_ accent: ColorToken) throws {
         let accentSet = try #require(try ColorSet(at: ColorSet.palette, named: accent.rawValue))
         let groundSet = try #require(try ColorSet(
             at: ColorSet.palette,
@@ -338,13 +338,13 @@ private let softenable = accents.filter {
     ![.accentCaution, .accentPlay, .accentBrand].contains($0)
 }
 
-/// The accents a `TechniqueGoal` can wear, derived by exclusion because
-/// `TechniqueGoal.accent` answers in resolved `Color`s and this file measures
-/// catalogue entries by name. Off `accents`, not `softenable`: a softened
-/// treatment coming or going is not the set of goal colours changing. `Accent/Play`
-/// is a register's colour, no goal's; `Accent/NightText` exists only to carry text.
-private let goalAccents = accents.filter {
-    ![.accentCaution, .accentBrand, .accentPlay].contains($0)
+/// Every accent a surface sets small words in: the five goals, the lifted twins
+/// `sleep` and the brand keep, and the playful register's own. Derived by
+/// exclusion, so a new one is measured the day it lands — `Accent/Caution` and
+/// `Accent/Brand` are the two that never carry body copy. `Accent/Play` is here
+/// because `CopyRegister.textAccent(over:)` answers with it and keeps no twin.
+private let textAccents = accents.filter {
+    ![.accentCaution, .accentBrand].contains($0)
 }
 
 /// `Surface/Line` is a hairline and never carries text, which is why the grounds

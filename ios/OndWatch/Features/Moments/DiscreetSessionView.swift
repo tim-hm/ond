@@ -49,6 +49,11 @@ struct DiscreetSessionView: View {
                 SessionSummaryView(
                     record: record,
                     technique: model.technique,
+                    // Neither `WristSessionHandoff` nor `DiscreetSessionModel`
+                    // carries a register, so there is none to read here. The
+                    // catalogue seeds no discreet playful moment today, and one
+                    // would end on the plain words until they carry it.
+                    register: .plain,
                     reached: nil
                 ) {
                     dismiss()

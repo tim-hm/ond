@@ -79,6 +79,7 @@ struct SessionView: View {
                 SessionSummaryView(
                     record: record,
                     exercise: model.technique.name,
+                    register: register,
                     reached: model.reachedStage,
                     mood: mood
                 ) { dismiss() }

@@ -12,6 +12,15 @@ public extension SessionModel {
     var accent: Color {
         timeline.register.accent(over: technique.goal)
     }
+
+    /// The same colour where it carries words rather than a fill — the
+    /// qualifier line under the orb is the one place a session sets small type
+    /// in its own colour. Split from ``accent`` because `Accent.night` is too
+    /// deep to read at that size.
+    @MainActor
+    var textAccent: Color {
+        timeline.register.textAccent(over: technique.goal)
+    }
 }
 
 public extension CopyRegister {
@@ -25,6 +34,28 @@ public extension CopyRegister {
         case .plain: goal.accent
         case .playful: Theme.Accent.play
         }
+    }
+
+    /// The same choice where the colour carries words. The playful register
+    /// answers with its own fill colour: `Accent.play` reads at 5.49:1 on the
+    /// light ground and 8.27:1 on the dark one, so it needs no lifted twin the
+    /// way `sleep` does. `ThemeColorTests` measures it.
+    func textAccent(over goal: TechniqueGoal) -> Color {
+        switch self {
+        case .plain: goal.textAccent
+        case .playful: accent(over: goal)
+        }
+    }
+}
+
+public extension DialStop {
+    /// The colour this stop is drawn in: the register's where a route asked for
+    /// one, the exercise's goal otherwise. Only a Moment carries a register, so
+    /// this is the one place in the app where a route colours a card rather than
+    /// the exercise behind it — and why `play` is its own token, not an alias of
+    /// `spark`.
+    var accent: Color {
+        register.accent(over: goal)
     }
 }
 
