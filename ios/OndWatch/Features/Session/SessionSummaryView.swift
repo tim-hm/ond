@@ -12,6 +12,10 @@ struct SessionSummaryView: View {
     let record: SessionRecord
     let technique: Technique
 
+    /// Which words this session speaks, so the wrist and the phone end a
+    /// playful session with the same sentence.
+    let register: CopyRegister
+
     /// The stage this session earned, if it earned one. The wrist says the same
     /// sentence the phone does — a rung reached on the watch is reached, and
     /// hearing about it only on the phone later would make it the phone's.
@@ -22,15 +26,19 @@ struct SessionSummaryView: View {
     /// The watch's display size, the one the session's phase word is set in.
     private static let headlineSize: CGFloat = 22
 
+    private var note: String {
+        SessionSummaryLines.note(for: record, exercise: technique.name, register: register)
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.standard) {
                 VStack(spacing: Theme.Spacing.tight) {
-                    Text(SessionSummaryLines.headline(for: record))
+                    Text(SessionSummaryLines.headline(for: record, register: register))
                         .displaySerif(size: Self.headlineSize)
                         .foregroundStyle(Theme.Ink.primary)
 
-                    Text(SessionSummaryLines.note(for: record, exercise: technique.name))
+                    Text(note)
                         .font(.caption)
                         .foregroundStyle(Theme.Ink.secondary)
 

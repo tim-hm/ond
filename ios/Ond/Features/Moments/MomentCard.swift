@@ -1,4 +1,5 @@
 import OndKit
+import OndStyle
 import OndUI
 import SwiftUI
 
@@ -27,7 +28,7 @@ struct MomentCard: View {
                     .foregroundStyle(Theme.Ink.tertiary)
 
                 HStack(spacing: Theme.Spacing.close) {
-                    GoalBadge(goal: stop.goal)
+                    GoalBadge(goal: stop.goal, accent: stop.accent)
 
                     if let grade = stop.technique.evidenceGrade {
                         EvidenceChip(grade: grade)

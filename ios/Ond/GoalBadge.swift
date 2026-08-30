@@ -11,6 +11,15 @@ import SwiftUI
 struct GoalBadge: View {
     let goal: TechniqueGoal
 
+    /// The colour the caller has already resolved, where it has one the goal
+    /// cannot answer with. A Moment card passes `DialStop.accent`, which a
+    /// playful route colours itself; a suggestion holds only an exercise.
+    var accent: Color?
+
+    private var tint: Color {
+        accent ?? goal.accent
+    }
+
     var body: some View {
         Text(goal.title.uppercased())
             .font(.caption2.weight(.semibold))
@@ -19,8 +28,8 @@ struct GoalBadge: View {
             .padding(.vertical, Theme.Spacing.tight)
             .background {
                 Capsule()
-                    .fill(goal.accent.opacity(0.15))
-                    .stroke(goal.accent, lineWidth: 1)
+                    .fill(tint.opacity(0.15))
+                    .stroke(tint, lineWidth: 1)
             }
     }
 }

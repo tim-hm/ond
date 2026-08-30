@@ -42,6 +42,7 @@ struct SessionView: View {
                 SessionSummaryView(
                     record: record,
                     technique: model.technique,
+                    register: model.timeline.register,
                     reached: model.reachedStage
                 ) {
                     onFinished()
@@ -78,12 +79,12 @@ struct SessionView: View {
         .onChange(of: model.currentBeat?.id) { _, _ in announceCurrentPhase() }
     }
 
-    /// Black air for the live breath, the goal's wash for the summary. Black
+    /// Black air for the live breath, the session's wash for the summary. Black
     /// through the same modifier rather than a special case: black's gradient
     /// at the wash's strength is still black, so one line gives the player
     /// its deep ground and the summary its accent.
     private var ground: Color {
-        model.status == .finished ? model.technique.goal.accent : .black
+        model.status == .finished ? model.accent : .black
     }
 
     /// Pause and End are always on screen: two small discs at the foot are
@@ -163,7 +164,7 @@ struct SessionView: View {
                     beat: model.timeline.beat(at: elapsed),
                     elapsed: elapsed,
                     timeline: model.timeline,
-                    accent: model.technique.goal.accent,
+                    accent: model.accent,
                     side: side
                 )
             }
