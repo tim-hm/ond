@@ -1,6 +1,13 @@
 //! Initial purchase, resubmission, and crossgrade ordering.
 
-use super::*;
+use api::entitlement::SubscriptionTier;
+use api::proto::ond::v1 as pb;
+use chrono::Duration;
+
+use super::fixtures::{
+    MONTH, ScriptedVerifier, USER, given_signed_in, plus, read, submit, subscription,
+};
+use crate::harness::TestDatabase;
 
 /// The happy path, and the only one that mints an entitlement: a transaction
 /// the verifier accepts becomes a tier and an expiry the next call reads back.

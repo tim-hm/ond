@@ -6,11 +6,13 @@
 use api::proto::ond::v1 as pb;
 use chrono::{DateTime, Duration, TimeZone, Utc};
 
-use super::{
-    ADA, BEA, GET_JOURNEY, bolt_score, days_ago, delete, hours_ago, journey, journey_page,
-    journey_request, minutes_session, prost_timestamp, record, session,
+use super::fixtures::{
+    ADA, BEA, days_ago, delete, journey, journey_page, journey_request, minutes_session, session,
 };
-use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web_with};
+use crate::harness::{
+    GET_JOURNEY, GrpcWebResponse, TestDatabase, bolt_score, call_grpc_web_with, hours_ago,
+    prost_timestamp, record,
+};
 
 /// The contract that lets a client re-send anything it is unsure about: the
 /// same batch twice stores one copy and says so. Without it, a request that

@@ -4,14 +4,12 @@
 //! the same phases, and a second copy of a builder is a second place for a
 //! duration to drift out of the seeded range.
 
-pub(super) use api::identity::USER_ID_HEADER;
-pub(super) use api::proto::ond::v1 as pb;
-pub(super) use physiology::TIMED_HOLD_CEILING_MS;
-pub(super) use tonic::Code;
+use api::identity::USER_ID_HEADER;
+use api::proto::ond::v1 as pb;
 
-pub(super) use crate::harness::{
-    self, DELETE_USER_TECHNIQUE, GrpcWebResponse, LIST_USER_TECHNIQUES, TestDatabase,
-    UPDATE_USER_TECHNIQUE, call_grpc_web, call_grpc_web_with,
+use crate::harness::{
+    self, GrpcWebResponse, LIST_USER_TECHNIQUES, TestDatabase, UPDATE_USER_TECHNIQUE,
+    call_grpc_web_with,
 };
 
 /// Two stable, valid identities. Fixed rather than random so a failing test

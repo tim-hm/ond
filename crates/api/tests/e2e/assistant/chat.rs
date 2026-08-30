@@ -8,8 +8,10 @@ use api::assistant::{ChatRole, ModelError};
 use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
 
-use super::fixtures::{CHAT, HalfAnswer, USER, chat, chat_turn, chunk_text, recommend, set_goals};
-use crate::harness::{ScriptedModel, ScriptedReply, TestDatabase, call_grpc_web_stream_with};
+use super::fixtures::{USER, chat, chat_turn, chunk_text, recommend, set_goals};
+use crate::harness::{
+    CHAT, HalfAnswer, ScriptedModel, ScriptedReply, TestDatabase, call_grpc_web_stream_with,
+};
 
 /// The coach has to talk to somebody who named no goal without inventing one
 /// for them. The profile block says so in as many words — an absence stated is

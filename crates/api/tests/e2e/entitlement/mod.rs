@@ -9,5 +9,3 @@ mod fixtures;
 mod ownership;
 mod purchase;
 mod refunds;
-
-use self::fixtures::*;

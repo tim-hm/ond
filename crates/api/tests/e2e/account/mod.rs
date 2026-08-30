@@ -9,5 +9,3 @@ mod deletion;
 mod fixtures;
 mod merge;
 mod sign_in;
-
-use self::fixtures::*;

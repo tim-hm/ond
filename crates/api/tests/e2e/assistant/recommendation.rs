@@ -10,11 +10,12 @@ use api::assistant::ModelError;
 use api::proto::ond::v1 as pb;
 
 use super::fixtures::{
-    CHAT, OTHER_USER, USER, recommend, recommend_with_health, record_bolt, record_practice,
+    OTHER_USER, USER, recommend, recommend_with_health, record_bolt, record_practice,
     save_exercise, set_goals, set_profile,
 };
 use crate::harness::{
-    GET_RECOMMENDATION, ScriptedModel, TestDatabase, call_grpc_web_stream_with, call_grpc_web_with,
+    CHAT, GET_RECOMMENDATION, ScriptedModel, TestDatabase, call_grpc_web_stream_with,
+    call_grpc_web_with,
 };
 
 /// The contract the client relies on: every slug it is handed resolves in the

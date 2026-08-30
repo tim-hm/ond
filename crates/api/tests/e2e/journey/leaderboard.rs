@@ -4,11 +4,11 @@
 use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
 
-use super::{
-    ADA, BEA, CAL, GET_LEADERBOARD, board, bolt_score, days_ago, hours_ago, minutes_session, name,
-    profile, record, session,
+use super::fixtures::{ADA, BEA, CAL, board, days_ago, minutes_session, name, profile, session};
+use crate::harness::{
+    GET_LEADERBOARD, GrpcWebResponse, TestDatabase, bolt_score, call_grpc_web_with, hours_ago,
+    record,
 };
-use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web_with};
 
 /// Somebody who has never answered the birth-year question, for the one test
 /// that needs a caller the age-band scope cannot place.

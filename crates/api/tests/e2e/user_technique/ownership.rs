@@ -1,6 +1,13 @@
 //! Caller isolation and per-person technique ceilings.
 
-use super::*;
+use api::identity::USER_ID_HEADER;
+use api::proto::ond::v1 as pb;
+use tonic::Code;
+
+use super::fixtures::{OTHER_USER, USER, create, draft, list, request, update};
+use crate::harness::{
+    DELETE_USER_TECHNIQUE, LIST_USER_TECHNIQUES, TestDatabase, call_grpc_web, call_grpc_web_with,
+};
 
 /// One person's exercises are not another's, on every RPC that names an id.
 ///

@@ -3,8 +3,8 @@
 
 use api::proto::ond::v1 as pb;
 
-use super::{ADA, BEA, board, name, resting_rate, resting_rate_with};
-use crate::harness::TestDatabase;
+use super::fixtures::{ADA, BEA, board, name};
+use crate::harness::{TestDatabase, resting_rate, resting_rate_with};
 
 /// "Best" is *lowest* here, which is the whole of what makes this measurement
 /// different from the pause beside it. A faster rate afterwards must not

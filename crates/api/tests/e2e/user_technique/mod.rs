@@ -5,5 +5,3 @@ mod mutation;
 mod ownership;
 mod persistence;
 mod validation;
-
-use self::fixtures::*;

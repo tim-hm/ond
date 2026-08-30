@@ -12,8 +12,8 @@ use api::journey::{
 use api::proto::ond::v1 as pb;
 use chrono::{DateTime, Utc};
 
-use super::{ADA, BEA, bolt_with, days_ago, minutes_session, record};
-use crate::harness::TestDatabase;
+use super::fixtures::{ADA, BEA, days_ago, minutes_session};
+use crate::harness::{TestDatabase, bolt_with, record};
 
 fn user(id: &str) -> UserId {
     UserId(id.parse().expect("a fixture id is a valid uuid"))

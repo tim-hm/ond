@@ -8,20 +8,19 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
 
-pub(super) use api::entitlement::{
-    StoreEnvironment, SubscriptionTier, Tier, TransactionVerifier, VerificationError,
-    VerifiedTransaction,
+use api::entitlement::{
+    StoreEnvironment, SubscriptionTier, TransactionVerifier, VerificationError, VerifiedTransaction,
 };
 use api::identity::{CredentialHash, SESSION_CREDENTIAL_HEADER, USER_ID_HEADER};
-pub(super) use api::proto::ond::v1 as pb;
+use api::proto::ond::v1 as pb;
 use axum::Router;
-pub(super) use chrono::{Duration, Utc};
+use chrono::{Duration, Utc};
 use sqlx::PgPool;
 
-pub(super) use crate::harness::{
+use crate::harness::{
     self, DELETE_ACCOUNT, GET_ENTITLEMENT, GrpcWebResponse, SUBMIT_APP_STORE_TRANSACTION,
-    ScriptedIdentityVerifier, ScriptedModel, TestDatabase, allowance, begin_apple_authorization,
-    build_app_with, call_grpc_web_with, subscribe, token_with_nonce,
+    ScriptedIdentityVerifier, ScriptedModel, TestDatabase, begin_apple_authorization,
+    build_app_with, call_grpc_web_with, token_with_nonce,
 };
 
 pub(super) const USER: &str = "e07171e0-0000-4000-8000-000000000001";

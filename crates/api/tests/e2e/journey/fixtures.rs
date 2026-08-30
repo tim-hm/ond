@@ -11,10 +11,7 @@ use chrono::{DateTime, Duration, Utc};
 use crate::harness::{
     DELETE_SESSIONS, GrpcWebResponse, TestDatabase, UPDATE_PROFILE, call_grpc_web_with,
 };
-pub(super) use crate::harness::{
-    GET_JOURNEY, GET_LEADERBOARD, bolt_score, bolt_with, hours_ago, prost_timestamp, record,
-    resting_rate, resting_rate_with,
-};
+use crate::harness::{GET_JOURNEY, GET_LEADERBOARD, prost_timestamp};
 
 /// Stable identities, so a failing test leaves rows someone can go and look at.
 pub(super) const ADA: &str = "6a1f0000-0000-4000-8000-000000000001";

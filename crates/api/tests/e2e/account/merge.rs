@@ -1,6 +1,17 @@
 //! Identity adoption and transactional history merging.
 
-use super::*;
+use std::time::Duration;
+
+use sqlx::PgPool;
+
+use super::fixtures::{
+    NEW_DEVICE, OLD_DEVICE, bolt_seconds_of, exists, given_bolt_score, given_own_technique,
+    given_quota, given_resting_rate, given_session, own_techniques_of, quota_of, resting_rates_of,
+    sessions_of, uuid,
+};
+use crate::harness::{
+    APPLE_ACCOUNT, ScriptedIdentityVerifier, TestDatabase, given_user, sign_in, subscribe,
+};
 
 /// Two devices' worth of practice, arranged so every reparenting rule has
 /// something to act on: an id both sides hold (one record that reached the

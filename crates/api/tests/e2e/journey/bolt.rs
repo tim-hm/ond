@@ -1,7 +1,7 @@
 //! Controlled-pause measurements over the wire.
 
-use super::{ADA, BEA, bolt_score, bolt_with, journey};
-use crate::harness::TestDatabase;
+use super::fixtures::{ADA, BEA, journey};
+use crate::harness::{TestDatabase, bolt_score, bolt_with};
 
 /// The personal best is the server's answer rather than the client's, because a
 /// client that was offline for three tests does not hold the history to compare
