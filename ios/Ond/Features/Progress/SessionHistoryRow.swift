@@ -113,6 +113,16 @@ struct SessionHistoryRow: View {
         let length = record.duration
             .formatted(.units(allowed: [.minutes, .seconds], width: .wide))
 
-        return "\(name), \(record.startedAt.formatted(Self.clock)), \(ending)\(length)"
+        return "\(name), \(cycles)\(record.startedAt.formatted(Self.clock)), \(ending)\(length)"
+    }
+
+    /// Spoken but never printed: a fourth number on the line stops the log
+    /// being scannable. The count is the cycles wholly finished, not the
+    /// cycles planned. Zero is dropped, because the length already says that
+    /// much. It carries its own separator, as `ending` above does.
+    private var cycles: String {
+        let count = record.cyclesCompleted
+        guard count > 0 else { return "" }
+        return "\(count) \(count == 1 ? "cycle" : "cycles"), "
     }
 }
