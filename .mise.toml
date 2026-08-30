@@ -1,7 +1,7 @@
 # The single entry point for every repo operation — CLAUDE.md §3 has the
 # mise-first rule. Tasks encode the env (SQLX_OFFLINE, DATABASE_URL,
 # CARGO_TARGET_DIR) the raw commands need to behave identically here, in a
-# fresh clone, and in CI (.github/workflows/checks.yml).
+# fresh clone.
 
 # Tools ride `latest` on purpose — a nudge to keep the toolchain current.
 # The exceptions are pinned because something committed depends on the exact
@@ -15,8 +15,8 @@ cargo-binstall = "1.21.1"
 # Lockstep with Cargo.toml's `rust-version`. The components are load-bearing:
 # a toolchain mise installs through rustup carries neither rustfmt nor clippy,
 # so `check:rs` dies with "'cargo-fmt' is not installed" — a machine with its
-# own rustup adopts it, components and all, which is why this only ever
-# failed on CI.
+# own rustup adopts it, components and all, so this only ever failed on a
+# machine that had none.
 rust = { version = "1.96", components = ["rustfmt", "clippy"] }
 
 buf = "latest"
@@ -46,7 +46,7 @@ pnpm = "latest"
 "cargo:sqlx-cli" = "0.9"
 
 # iOS toolchain. Xcode itself is not installable by mise (docs/contributing.md
-# covers it); `os` keeps CI's Linux runner off tools with no Linux builds.
+# covers it); `os` keeps a Linux machine off tools with no Linux builds.
 xcodegen = { version = "latest", os = ["macos"] }
 swiftlint = { version = "latest", os = ["macos"] }
 swiftformat = { version = "latest", os = ["macos"] }

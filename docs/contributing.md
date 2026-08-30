@@ -78,9 +78,9 @@ PROTO_BREAKING_ACK='replaces Technique.phases with stages; no client has shipped
 
 It is per-invocation, it still runs `buf breaking` and prints every finding, and it asks for a sentence rather than a flag. Nothing about it persists: once the commit is on `main` the comparison is against the new shape and the check passes unaided, so reaching for this twice in a row means the first break was never merged — or that the contract now has clients and the change needs a new field instead.
 
-**CI is currently switched off, and has been since 2026-08-07.** `.github/workflows/checks.yml` describes what it would run — `check:rs`, `check:proto`, `check:migrations`, `check:text`, `check:md` and `check:doc-links` on Linux, plus `check:swift`, `check:generated` and `check:diagrams` on macOS, the last three because protobuf generation and the diagram check need its Swift toolchain — but Actions is disabled at the repository level, because the org policy forbids actions it does not own and both `actions/checkout` and `jdx/mise-action` are outside it. Re-enabling means allowing those two or pinning them by SHA.
+**There is no CI, and none is planned.** A one-person project does not justify the spend, so GitHub Actions is off and `.github/` was deleted rather than left to drift from a gate it no longer mirrors.
 
-Until then `mise run check` is the whole of the evidence, so run it before every commit and do not treat a green PR as one — there is no green mark to read. Tests and `check:sqlx` were always local anyway; CI has neither a database nor BSR access. Run `check:diagrams` as well for iOS work.
+`mise run check` is therefore the whole of the evidence. Run it before every commit, and do not treat a PR with no red mark as a passing one — there is no mark to read. Tests and `check:sqlx` were always local anyway. Run `check:diagrams` as well for iOS work, and see [deployment.md](deployment.md) for the one check a deploy carries instead.
 
 ## Common tasks
 

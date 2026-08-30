@@ -53,7 +53,7 @@ If an issue needs more than that to be understood, it is probably two issues. Sp
 Merge on your own authority only when **all** of these hold:
 
 - The `Done when:` is met and **demonstrated** — a test, a command output, a screenshot — not asserted.
-- **The gate passed locally, on a Mac.** CI is disabled at the repository level, so there is no green mark to wait for. `check:mac` runs the Swift as part of `mise run check` on macOS and skips loudly on a headless box — a run that printed the skip is not evidence about `ios/`, and `check:diagrams` still has to be run by hand when `ios/` or `web/` moved.
+- **The gate passed locally, on a Mac.** There is no CI, so there is no green mark to wait for. `check:mac` runs the Swift as part of `mise run check` on macOS and skips loudly on a headless box — a run that printed the skip is not evidence about `ios/`, and `check:diagrams` still has to be run by hand when `ios/` or `web/` moved.
 - The diff introduced **no judgment call the issue text had not already decided.**
 
 Escalate to Tim, and do not merge, whenever the change touches any of:

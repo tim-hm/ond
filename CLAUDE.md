@@ -98,7 +98,15 @@ mise run check      # 3. Full validation
 
 `mise run check` runs `check:swift` and `test:swift` through `check:mac`, which detects the Swift toolchain and skips loudly where there is none — so a headless environment still passes the gate without pretending it validated the Swift.
 
-`check:diagrams` stays outside the gate even so, because it builds `OndDiagrams` to redraw the marketing site's figures from the app's own geometry — minutes rather than seconds, and it only has an opinion when `ios/` or `web/` changed. Run it whenever you touch either; without it the page keeps drawing a technique the app has since changed. Nothing else will catch that at the moment: GitHub Actions has been disabled since 2026-08-07, so `mise run check` on your own machine is the whole of the evidence. See [docs/contributing.md](docs/contributing.md) for what re-enabling it needs.
+`check:diagrams` stays outside the gate even so, because it builds `OndDiagrams` to redraw the marketing site's figures from the app's own geometry — minutes rather than seconds, and it only has an opinion when `ios/` or `web/` changed. Run it whenever you touch either; without it the page keeps drawing a technique the app has since changed. Nothing else will catch that — see **No CI** below.
+
+### No CI
+
+There is no continuous integration and none is planned. A one-person project does not justify the spend, and `.github/` was deleted rather than left to drift from a gate it no longer mirrors.
+
+`mise run check` on your own machine is the whole of the evidence. Run it before every commit. A pull request carries no green mark, and the absence of a red one means nothing.
+
+Two checks sit outside the gate and need running by hand. `check:diagrams` when `ios/` or `web/` changed. `check:audit` runs inside `deploy:api`; between deploys nothing watches the advisory feed, and that gap is accepted. [docs/contributing.md](docs/contributing.md) carries the detail.
 
 ### Commit messages
 
