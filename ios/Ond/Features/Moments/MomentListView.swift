@@ -99,6 +99,14 @@ struct MomentListView: View {
 
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                // Moments and Exercises are when and what. The line says which
+                // axis this screen is, because the tab name alone cannot.
+                Text("Start from what's happening, not from a technique.")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.Ink.secondary)
+                    .padding(.horizontal, Theme.Spacing.page)
+                    .padding(.bottom, Theme.Spacing.standard)
+
                 Section {
                     VStack(alignment: .leading, spacing: Theme.Spacing.close) {
                         ForEach(stops) { stop in
