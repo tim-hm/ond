@@ -8,7 +8,7 @@ use chrono::{DateTime, Duration, TimeZone, Utc};
 
 use super::{
     ADA, BEA, GET_JOURNEY, bolt_score, days_ago, delete, hours_ago, journey, journey_page,
-    journey_request, prost_timestamp, record, session,
+    journey_request, minutes_session, prost_timestamp, record, session,
 };
 use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web_with};
 
@@ -559,6 +559,64 @@ async fn an_impossible_session_fails_the_whole_batch() {
 
     let empty = record(&db, ADA, vec![]).await;
     assert_eq!(empty.status, tonic::Code::InvalidArgument as i32);
+}
+
+/// Every column of a batch stays with the session it arrived on. The insert
+/// unnests one array per column, and only their order holds a row together —
+/// `UNNEST` pads a short array with nulls rather than failing, so a column
+/// filtered or reordered on its own would file each session under the next
+/// one's technique and report a clean success.
+#[tokio::test]
+async fn a_batch_keeps_every_column_with_its_own_session() {
+    let db = TestDatabase::create("journey_batch_alignment").await;
+
+    let surfaces = [
+        pb::DeliverySurface::Unspecified,
+        pb::DeliverySurface::FullScreen,
+        pb::DeliverySurface::Discreet,
+    ];
+    let batch: Vec<pb::SessionRecord> = (1..=3u32)
+        .map(|index| {
+            let mut record = minutes_session(
+                &format!("eeee0000-0000-4000-8000-{index:012}"),
+                hours_ago(i64::from(index)),
+                index,
+            );
+            record.technique_slug = format!("technique-{index}");
+            record.cycles_completed = index;
+            record.breath_count = index * 10;
+            record.completed = index % 2 == 1;
+            // The first carries no occasion, so a null lands on a named row too.
+            record.occasion_slug = (index > 1).then(|| format!("occasion-{index}"));
+            record.surface = surfaces[index as usize - 1] as i32;
+            record
+        })
+        .collect();
+
+    let stored = record(&db, ADA, batch.clone()).await.into_ok();
+    assert_eq!(stored.recorded, 3);
+
+    let strip = journey(&db, ADA, 0).await.into_ok().recent_sessions;
+    assert_eq!(strip.len(), 3);
+
+    for sent in &batch {
+        let read = strip
+            .iter()
+            .find(|stored| stored.client_session_id == sent.client_session_id)
+            .expect("every session comes back under the id it was sent with");
+
+        assert_eq!(read.technique_slug, sent.technique_slug);
+        assert_eq!(
+            read.started_at.as_ref().map(|stamp| stamp.seconds),
+            sent.started_at.as_ref().map(|stamp| stamp.seconds),
+        );
+        assert_eq!(read.duration_ms, sent.duration_ms);
+        assert_eq!(read.cycles_completed, sent.cycles_completed);
+        assert_eq!(read.breath_count, sent.breath_count);
+        assert_eq!(read.completed, sent.completed);
+        assert_eq!(read.occasion_slug, sent.occasion_slug);
+        assert_eq!(read.surface, sent.surface);
+    }
 }
 
 /// A fixed instant on the same date as `reference`, in UTC. Used to place a
