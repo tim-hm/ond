@@ -10,13 +10,10 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::harness::{
-    self, APPLE_ACCOUNT, OTHER_APPLE_ACCOUNT, ScriptedIdentityVerifier, TestDatabase,
-    call_grpc_web_with, headers, live_credentials, try_sign_in,
+    self, APPLE_ACCOUNT, GET_PROFILE, LIST_TECHNIQUES, OTHER_APPLE_ACCOUNT, SIGN_OUT,
+    ScriptedIdentityVerifier, TestDatabase, call_grpc_web_with, headers, live_credentials,
+    try_sign_in,
 };
-
-const SIGN_OUT: &str = "/ond.v1.AccountService/SignOut";
-const LIST_TECHNIQUES: &str = "/ond.v1.TechniqueService/ListTechniques";
-const GET_PROFILE: &str = "/ond.v1.ProfileService/GetProfile";
 
 const USER: &str = "1de7717a-0000-4000-8000-000000000001";
 const OTHER_USER: &str = "1de7717a-0000-4000-8000-000000000002";

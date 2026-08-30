@@ -10,9 +10,7 @@ use api::throttle::{FORWARDED_FOR, NEW_IDENTITIES_PER_WINDOW, REQUESTS_PER_WINDO
 use axum::Router;
 use uuid::Uuid;
 
-use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web_with};
-
-const GET_LEADERBOARD: &str = "/ond.v1.JourneyService/GetLeaderboard";
+use crate::harness::{GET_LEADERBOARD, GrpcWebResponse, TestDatabase, call_grpc_web_with};
 
 /// `tonic::Code::ResourceExhausted`, which is what both budgets refuse with.
 const RESOURCE_EXHAUSTED: i32 = 8;

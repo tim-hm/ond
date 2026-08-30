@@ -54,7 +54,7 @@ async fn deleting_is_idempotent() {
     for _ in 0..2 {
         let deleted = call_grpc_web_with::<_, pb::DeleteUserTechniqueResponse>(
             db.app(),
-            DELETE,
+            DELETE_USER_TECHNIQUE,
             &pb::DeleteUserTechniqueRequest {
                 id: created.id.clone(),
             },

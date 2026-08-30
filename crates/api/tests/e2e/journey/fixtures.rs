@@ -8,15 +8,13 @@ use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
 use chrono::{DateTime, Duration, Utc};
 
-use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web_with};
-pub(super) use crate::harness::{
-    bolt_score, bolt_with, hours_ago, prost_timestamp, record, resting_rate, resting_rate_with,
+use crate::harness::{
+    DELETE_SESSIONS, GrpcWebResponse, TestDatabase, UPDATE_PROFILE, call_grpc_web_with,
 };
-
-pub(super) const DELETE_SESSIONS: &str = "/ond.v1.JourneyService/DeleteSessions";
-pub(super) const GET_JOURNEY: &str = "/ond.v1.JourneyService/GetJourney";
-pub(super) const GET_LEADERBOARD: &str = "/ond.v1.JourneyService/GetLeaderboard";
-pub(super) const UPDATE_PROFILE: &str = "/ond.v1.ProfileService/UpdateProfile";
+pub(super) use crate::harness::{
+    GET_JOURNEY, GET_LEADERBOARD, bolt_score, bolt_with, hours_ago, prost_timestamp, record,
+    resting_rate, resting_rate_with,
+};
 
 /// Stable identities, so a failing test leaves rows someone can go and look at.
 pub(super) const ADA: &str = "6a1f0000-0000-4000-8000-000000000001";

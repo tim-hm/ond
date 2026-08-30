@@ -10,12 +10,9 @@ pub(super) use physiology::TIMED_HOLD_CEILING_MS;
 pub(super) use tonic::Code;
 
 pub(super) use crate::harness::{
-    self, GrpcWebResponse, TestDatabase, call_grpc_web, call_grpc_web_with,
+    self, DELETE_USER_TECHNIQUE, GrpcWebResponse, LIST_USER_TECHNIQUES, TestDatabase,
+    UPDATE_USER_TECHNIQUE, call_grpc_web, call_grpc_web_with,
 };
-
-pub(super) const LIST: &str = "/ond.v1.UserTechniqueService/ListUserTechniques";
-pub(super) const UPDATE: &str = "/ond.v1.UserTechniqueService/UpdateUserTechnique";
-pub(super) const DELETE: &str = "/ond.v1.UserTechniqueService/DeleteUserTechnique";
 
 /// Two stable, valid identities. Fixed rather than random so a failing test
 /// leaves rows someone can go and look at.
@@ -149,7 +146,13 @@ pub(super) async fn list(
     db: &TestDatabase,
     user: &str,
 ) -> GrpcWebResponse<pb::ListUserTechniquesResponse> {
-    call_grpc_web_with(db.app(), LIST, &request(), &[(USER_ID_HEADER, user)]).await
+    call_grpc_web_with(
+        db.app(),
+        LIST_USER_TECHNIQUES,
+        &request(),
+        &[(USER_ID_HEADER, user)],
+    )
+    .await
 }
 
 pub(super) async fn create(
@@ -174,7 +177,7 @@ pub(super) async fn update(
 ) -> GrpcWebResponse<pb::UpdateUserTechniqueResponse> {
     call_grpc_web_with(
         db.app(),
-        UPDATE,
+        UPDATE_USER_TECHNIQUE,
         &pb::UpdateUserTechniqueRequest {
             id: id.to_owned(),
             draft: Some(draft),

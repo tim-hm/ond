@@ -13,7 +13,7 @@ async fn an_unverifiable_transaction_is_refused() {
 
     let response = call_grpc_web_with::<_, pb::SubmitAppStoreTransactionResponse>(
         db.app_with_verifier(verifier.clone()),
-        SUBMIT,
+        SUBMIT_APP_STORE_TRANSACTION,
         &pb::SubmitAppStoreTransactionRequest {
             signed_transaction: "forged".to_owned(),
         },

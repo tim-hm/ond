@@ -10,9 +10,10 @@ use api::assistant::{ModelChunk, ModelClient, ModelError, ModelRequest, ModelStr
 use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
 
-use crate::harness::{self, TestDatabase, call_grpc_web_stream_with, call_grpc_web_with};
-
-pub(super) const CHAT: &str = "/ond.v1.AssistantService/Chat";
+pub(super) use crate::harness::CHAT;
+use crate::harness::{
+    self, TestDatabase, UPDATE_PROFILE, call_grpc_web_stream_with, call_grpc_web_with,
+};
 
 pub(super) const USER: &str = "5c4d3e2f-0000-4000-8000-000000000001";
 pub(super) const OTHER_USER: &str = "5c4d3e2f-0000-4000-8000-000000000002";
@@ -134,7 +135,7 @@ pub(super) async fn set_profile(
 ) {
     let response: crate::harness::GrpcWebResponse<pb::UpdateProfileResponse> = call_grpc_web_with(
         db.app(),
-        "/ond.v1.ProfileService/UpdateProfile",
+        UPDATE_PROFILE,
         &pb::UpdateProfileRequest {
             profile: Some(pb::Profile {
                 goals: goals.iter().map(|goal| *goal as i32).collect(),

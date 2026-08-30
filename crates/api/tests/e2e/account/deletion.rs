@@ -339,7 +339,7 @@ async fn a_request_on_an_erased_identity_recreates_it_empty() {
     // is all it takes.
     let listed: GrpcWebResponse<pb::ListTechniquesResponse> = call_grpc_web_with(
         db.app_with_identity(verifier),
-        "/ond.v1.TechniqueService/ListTechniques",
+        LIST_TECHNIQUES,
         &pb::ListTechniquesRequest {},
         &[(USER_ID_HEADER, OLD_DEVICE)],
     )

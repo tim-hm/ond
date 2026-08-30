@@ -19,13 +19,10 @@ pub(super) use chrono::{Duration, Utc};
 use sqlx::PgPool;
 
 pub(super) use crate::harness::{
-    self, GrpcWebResponse, ScriptedIdentityVerifier, ScriptedModel, TestDatabase, allowance,
-    begin_apple_authorization, build_app_with, call_grpc_web_with, subscribe, token_with_nonce,
+    self, DELETE_ACCOUNT, GET_ENTITLEMENT, GrpcWebResponse, SUBMIT_APP_STORE_TRANSACTION,
+    ScriptedIdentityVerifier, ScriptedModel, TestDatabase, allowance, begin_apple_authorization,
+    build_app_with, call_grpc_web_with, subscribe, token_with_nonce,
 };
-
-pub(super) const SUBMIT: &str = "/ond.v1.EntitlementService/SubmitAppStoreTransaction";
-pub(super) const GET: &str = "/ond.v1.EntitlementService/GetEntitlement";
-pub(super) const DELETE_ACCOUNT: &str = "/ond.v1.AccountService/DeleteAccount";
 
 pub(super) const USER: &str = "e07171e0-0000-4000-8000-000000000001";
 pub(super) const OTHER_USER: &str = "e07171e0-0000-4000-8000-000000000002";
@@ -208,7 +205,13 @@ pub(super) async fn try_submit(
     };
     let credential = credential_of(user);
 
-    call_grpc_web_with(app, SUBMIT, &request, &headers(user, &credential)).await
+    call_grpc_web_with(
+        app,
+        SUBMIT_APP_STORE_TRANSACTION,
+        &request,
+        &headers(user, &credential),
+    )
+    .await
 }
 
 pub(super) async fn submit(app: Router, user: &str, token: &str) -> pb::Entitlement {
@@ -259,7 +262,7 @@ pub(super) async fn read(app: Router, user: &str) -> pb::Entitlement {
 
     call_grpc_web_with::<_, pb::GetEntitlementResponse>(
         app,
-        GET,
+        GET_ENTITLEMENT,
         &pb::GetEntitlementRequest {},
         &headers(user, &credential),
     )

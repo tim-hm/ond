@@ -14,12 +14,11 @@ pub(super) use sqlx::PgPool;
 use uuid::Uuid;
 
 pub(super) use crate::harness::{
-    APPLE_ACCOUNT, GrpcWebResponse, OTHER_APPLE_ACCOUNT, ScriptedIdentityVerifier, TestDatabase,
-    begin_apple_authorization, call_grpc_web_with, given_user, headers, live_credentials, sign_in,
-    subscribe, token_with_nonce, try_sign_in, try_sign_in_with_nonce,
+    APPLE_ACCOUNT, DELETE_ACCOUNT, GrpcWebResponse, LIST_TECHNIQUES, OTHER_APPLE_ACCOUNT,
+    ScriptedIdentityVerifier, TestDatabase, begin_apple_authorization, call_grpc_web_with,
+    given_user, headers, live_credentials, sign_in, subscribe, token_with_nonce, try_sign_in,
+    try_sign_in_with_nonce,
 };
-
-pub(super) const DELETE: &str = "/ond.v1.AccountService/DeleteAccount";
 
 /// The identity a person already had — the one a returning sign-in hands back.
 pub(super) const OLD_DEVICE: &str = "acc00000-0000-4000-8000-000000000001";
@@ -61,7 +60,7 @@ pub(super) async fn try_delete_with_identity_token(
 ) -> GrpcWebResponse<pb::DeleteAccountResponse> {
     call_grpc_web_with(
         app,
-        DELETE,
+        DELETE_ACCOUNT,
         &pb::DeleteAccountRequest { identity_token },
         &headers(caller, credential),
     )

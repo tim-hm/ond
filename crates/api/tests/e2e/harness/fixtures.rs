@@ -11,6 +11,35 @@ use sqlx::PgPool;
 
 use super::{GrpcWebResponse, SCRIPTED_NONCE_SEPARATOR, TestDatabase, call_grpc_web_with};
 
+// Every RPC path a suite calls, defined once. A call to a wrong path returns a
+// status in the trailers rather than a transport error, so a rename that leaves
+// one copy behind fails a single suite on an assertion while the rest keep
+// passing against a route that is gone.
+pub const SIGN_IN: &str = "/ond.v1.AccountService/SignInWithApple";
+pub const SIGN_OUT: &str = "/ond.v1.AccountService/SignOut";
+pub const BEGIN_APPLE_AUTHORIZATION: &str = "/ond.v1.AccountService/BeginAppleAuthorization";
+pub const DELETE_ACCOUNT: &str = "/ond.v1.AccountService/DeleteAccount";
+pub const GET_RECOMMENDATION: &str = "/ond.v1.AssistantService/GetRecommendation";
+pub const CHAT: &str = "/ond.v1.AssistantService/Chat";
+pub const SUBMIT_APP_STORE_TRANSACTION: &str =
+    "/ond.v1.EntitlementService/SubmitAppStoreTransaction";
+pub const GET_ENTITLEMENT: &str = "/ond.v1.EntitlementService/GetEntitlement";
+pub const RECORD_SESSIONS: &str = "/ond.v1.JourneyService/RecordSessions";
+pub const RECORD_BOLT_SCORE: &str = "/ond.v1.JourneyService/RecordBoltScore";
+pub const RECORD_RESTING_RATE: &str = "/ond.v1.JourneyService/RecordRestingRate";
+pub const DELETE_SESSIONS: &str = "/ond.v1.JourneyService/DeleteSessions";
+pub const GET_JOURNEY: &str = "/ond.v1.JourneyService/GetJourney";
+pub const GET_LEADERBOARD: &str = "/ond.v1.JourneyService/GetLeaderboard";
+pub const GET_PROFILE: &str = "/ond.v1.ProfileService/GetProfile";
+pub const UPDATE_PROFILE: &str = "/ond.v1.ProfileService/UpdateProfile";
+pub const LIST_TECHNIQUES: &str = "/ond.v1.TechniqueService/ListTechniques";
+pub const LIST_FOUNDATIONS: &str = "/ond.v1.TechniqueService/ListFoundations";
+pub const LIST_ROUTES: &str = "/ond.v1.TechniqueService/ListRoutes";
+pub const CREATE_USER_TECHNIQUE: &str = "/ond.v1.UserTechniqueService/CreateUserTechnique";
+pub const LIST_USER_TECHNIQUES: &str = "/ond.v1.UserTechniqueService/ListUserTechniques";
+pub const UPDATE_USER_TECHNIQUE: &str = "/ond.v1.UserTechniqueService/UpdateUserTechnique";
+pub const DELETE_USER_TECHNIQUE: &str = "/ond.v1.UserTechniqueService/DeleteUserTechnique";
+
 /// One person's daily model allowance.
 pub fn allowance(tier: Tier) -> usize {
     daily_model_calls(tier).map_or(0, |calls| {
@@ -66,13 +95,6 @@ pub fn headers<'a>(caller: &'a str, credential: Option<&'a str>) -> Vec<(&'a str
     }
     headers
 }
-
-/// Public for [`GET_RECOMMENDATION`]'s reason: `account.rs` drives this RPC for
-/// what a sign-in does and `identity.rs` for what its credential buys, and one
-/// definition keeps the path from being right in one suite and stale in the
-/// other.
-pub const SIGN_IN: &str = "/ond.v1.AccountService/SignInWithApple";
-pub const BEGIN_APPLE_AUTHORIZATION: &str = "/ond.v1.AccountService/BeginAppleAuthorization";
 
 /// Apple's `sub`, in the shape Apple actually issues one — the account both
 /// sign-in suites script their verifier tokens onto.
@@ -190,16 +212,6 @@ pub async fn live_credentials(pool: &PgPool, user: &str) -> i64 {
     .await
     .expect("the credentials are countable")
 }
-
-/// Public for [`SIGN_IN`]'s reason: the `user_technique` suite drives this RPC
-/// for what authoring does, the assistant's for the exercises its prompt is
-/// briefed on, and one definition keeps the path from being right in one suite
-/// and stale in the other.
-pub const CREATE_USER_TECHNIQUE: &str = "/ond.v1.UserTechniqueService/CreateUserTechnique";
-
-const RECORD_SESSIONS: &str = "/ond.v1.JourneyService/RecordSessions";
-const RECORD_BOLT_SCORE: &str = "/ond.v1.JourneyService/RecordBoltScore";
-const RECORD_RESTING_RATE: &str = "/ond.v1.JourneyService/RecordRestingRate";
 
 /// Records sessions through the real `JourneyService`.
 ///
@@ -350,12 +362,6 @@ pub fn prost_timestamp(instant: DateTime<Utc>) -> prost_types::Timestamp {
 pub fn hours_ago(hours: i64) -> DateTime<Utc> {
     Utc::now() - chrono::Duration::hours(hours)
 }
-
-/// Public because `assistant.rs` also drives this path anonymously, which
-/// [`recommend`] cannot do — it always sends an identity and asserts success.
-/// One definition either way, so the path cannot be right in one suite and
-/// stale in the other.
-pub const GET_RECOMMENDATION: &str = "/ond.v1.AssistantService/GetRecommendation";
 
 /// Asks `GetRecommendation` over the wire, on a router the caller has built.
 /// Two suites drive this RPC for opposite reasons, so only the call itself is

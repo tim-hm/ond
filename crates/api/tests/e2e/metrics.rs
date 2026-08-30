@@ -15,16 +15,13 @@ use axum::http::{Request, StatusCode};
 use tower::ServiceExt;
 
 use crate::harness::{
-    TestDatabase, call_grpc_web, call_grpc_web_stream_with, call_grpc_web_with, counter_total,
-    given_user, scrape, subscribe,
+    CHAT, LIST_TECHNIQUES, TestDatabase, UPDATE_PROFILE, call_grpc_web, call_grpc_web_stream_with,
+    call_grpc_web_with, counter_total, given_user, scrape, subscribe,
 };
 
 const ALICE: &str = "11111111-1111-4111-8111-111111111111";
 const BOB: &str = "22222222-2222-4222-8222-222222222222";
 const CAROL: &str = "33333333-3333-4333-8333-333333333333";
-const LIST_TECHNIQUES: &str = "/ond.v1.TechniqueService/ListTechniques";
-const UPDATE_PROFILE: &str = "/ond.v1.ProfileService/UpdateProfile";
-const CHAT: &str = "/ond.v1.AssistantService/Chat";
 
 struct HalfAnswer;
 
