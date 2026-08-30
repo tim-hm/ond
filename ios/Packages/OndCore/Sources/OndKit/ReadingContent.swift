@@ -69,6 +69,10 @@ extension ReadingContent {
     init?(proto: Ond_V1_ReadingContent) {
         let style: ReadingListStyle
         switch proto.listStyle {
+        // `.unspecified` is an answer here, not an absent one:
+        // `reading_list_style_to_proto` in the server's `technique/convert.rs`
+        // encodes `ReadingListStyle::None` as `Unspecified`, so this arm is the
+        // other half of a round trip rather than a silent default.
         case .unspecified: style = .none
         case .bullets: style = .bullets
         case .numbered: style = .numbered
