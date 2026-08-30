@@ -86,17 +86,18 @@ pub fn honoured_environment(environment: &'static str) {
 pub async fn refresh(census: &CensusCache, pool: &PgPool) {
     let snapshot = census.get(pool).await;
 
-    // `debug`, and the level is the point: this runs once per scrape, so a
-    // warn would restate one standing condition every fifteen seconds. The
-    // condition is not lost — the gauges go `NaN`, which the dashboard reads,
-    // and DatabaseUnreachable is the rule that pages.
+    // `warn`, and affordable: the cache sets these fields only on the scrape
+    // that performed the refresh, so one standing failure writes one line a
+    // minute. No rule covers the timeout — DatabaseUnreachable reads `pg_up`,
+    // the exporter's own connection, not this pool and not this query — so a
+    // census over its budget is otherwise three `NaN` gauges and no record.
     if snapshot.refresh_timed_out {
-        tracing::debug!(
+        tracing::warn!(
             "census did not answer within its budget; reporting the product gauges as unknown"
         );
     }
     if let Some(error) = snapshot.refresh_error {
-        tracing::debug!(%error, "census unavailable; reporting the product gauges as unknown");
+        tracing::warn!(%error, "census unavailable; reporting the product gauges as unknown");
     }
 
     let (users, plus, mrr) = match snapshot.census {
@@ -127,6 +128,7 @@ mod tests {
     fn every_verification_outcome_keeps_the_label_the_alerts_match_on() {
         assert_eq!(Verification::Honoured.as_label(), "honoured");
         assert_eq!(Verification::Rejected.as_label(), "rejected");
+        assert_eq!(Verification::Revoked.as_label(), "revoked");
         assert_eq!(Verification::TooLarge.as_label(), "too_large");
         assert_eq!(Verification::Claimed.as_label(), "claimed");
         assert_eq!(Verification::Unentitled.as_label(), "unentitled");
