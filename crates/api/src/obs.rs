@@ -4,6 +4,7 @@
 //! feature handler; product-specific metrics stay with the feature that
 //! defines what they mean.
 
+mod completion;
 pub mod exposition;
 pub mod metrics;
 mod trace;
