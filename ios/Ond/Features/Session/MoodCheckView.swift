@@ -30,7 +30,7 @@ struct MoodCheckView: View {
 
                     // Said before the answer rather than after: what the check
                     // is for is cheaper to state than to correct.
-                    Text(SessionSummaryLines.moodCaption)
+                    Text(MoodCheckModel.caption)
                         .font(.footnote)
                 }
 

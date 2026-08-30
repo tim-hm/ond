@@ -23,6 +23,11 @@ public final class MoodCheckModel {
 
     public init() {}
 
+    /// What the check is for, said on both halves before either is answered.
+    /// Here rather than with the summary's lines, because it belongs to the
+    /// question and not to the screen that happens to ask the second half.
+    public static let caption = "Context, not a score."
+
     /// What the summary row says: the pair when there is one, the later
     /// reading alone when the way in was skipped, nil until there is an
     /// answer. It states the two words and never grades the distance between

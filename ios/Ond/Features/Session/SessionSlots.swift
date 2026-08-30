@@ -30,11 +30,13 @@ struct SessionSlots: View {
     /// The refresh spec's reserved heights. Fixed rather than scaled — holding
     /// them is what lets a phase crossfade in place. The caller bounds Dynamic
     /// Type so the words still sit inside them; drawn unbounded, they spill.
-    private static let actionHeight: CGFloat = 50
-    private static let qualifierHeight: CGFloat = 26
-    private static let countHeight: CGFloat = 22
+    /// `SessionSummaryView` stands its own three lines in these, so the last
+    /// screen of a session cannot fork from the session.
+    static let actionHeight: CGFloat = 50
+    static let qualifierHeight: CGFloat = 26
+    static let countHeight: CGFloat = 22
 
-    private static let actionSize: CGFloat = 42
+    static let actionSize: CGFloat = 42
     private static let countSize: CGFloat = 14
     private static let dotSize: CGFloat = 6
 

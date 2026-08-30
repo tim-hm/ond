@@ -3,8 +3,7 @@ import SwiftUI
 
 /// The session's room: the one ground darker than the app, with the slow field
 /// drifting on it. The running session and the summary it hands over to share
-/// this, so the end of the breathing is not the end of the room. Its own
-/// modifier because the ground is a literal, and two copies of a literal drift.
+/// this, so the end of the breathing is not the end of the room.
 struct SessionGround: ViewModifier {
     /// Whether the field holds still. A paused session freezes with the breath
     /// it sits behind; a summary has nothing left to freeze with.

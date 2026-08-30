@@ -26,7 +26,7 @@ struct SessionLockScreenView: View {
     private static let glass = Theme.Ink.primary.opacity(0.10)
 
     /// The card's ground — deep teal light falling away to near-black, fixed
-    /// in both appearances like the in-app session's `deepGround`, and a local
+    /// in both appearances like the in-app session's `SessionGround`, and a local
     /// constant for its reason: the spec defines no light variant, and a
     /// catalogue token would oblige the integrity tests to invent one.
     private static let ground = RadialGradient(

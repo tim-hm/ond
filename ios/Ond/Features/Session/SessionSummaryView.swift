@@ -26,14 +26,6 @@ struct SessionSummaryView: View {
     @Environment(SessionSettings.self) private var settings
     @Environment(MoodRecorder.self) private var moodRecorder
 
-    /// The live session's own slot heights, held for its reason: a line that
-    /// arrives late must not push the figures under a reader's eye.
-    private static let headlineHeight: CGFloat = 50
-    private static let noteHeight: CGFloat = 26
-    private static let markHeight: CGFloat = 22
-
-    private static let headlineSize: CGFloat = 42
-
     var body: some View {
         VStack(spacing: Theme.Spacing.loose) {
             Spacer()
@@ -55,29 +47,31 @@ struct SessionSummaryView: View {
         .padding(.horizontal, Theme.Spacing.page)
         .padding(.vertical, Theme.Spacing.loose)
         .foregroundStyle(Theme.Ink.primary)
-        .sessionGround()
+        // Stilled: the breathing has stopped, so the field holds where the
+        // session left it rather than repainting the screen while it is read.
+        .sessionGround(stilled: true)
     }
 
-    /// What happened, what it was, and the rung it crossed. Capped with the
-    /// session's words, and for their reason: the heights are what keep the
-    /// figures still, and an accessibility size would break them.
+    /// What happened, what it was, and the rung it crossed, in the heights
+    /// `SessionSlots` reserves. Capped with the session's words, and for their
+    /// reason: an accessibility size would spill the words out of them.
     private var slots: some View {
         VStack(spacing: 0) {
             Text(SessionSummaryLines.headline(for: record))
-                .displaySerif(size: Self.headlineSize)
+                .displaySerif(size: SessionSlots.actionSize)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-                .frame(height: Self.headlineHeight)
+                .frame(height: SessionSlots.actionHeight)
 
             Text(SessionSummaryLines.note(for: record, exercise: title))
                 .font(.body)
                 .foregroundStyle(Theme.Ink.secondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-                .frame(height: Self.noteHeight)
+                .frame(height: SessionSlots.qualifierHeight)
 
             mark
-                .frame(height: Self.markHeight)
+                .frame(height: SessionSlots.countHeight)
                 .animation(.easeIn(duration: 0.4), value: reached)
         }
         .multilineTextAlignment(.center)
@@ -134,7 +128,7 @@ struct SessionSummaryView: View {
                     }
                 }
 
-                Text(SessionSummaryLines.moodCaption)
+                Text(MoodCheckModel.caption)
                     .font(.footnote)
                     .foregroundStyle(Theme.Ink.secondary)
             }

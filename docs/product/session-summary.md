@@ -6,7 +6,7 @@ The screen has one job: confirm the session counted, say what it was, and offer 
 
 ## The screen is the session with the breathing removed
 
-The summary keeps the session's ground, the drifting field behind it, and the three slots the phase words stood in. Only the orb goes; the figures take its place. Nothing about the room changes when the breathing stops, so the screen reads as the end of the session rather than as a new one.
+The summary keeps the session's ground, the field behind it, and the three slots the phase words stood in. Only the orb goes; the figures take its place. Nothing about the room changes when the breathing stops, so the screen reads as the end of the session rather than as a new one. The field holds still: the breathing has stopped, and a screen somebody sits and reads has nothing left to move for.
 
 This is why the summary does not sit on the accent wash the countdown and the invitation sit on. Those screens are the way in, and the app's colour is still on them. The session is the one room darker than the app, and it holds until Done.
 
@@ -75,7 +75,7 @@ Two questions around one session, both optional, and neither of them a measureme
 
 **After.** Inline on the summary, under the figures. It asks `How do you feel now?` The summary is the one moment of a session with attention to spare, so a fourth full screen before Done would ask more than the answer is worth.
 
-Both carry the same caption: `Context, not a score.` It is Progress's own line, and it belongs here more than anywhere — a pair of moods across a session is the one thing on this screen that invites reading a difference. Saying what the answer is for, before it is given, is cheaper than correcting the reading afterwards.
+Both carry the same caption, `MoodCheckModel.caption`: `Context, not a score.` It is Progress's own line, and it belongs here more than anywhere — a pair of moods across a session is the one thing on this screen that invites reading a difference. Saying what the answer is for, before it is given, is cheaper than correcting the reading afterwards.
 
 **What the pair says back.** `Not good before · Good now` when both halves were answered, the later word alone when the way in was skipped. The rule is `MoodCheckModel.note`, and it states the two words without grading the distance between them.
 

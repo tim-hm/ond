@@ -22,10 +22,6 @@ public enum SessionSummaryLines {
             : "Ended early — recorded as it happened."
     }
 
-    /// What the mood check is for, said before the answer is given. One string
-    /// for both halves of the check, so the pair cannot state two reasons.
-    public static let moodCaption = "Context, not a score."
-
     /// One figure under the slots: a value and what it counts.
     public struct Figure: Equatable, Identifiable, Sendable {
         public let label: String
@@ -43,27 +39,19 @@ public enum SessionSummaryLines {
     /// always shown, and labelled `time` rather than `minutes` — a session of
     /// forty seconds under a label saying minutes is a small lie.
     public static func figures(for record: SessionRecord) -> [Figure] {
-        var figures: [Figure] = []
+        [
+            counted(record.cyclesCompleted, of: "cycle"),
+            Figure(
+                label: "time",
+                value: record.duration.formatted(.time(pattern: .minuteSecond))
+            ),
+            counted(record.breathCount, of: "breath"),
+        ].compactMap(\.self)
+    }
 
-        if record.cyclesCompleted > 0 {
-            figures.append(Figure(
-                label: record.cyclesCompleted == 1 ? "cycle" : "cycles",
-                value: "\(record.cyclesCompleted)"
-            ))
-        }
-
-        figures.append(Figure(
-            label: "time",
-            value: record.duration.formatted(.time(pattern: .minuteSecond))
-        ))
-
-        if record.breathCount > 0 {
-            figures.append(Figure(
-                label: record.breathCount == 1 ? "breath" : "breaths",
-                value: "\(record.breathCount)"
-            ))
-        }
-
-        return figures
+    /// One counted figure, or nothing at all where the count is zero.
+    private static func counted(_ count: Int, of thing: String) -> Figure? {
+        guard count > 0 else { return nil }
+        return Figure(label: count == 1 ? thing : "\(thing)s", value: "\(count)")
     }
 }
