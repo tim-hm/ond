@@ -99,11 +99,11 @@ struct CoachComposer: View {
                 + "the server, so the coach answers from its rules here."
         case .refused:
             "Your subscription couldn't be confirmed. Nothing more has been "
-                + "charged — retry, and contact support if it keeps happening."
+                + "charged. Retry, and contact support if it keeps happening."
         case .held:
-            "Your subscription is settling onto this device — a safeguard "
-                + "after a reinstall holds it for up to a day. Nothing is "
-                + "broken, and no action is needed."
+            "Your subscription is settling onto this device. A safeguard "
+                + "after a reinstall holds it for up to a day, and you do not "
+                + "need to do anything."
         case nil:
             "Confirming your subscription with the App Store. The coach "
                 + "answers from its rules until that lands."
