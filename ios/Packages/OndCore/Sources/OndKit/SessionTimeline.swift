@@ -76,6 +76,12 @@ public struct SessionTimeline: Sendable, Equatable {
         /// voice render wrote, or nil to pick the cue from the beat itself.
         /// Nil for every seeded phase: no script is written yet.
         public let voiceScript: String?
+        /// The tap this beat's table authored for it, already resolved.
+        /// Resolved where the plan is laid out rather than at each cue, so an
+        /// id this build does not know is reported per stage, not per beat.
+        /// `standard` for every seeded phase, which names none, and that is
+        /// what a phase derives for itself.
+        public let hapticPattern: HapticPattern
         /// Which words this beat is said in — the session's register, stamped
         /// onto every beat at layout. `SessionTimeline.register` is the
         /// authority; the copy earns its byte on reach: every surface that

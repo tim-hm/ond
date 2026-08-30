@@ -26,10 +26,10 @@ final class HapticController {
     private var engine: CHHapticEngine?
     private var impacts: [UIImpactFeedbackGenerator.FeedbackStyle: UIImpactFeedbackGenerator] = [:]
 
-    /// The pattern still playing, if there is one. A breath is one continuous
-    /// event spanning its whole phase, so mid-phase something is always in
-    /// flight: a pause left alone would play the rest of the breath out, and
-    /// an arriving cue must stop the departing one rather than overlap it.
+    /// The pattern still playing, if there is one. A breath's envelope runs
+    /// for most of its phase, so something is usually in flight mid-phase: a
+    /// pause left alone would play the rest of the breath out, and an arriving
+    /// cue must stop the departing one rather than overlap it.
     private var playing: (any CHHapticPatternPlayer)?
 
     init(strength: HapticStrength) {
@@ -91,19 +91,12 @@ final class HapticController {
 
         do {
             let taps = [0.0, 0.14, 0.28].enumerated().map { index, time in
-                CHHapticEvent(
-                    eventType: .hapticTransient,
-                    parameters: [
-                        CHHapticEventParameter(
-                            parameterID: .hapticIntensity,
-                            value: strength.intensity(0.5 + Float(index) * 0.2)
-                        ),
-                        CHHapticEventParameter(
-                            parameterID: .hapticSharpness,
-                            value: strength.sharpness(0.4)
-                        ),
-                    ],
-                    relativeTime: time
+                tap(
+                    SessionHapticShape.Transient(
+                        intensity: 0.5 + Float(index) * 0.2,
+                        sharpness: 0.4
+                    ),
+                    at: time
                 )
             }
             let player = try engine.makePlayer(with: CHHapticPattern(events: taps, parameters: []))
@@ -169,84 +162,96 @@ final class HapticController {
     /// OndKit owns the authored values so the phone's waveform is also the
     /// envelope the watch translates into its smaller haptic vocabulary.
     private func pattern(for beat: SessionTimeline.Beat) throws -> CHHapticPattern {
-        switch SessionHapticShape(beat: beat) {
-        case let .continuous(startIntensity, endIntensity, sharpness):
-            try swell(
-                over: beat.breathing,
-                from: startIntensity,
-                to: endIntensity,
-                sharpness: sharpness
-            )
-        case let .transient(intensity, sharpness):
-            try tap(intensity: intensity, sharpness: sharpness)
+        let shape = SessionHapticShape(beat: beat)
+        var events = [tap(shape.onset, at: 0)]
+        var curves: [CHHapticParameterCurve] = []
+
+        if let envelope = shape.envelope {
+            let (event, curve) = swell(envelope)
+            events.append(event)
+            curves.append(curve)
         }
+        if let reminder = shape.reminder {
+            events += reminders(reminder, within: beat.breathing)
+        }
+
+        return try CHHapticPattern(events: events, parameterCurves: curves)
     }
 
-    /// A continuous event whose intensity is driven across the whole phase by a
-    /// parameter curve. The curve multiplies the event's own intensity, which is
-    /// why the event is authored at full strength and the shape lives entirely
-    /// in the control points.
+    /// A continuous event whose intensity is driven across the envelope's own
+    /// span by a parameter curve. The curve multiplies the event's intensity,
+    /// which is why the event is authored at full strength and the shape lives
+    /// entirely in the control points.
     private func swell(
-        over duration: Duration,
-        from start: Float,
-        to end: Float,
-        sharpness: Float
-    ) throws -> CHHapticPattern {
-        let seconds = duration.seconds
+        _ envelope: SessionHapticShape.Envelope
+    ) -> (CHHapticEvent, CHHapticParameterCurve) {
+        let start = envelope.span.lowerBound.seconds
+        let seconds = envelope.span.upperBound.seconds - start
         let event = CHHapticEvent(
             eventType: .hapticContinuous,
             parameters: [
                 CHHapticEventParameter(parameterID: .hapticIntensity, value: 1),
                 CHHapticEventParameter(
                     parameterID: .hapticSharpness,
-                    value: strength.sharpness(sharpness)
+                    value: strength.sharpness(envelope.sharpness)
                 ),
             ],
-            relativeTime: 0,
+            relativeTime: start,
             duration: seconds
         )
 
         // The curve, not the event, is where the strength lands: the event is
         // authored at full intensity precisely so the shape lives in these
         // control points, and scaling the event instead would flatten the swell
-        // rather than raise it.
+        // rather than raise it. Control points are relative to the curve's own
+        // start, so they run from zero while the curve begins at the envelope.
         let curve = CHHapticParameterCurve(
             parameterID: .hapticIntensityControl,
             controlPoints: [
                 CHHapticParameterCurve.ControlPoint(
                     relativeTime: 0,
-                    value: strength.intensity(start)
+                    value: strength.intensity(envelope.startIntensity)
                 ),
                 CHHapticParameterCurve.ControlPoint(
                     relativeTime: seconds,
-                    value: strength.intensity(end)
+                    value: strength.intensity(envelope.endIntensity)
                 ),
             ],
-            relativeTime: 0
+            relativeTime: start
         )
 
-        return try CHHapticPattern(events: [event], parameterCurves: [curve])
+        return (event, curve)
     }
 
-    private func tap(intensity: Float, sharpness: Float) throws -> CHHapticPattern {
-        try CHHapticPattern(
-            events: [
-                CHHapticEvent(
-                    eventType: .hapticTransient,
-                    parameters: [
-                        CHHapticEventParameter(
-                            parameterID: .hapticIntensity,
-                            value: strength.intensity(intensity)
-                        ),
-                        CHHapticEventParameter(
-                            parameterID: .hapticSharpness,
-                            value: strength.sharpness(sharpness)
-                        ),
-                    ],
-                    relativeTime: 0
+    /// The marks that say a long hold is still running, as far as the length
+    /// the hold aims for. A retention ends on the person's own tap, so nothing
+    /// is scheduled past the aim.
+    private func reminders(
+        _ reminder: SessionHapticShape.Reminder,
+        within span: Duration
+    ) -> [CHHapticEvent] {
+        let step = reminder.interval.seconds
+        guard step > 0 else { return [] }
+        return stride(from: step, to: span.seconds, by: step).map { tap(reminder.tap, at: $0) }
+    }
+
+    private func tap(
+        _ transient: SessionHapticShape.Transient,
+        at time: TimeInterval
+    ) -> CHHapticEvent {
+        CHHapticEvent(
+            eventType: .hapticTransient,
+            parameters: [
+                CHHapticEventParameter(
+                    parameterID: .hapticIntensity,
+                    value: strength.intensity(transient.intensity)
+                ),
+                CHHapticEventParameter(
+                    parameterID: .hapticSharpness,
+                    value: strength.sharpness(transient.sharpness)
                 ),
             ],
-            parameters: []
+            relativeTime: time
         )
     }
 

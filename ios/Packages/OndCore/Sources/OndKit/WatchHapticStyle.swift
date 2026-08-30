@@ -34,24 +34,22 @@ public struct WatchHapticStyle: Sendable, Equatable {
         for beat: SessionTimeline.Beat,
         cueDelay: Duration = .zero
     ) -> [Duration] {
-        let shape = SessionHapticShape(beat: beat)
-        guard case let .continuous(startIntensity, endIntensity, _) = shape else { return [] }
+        guard let envelope = SessionHapticShape(beat: beat).envelope else { return [] }
 
-        let first = cueDelay + Self.lead
+        let first = envelope.span.lowerBound + cueDelay
         let duration = beat.breathing
-        let end = duration - Self.tail
-        guard first < end else { return [] }
+        guard first < envelope.span.upperBound else { return [] }
         if beat.duration < Stage.fastPhase {
             return [first]
         }
 
         var offsets: [Duration] = []
         var offset = first
-        while offset < end {
+        while offset < envelope.span.upperBound {
             offsets.append(offset)
             let progress = offset / duration
-            let intensity = Double(startIntensity)
-                + (Double(endIntensity) - Double(startIntensity)) * progress
+            let intensity = Double(envelope.startIntensity)
+                + (Double(envelope.endIntensity) - Double(envelope.startIntensity)) * progress
             let level = Self.level(ofAuthoredIntensity: intensity)
             offset += Self.gaps.empty * (1 - level) + Self.gaps.full * level
         }
@@ -68,10 +66,4 @@ public struct WatchHapticStyle: Sendable, Equatable {
     private static func level(ofAuthoredIntensity intensity: Double) -> Double {
         min(max((intensity - 0.08) / (0.85 - 0.08), 0), 1)
     }
-
-    /// Room for the directional cue to finish before the first breath pulse.
-    private static let lead: Duration = .milliseconds(300)
-
-    /// Quiet room before the next phase boundary.
-    private static let tail: Duration = .milliseconds(300)
 }

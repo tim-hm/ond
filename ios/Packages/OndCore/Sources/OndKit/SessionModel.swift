@@ -45,6 +45,13 @@ public final class SessionModel {
     /// would cost `SessionCueing` an async `playCompletion()` in three targets.
     static let cueReleaseDelay: Duration = .seconds(2)
 
+    /// The longest the completion cue may arrive after the plan's last phase
+    /// ends. A session may never simply stop: an ending nobody felt is
+    /// indistinguishable from a crash, and the screen is often off. Held by
+    /// `SystemClock.tolerance`, which bounds how late the loop's last wake-up
+    /// may be, and by `finish` playing the cue on that same turn of the loop.
+    static let completionBound: Duration = .milliseconds(400)
+
     private let cues: any SessionCueing
     private let recorder: any SessionRecording
     private let clock: any SessionClock
