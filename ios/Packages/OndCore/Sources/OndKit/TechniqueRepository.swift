@@ -238,11 +238,28 @@ extension Phase {
             )
         }
 
+        // A gap the contract cannot mean is refused rather than repaired, on
+        // the range rule above's terms. This is not the runtime cap: a dial can
+        // take a phase under a gap authored for its curated length, and
+        // `SessionTurnGap` handles that where the phase is laid out.
+        let turnGap = proto.hasTurnGapMs ? Duration.milliseconds(proto.turnGapMs) : nil
+        if let turnGap, !SessionTurnGap.authored.contains(turnGap) {
+            throw TechniqueRepositoryError.malformedResponse(
+                "a phase authors a \(proto.turnGapMs)ms turn gap"
+            )
+        }
+
         try self.init(
             Breath(kind: kind, through: proto.passage),
             duration: .milliseconds(proto.durationMs),
             range: .milliseconds(proto.minDurationMs) ... .milliseconds(proto.maxDurationMs),
-            manner: Manner(proto: proto.manner)
+            manner: Manner(proto: proto.manner),
+            turnGap: turnGap,
+            // `nilIfEmpty` as well as the presence test: an empty key is the
+            // second spelling of absence the column's `CHECK` refuses, and
+            // this app should not start holding one either.
+            hapticPattern: proto.hasHapticPattern ? proto.hapticPattern.nilIfEmpty : nil,
+            voiceScript: proto.hasVoiceScript ? proto.voiceScript.nilIfEmpty : nil
         )
     }
 }

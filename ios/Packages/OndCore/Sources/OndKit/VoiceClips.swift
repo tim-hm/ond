@@ -106,11 +106,23 @@ public enum SpokenCue: Sendable, Hashable {
 }
 
 public extension SessionTimeline.Beat {
+    /// The connected line this beat speaks: the one its table authored, and
+    /// the one its place in a sigh implies where no table has spoken. Nil
+    /// where the render shipped no clip of that name — a name nothing matches
+    /// is not a line, so the beat takes its ordinary cue instead of the
+    /// silence a missing clip would otherwise buy it.
+    var connectedClipStem: String? {
+        guard let stem = voiceScript ?? cueRole.sighClipStem,
+              VoiceClips.longest(stem) != nil
+        else { return nil }
+        return stem
+    }
+
     /// What this beat has room to be told in. Carried by the beat rather than
     /// recomputed: the player and `SessionView` both need it, and two
     /// surfaces deriving the same answer is how they come to disagree.
     var spokenCue: SpokenCue {
-        if let stem = cueRole.sighClipStem {
+        if let stem = connectedClipStem {
             let length = VoiceClips.longest(stem) ?? .infinity
             return length <= duration.seconds ? .full : .tone
         }
@@ -122,7 +134,7 @@ public extension SessionTimeline.Beat {
     /// disagree — a beat that stacks on the one before does not name the same
     /// clip as one that starts a breath.
     var clipStem: String? {
-        if let stem = cueRole.sighClipStem {
+        if let stem = connectedClipStem {
             return spokenCue == .tone ? nil : stem
         }
         return switch spokenCue {

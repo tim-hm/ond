@@ -72,6 +72,10 @@ public struct SessionTimeline: Sendable, Equatable {
         /// surface that says something about a beat is handed a `Beat` and
         /// nothing else.
         public let manner: Manner?
+        /// The line this beat's table authored for it, named as the clip the
+        /// voice render wrote, or nil to pick the cue from the beat itself.
+        /// Nil for every seeded phase: no script is written yet.
+        public let voiceScript: String?
         /// Which words this beat is said in — the session's register, stamped
         /// onto every beat at layout. `SessionTimeline.register` is the
         /// authority; the copy earns its byte on reach: every surface that

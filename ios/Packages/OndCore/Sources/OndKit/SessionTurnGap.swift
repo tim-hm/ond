@@ -35,6 +35,17 @@ public enum SessionTurnGap {
     /// custom sub-second phases predominantly breath rather than stillness.
     public static let maximumStackedShare = 0.2
 
+    /// The widest gap a table may author, and the widest the wire is allowed
+    /// to state one in. Zero is inside it and means something: a continuous
+    /// rhythm turns without a pause on purpose.
+    public static let authored: ClosedRange<Duration> = .zero ... .milliseconds(600)
+
+    /// The most of a phase an authored gap may take. A table is taken as
+    /// written up to here, because it exists to say what tempo cannot. Past it
+    /// the phase would be more stillness than breath, and a dial can shorten a
+    /// phase under a gap authored for its curated length.
+    public static let maximumAuthoredShare = 0.5
+
     /// The bounds again as milliseconds, converted once:
     /// `Duration.milliseconds` decomposes a 128-bit attosecond count, and
     /// `Beat.breathing` asks on every frame. The `Duration` constants above
@@ -42,15 +53,22 @@ public enum SessionTurnGap {
     private static let shortestMilliseconds = Double(shortest.milliseconds)
     private static let longestMilliseconds = Double(longest.milliseconds)
 
-    /// The stillness closing a phase of `duration`, in whole milliseconds —
-    /// the ordinary tempo gap, unless `beforeStackedBreath` says another
-    /// movement in the same direction follows and the larger, capped pause
-    /// applies. A span of zero has no breath to borrow from.
+    /// The stillness closing a phase of `duration`, in whole milliseconds.
+    /// `authored` is the phase's own table where it has one, and it wins — the
+    /// tempo rule is the fallback, not the override. Otherwise the ordinary
+    /// tempo gap, unless `beforeStackedBreath` says another movement in the
+    /// same direction follows. A span of zero has no breath to borrow from.
     public static func length(
         ofPhase duration: Duration,
+        authored: Duration? = nil,
         beforeStackedBreath: Bool = false
     ) -> Duration {
         let span = Double(duration.milliseconds)
+        if let authored {
+            let capped = min(Double(authored.milliseconds), span * maximumAuthoredShare)
+            return .milliseconds(Int64(capped.rounded()))
+        }
+
         let ordinary = min(
             max(span * share, shortestMilliseconds),
             longestMilliseconds,
