@@ -19,7 +19,7 @@ struct HealthKitReadFailure: Sendable, Equatable {
     let reason: String
 }
 
-/// Turns HealthKit read failures into absence while leaving a debug trail.
+/// Turns HealthKit read failures into absence while leaving a log trail.
 ///
 /// The generic operation keeps the behavior host-testable without importing
 /// HealthKit. Its diagnostic carries the sample type and framework-authored
@@ -37,10 +37,16 @@ struct HealthKitReadBoundary: Sendable {
         self.init { failure in
             switch failure.operation {
             case .authorization:
-                Self.logger.debug(
+                // `notice`, so a refused grant reaches the on-disk store a
+                // sysdiagnose collects: it is the cause of every empty reading
+                // after it. Written once per sample type each time somebody
+                // asks, which is a person's tap rather than a loop.
+                Self.logger.notice(
                     "health authorization failed; sample_type=\(failure.sampleType, privacy: .public); reason=\(failure.reason, privacy: .public)"
                 )
             case .query:
+                // `debug`: a query fails once per statistics window, which is too
+                // repetitive to keep.
                 Self.logger.debug(
                     "health query failed; sample_type=\(failure.sampleType, privacy: .public); reason=\(failure.reason, privacy: .public)"
                 )
