@@ -64,9 +64,10 @@ struct PlusBenefits: View {
         let limit: String
 
         /// The dot's colour. Only the leaderboard row differs — the one
-        /// benefit involving other people. A `var` so the memberwise
-        /// initialiser keeps it: a `let` with a default is dropped from the
-        /// parameter list, and the one row that overrides it stops compiling.
+        /// benefit that is not a connected feature. It takes the quietest ink
+        /// rather than `Breath.hold`, which means a hold wherever it appears
+        /// and so is not available as a category bullet. A `var` so the
+        /// memberwise initialiser keeps it.
         var mark: Color = Theme.Breath.inhale
 
         var id: String {
@@ -90,7 +91,7 @@ struct PlusBenefits: View {
         Benefit(
             title: "Leaderboards, if you want them",
             limit: "Off by default. Minutes practised, nothing ranked by calm.",
-            mark: Theme.Breath.hold
+            mark: Theme.Ink.tertiary
         ),
     ]
 }
