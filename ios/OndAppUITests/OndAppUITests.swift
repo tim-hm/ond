@@ -259,7 +259,7 @@ final class OndAppUITests: XCTestCase {
         // The empty journal this harness launches on: the chart draws its
         // baseline and says so, and nothing that needs a row draws at all.
         XCTAssertTrue(app.descendants(matching: .any)["practice-chart"].exists)
-        XCTAssertTrue(app.staticTexts["Your first session starts this chart."].exists)
+        XCTAssertTrue(app.staticTexts["This chart fills in once you have practised."].exists)
         XCTAssertFalse(app.buttons["leaderboards-door"].exists)
 
         try app.performAccessibilityAudit { issue in
@@ -466,7 +466,7 @@ final class OndAppUITests: XCTestCase {
         XCTAssertTrue(basics.waitForExistence(timeout: 10))
         basics.tap()
 
-        let lead = app.staticTexts["Practice matters more than perfect"]
+        let lead = app.staticTexts["How exact does it need to be?"]
         XCTAssertTrue(lead.waitForExistence(timeout: 10))
         XCTAssertTrue(lead.isHittable, "the practice-first message should appear without scrolling")
 
