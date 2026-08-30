@@ -158,7 +158,7 @@ The assistant sends text a person wrote to a third party and renders what comes 
 **What to check:**
 
 - **Lock files committed.** `Cargo.lock` and `Package.resolved` must be tracked and must not be gitignored. `docs/code-structure.md` explains why the Swift package graph is one package rather than three: several `Package.resolved` files would be free to pin different versions of the same dependency. A second package appearing is a supply-chain concern as well as a structural one.
-- **Known vulnerabilities.** There is no `cargo audit` mise task and no Dependabot-equivalent in `.github/workflows/checks.yml` — say so if you find it still true, because "nobody is watching the advisory feed" is a standing finding, not a code one. Do not run the audit yourself.
+- **Known vulnerabilities.** `mise run check:audit` runs `cargo audit` and `osv-scanner`, and `deploy:api` runs it before every build. There is no CI and no scheduled trigger, so between deploys nothing watches the advisory feed — [deployment.md](../../../../../docs/deployment.md) records that gap as accepted, so do not re-file it. Do not run the audit yourself.
 - **Unused dependencies.** `mise run check:deps` covers this; check it is still in the `check` chain rather than re-deriving it by hand.
 - **Toolchain pins.** `.mise.toml`'s `[tools]` section fixes the toolchain both languages build against. A pin that has drifted far behind is a security-relevant staleness, not a style one.
 - **New dependencies in the window.** From the scoping data: for each new dependency, ask whether it earns its attack surface, and whether it pulls in a transitive tree disproportionate to what it does.

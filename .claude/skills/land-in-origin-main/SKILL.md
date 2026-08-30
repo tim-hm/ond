@@ -35,7 +35,7 @@ mise run fmt
 mise run check
 ```
 
-`mise run check` covers `check:swift` and `test:swift` through `check:mac`, which runs them on macOS and skips loudly elsewhere. If any branch in the stack touches `ios/` or `web/`, run `mise run check:diagrams` explicitly as well — that one stays outside the gate on cost, not platform. Note CI is switched off entirely (see docs/contributing.md), so a local pass is the only evidence there is.
+`mise run check` covers `check:swift` and `test:swift` through `check:mac`, which runs them on macOS and skips loudly elsewhere. If any branch in the stack touches `ios/` or `web/`, run `mise run check:diagrams` explicitly as well — that one stays outside the gate on cost, not platform. There is no CI (see docs/contributing.md), so a local pass is the only evidence there is.
 
 Two failure modes here are stack-specific rather than code-specific, and both surface as a `check` failure:
 
@@ -97,7 +97,7 @@ Created PRs:
 Ready to start merging from the base. Confirm to proceed.
 ```
 
-**CI is disabled at the repository level and has been since 2026-08-07**, so `gh pr checks` reports nothing and a PR with no red mark is not a passing PR. `.github/workflows/checks.yml` describes what would run if it were re-enabled, and even then it was only the fast, dependency-free slice — the tests, `check:sqlx`, `check:generated` and `check:deps` never ran there. Step 2 is therefore the whole of the evidence, not a supplement to it.
+**There is no CI and none is planned**, so `gh pr checks` reports nothing and a PR with no red mark is not a passing PR. Step 2 is the whole of the evidence, not a supplement to it.
 
 Wait for explicit confirmation before any merge.
 

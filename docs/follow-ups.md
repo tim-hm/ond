@@ -56,7 +56,3 @@ The simulator answers these wrongly and confidently, so none of them is verified
 - The 40mm watch layout at large text sizes.
 
 Read the `.xcresult` bundle for any accessibility-audit failure. The console names no element.
-
-## Repository
-
-**GitHub Actions has been disabled since 2026-08-07.** `mise run check` on a developer's own machine is the whole of the evidence that anything works. [contributing.md](contributing.md) records what re-enabling it needs. _Closes when CI runs the gate again._
