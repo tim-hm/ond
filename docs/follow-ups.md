@@ -8,11 +8,13 @@ Each entry says what is open, why it was left, and what closes it.
 
 ## Blocked on design
 
-**The haptic pattern.** §4 of the visual refresh names the haptic pattern as the primary channel for a session with the screen off. No pattern is designed: not the per-phase signatures, not hold against rest, not phone against watch, not intensity. Screen-off mode does not ship without it. _Closes when design delivers the pattern._
+**The haptic pattern.** §4 of the visual refresh names the haptic pattern as the primary channel for a session with the screen off. No pattern is designed: not the per-phase signatures, not hold against rest, not phone against watch, not intensity. Screen-off mode does not ship without it. A phase can now carry a `haptic_pattern` key through the contract, the schema and the catalogue export, but nothing authors one and no client resolves one: an identifier can be shaped without the design, a pattern cannot. _Closes when design delivers the pattern._
 
 **The board is unreachable for a new user.** `BoardCard` on Progress is the only door to leaderboards, and the spec hides the board until there is at least one session. So the feature is invisible to the people most likely to be looking for a reason to come back. One session opens it. _Closes when design decides whether a new user sees a board, an empty board, or nothing._
 
 **The playful register ships half-styled.** `PlayfulBreathVisual` was ported onto the refreshed session layout unchanged, by decision. §12 of the spec says it either becomes a designed mode or it goes. _Closes when design picks one._
+
+**Per-exercise cadence tables are not written.** A phase can carry an authored turn gap, haptic pattern and voice script, and every one of them is null in the seed, so every session still derives all three. Writing the tables is design work per exercise, and the turn gap, the tap and the spoken line are one deliverable rather than three. _Closes when design delivers a cadence per exercise._
 
 ## Decisions somebody has to look at
 
@@ -35,6 +37,8 @@ Each entry says what is open, why it was left, and what closes it.
 **Choosing Sweeping on the phone does not reach the wrist.** `WatchSettings` carries no `breathVisual`, so the watch selects Sweeping from Reduce Motion alone rather than from the shared `drawn(underReduceMotion:)` resolver. Somebody who picks Sweeping on the phone still gets a scaling core on their wrist. _Closes when the setting reaches the watch._
 
 **The watch's display size is written out four times.** The wrist sets its display face at 22pt in the session view, the root menu, the session summary and the consent screen. No token holds it, so the four can drift apart. _Closes when one token holds the wrist's display size._
+
+**A prescription now keeps a phase's manner, and no test says so.** `Prescription.dialled` used to drop the manner and now carries it. Nothing changes today, because both seeded prescriptions target `extended-exhale`, which has no manner. The change is real but unobservable, so nothing will catch it when a prescription first targets an exercise that has one. _Closes when a test pins what a dialled prescription keeps._
 
 **A day header can say "Today" after midnight.** Nothing re-renders Progress at the turn of the day, so an app left open on that screen keeps yesterday's header. _Closes when the view observes the day change._
 

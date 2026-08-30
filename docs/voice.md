@@ -101,6 +101,8 @@ It is also measured against the phase **as it will be breathed** rather than as 
 
 The sigh is the deliberate exception to the one-word rule. Its inhale, top-up and release are one connected instruction — "Breathe in", "And in", "And breathe out" — rendered as three clips with sentence punctuation supplied through `say`. Each clip still has to fit its own phase against the slowest voice; a dialled phase too short for its fragment keeps the tone rather than clipping a word.
 
+A phase may also **name its own clip**, through the `voice_script` field the catalogue carries per phase. A named clip is what that phase speaks, and it still has to fit; a phase that names none picks its cue exactly as above. Nothing in the seeded catalogue names one yet — the sigh reaches its three connected lines through the cue role it is laid out with, as it always has.
+
 ## What stops the audio drifting from the words
 
 The render is manual, key-gated and macOS-only, so forgetting it is the likely mistake rather than the unlikely one — and a forgotten render is invisible: the clips still play, still sound right, and say something the app stopped saying. Five tests cover it, none needing a key, a network or a simulator.
