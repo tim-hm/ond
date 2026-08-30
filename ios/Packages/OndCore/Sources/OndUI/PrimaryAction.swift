@@ -41,8 +41,8 @@ public extension View {
 /// The session flow's one primary control: a full-width capsule washed with the
 /// accent. A `ButtonStyle` rather than a modifier, so the capsule the eye sees
 /// and the area the finger hits are the same rectangle. One style because the
-/// same control ends three screens, and a retune has to land on all of them at
-/// once or the flow's one button quietly forks.
+/// same control opens a session from both screens that can, and a retune has to
+/// land on both at once or the flow's one button quietly forks.
 public struct CapsuleActionStyle: ButtonStyle {
     private let accent: Color
 

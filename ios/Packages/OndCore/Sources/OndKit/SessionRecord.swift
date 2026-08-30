@@ -86,24 +86,6 @@ public struct SessionRecord: Sendable, Codable, Equatable, Identifiable {
     public var isFalseStart: Bool {
         !completed && duration < Self.minimumRecordedDuration
     }
-
-    /// What a summary leads with. Here, not in either summary screen, so the
-    /// copy rule — celebrate, never grade — reads the same on the phone and
-    /// on the watch. Every unfinished session gets the one line: a headline
-    /// that changed with progress would grade the session.
-    public var headline: String {
-        completed ? "Nicely done." : "Every breath counts"
-    }
-
-    /// "cycle" or "cycles", for the count beside it.
-    public var cyclesLabel: String {
-        cyclesCompleted == 1 ? "cycle" : "cycles"
-    }
-
-    /// "breath" or "breaths", for the count beside it.
-    public var breathsLabel: String {
-        breathCount == 1 ? "breath" : "breaths"
-    }
 }
 
 /// Somewhere to keep finished sessions until there is a server to send them to.

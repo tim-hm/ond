@@ -22,10 +22,17 @@ struct MoodCheckView: View {
                     .font(.largeTitle.weight(.medium))
                     .multilineTextAlignment(.center)
 
-                MoodScale(selection: check.before) { mood in
-                    Task { await check.answerBefore(mood) { await recorder.note($0) } }
+                VStack(spacing: Theme.Spacing.close) {
+                    MoodScale(selection: check.before) { mood in
+                        Task { await check.answerBefore(mood) { await recorder.note($0) } }
+                    }
+                    .disabled(check.before != nil)
+
+                    // Said before the answer rather than after: what the check
+                    // is for is cheaper to state than to correct.
+                    Text(SessionSummaryLines.moodCaption)
+                        .font(.footnote)
                 }
-                .disabled(check.before != nil)
 
                 Button("Not now", action: check.skipBefore)
                     .font(.subheadline)
