@@ -19,6 +19,12 @@ services:
     <<: *logging
     image: caddy:2
     restart: unless-stopped
+    # A reverse proxy in front of one API and three static files needs very
+    # little. It carries a ceiling for the reason the observability containers
+    # do, and it is the one that matters most: on 2 GiB with no swap the OOM
+    # killer arbitrates by size, and Caddy is the process every request passes
+    # through.
+    mem_limit: 128m
     ports:
       - "80:80"
       - "443:443"
@@ -96,7 +102,7 @@ services:
     <<: *logging
     image: quay.io/prometheuscommunity/postgres-exporter:v0.19.0
     restart: unless-stopped
-    # Every observability container carries a `mem_limit`; `db` and `api`
+    # Every container here carries a `mem_limit` except `db` and `api`, which
     # deliberately do not. The box has 2 GiB and no swap, so the OOM killer
     # arbitrates by size — unbounded, this file would answer "the log store
     # got busy" by killing Postgres. Ceilings, not reservations: ordinary
