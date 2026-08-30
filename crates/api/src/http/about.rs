@@ -21,8 +21,7 @@ pub const BUILD_INFO: BuildInfo = BuildInfo {
 /// to fail, and therefore one `const` [`BUILD_INFO`] rather than a lookup.
 #[derive(Debug, Clone, Copy)]
 pub struct BuildInfo {
-    /// The source revision baked into this binary. Never in a public body: the
-    /// listener carrying it is private by construction.
+    /// The source revision baked into this binary.
     pub commit: &'static str,
 
     /// When this binary was built.
@@ -31,12 +30,11 @@ pub struct BuildInfo {
 
 /// What `/about` answers. Caddy proxies every path on the API host, so this
 /// body is public and unrationed — and it names no source revision. The commit
-/// is published on the metrics listener instead, as a label of
-/// `ond_build_info`, which no rule of Caddy's can expose.
+/// is a label of `ond_build_info` on the metrics listener instead, which no
+/// rule of Caddy's can expose.
 #[derive(Serialize)]
 pub(super) struct About {
-    /// When this binary was built. Enough to answer "did my deploy land"
-    /// without naming the revision it landed.
+    /// When this binary was built.
     built_at: &'static str,
 
     /// Which environment this process believes it is. Reported because

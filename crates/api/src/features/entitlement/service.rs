@@ -48,11 +48,9 @@ pub async fn submit_transaction(
     let now = Utc::now();
 
     // TODO(2026-11-30): decide at the App Store release whether this stays.
-    // A sandbox transaction grants Plus exactly as a production one does, on
-    // purpose: a TestFlight build points at production while its purchases are
-    // sandbox-signed, so refusing them would break the beta. The volume is on
-    // `ond_entitlement_purchases_total{environment}`, counted just below.
-    //
+    // The volume is on `ond_entitlement_purchases_total{environment}`, counted
+    // just below.
+
     // `debug`, and the level is the decision: this fires once per cold
     // launch per sandbox subscriber, and nothing irreversible happened. Kept
     // because a sandbox purchase is free and renews fast, so during a beta

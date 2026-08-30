@@ -45,8 +45,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 /// The commit this binary was built from, or `"unknown"` when nothing can
 /// answer — a tarball build is normal, not a failure. `BUILD_GIT_COMMIT_HASH`
-/// wins over git because `.dockerignore` excludes `.git`, so `mise run
-/// deploy:api` passes the commit as a build arg; without it `/about` answers
+/// wins over git because `.dockerignore` excludes `.git`, so `deploy:api`
+/// passes it as a build arg; without it `ond_build_info` is labelled
 /// `"unknown"` in production, the one place the question is worth asking.
 fn git_commit_hash() -> String {
     std::env::var("BUILD_GIT_COMMIT_HASH")
