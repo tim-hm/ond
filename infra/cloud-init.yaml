@@ -94,7 +94,11 @@ runcmd:
   - |
     set -eux
     if [ ! -f /srv/data/ond.env ]; then
-      printf 'POSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 24)" > /srv/data/ond.env
+      # The umask is inside the subshell so the mode is right before any content
+      # lands. Root's default 0644 would publish the password to every account
+      # on the box until the chmod below, which is two lines and a fresh disk
+      # away.
+      (umask 077; printf 'POSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 24)" > /srv/data/ond.env)
     fi
     # Owned by ubuntu, not root: `mise run deploy:api` runs docker compose over SSH as
     # ubuntu, and compose reads this file itself to interpolate the password. Root
