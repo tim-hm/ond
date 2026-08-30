@@ -96,7 +96,13 @@ struct PracticeProgressView: View {
         let names = techniqueNames
         let goals = techniqueGoals
         let rhythm = PracticeRhythm(sessions: model.history, goals: goals)
-        let days = SessionDay.grouped(model.visibleHistory)
+        // Whole days rather than the model's row slice: a header states its
+        // day's total, so a day cut at the page boundary would understate it.
+        let days = SessionDay.wholeDays(
+            of: model.history,
+            coveringAtLeast: model.visibleHistory.count
+        )
+        let hasEarlier = days.reduce(0) { $0 + $1.sessions.count } < model.history.count
 
         return LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
             PracticeSummary(rhythm: rhythm, model: model, profiles: profiles)
@@ -111,14 +117,14 @@ struct PracticeProgressView: View {
                             of: day,
                             names: names,
                             goals: goals,
-                            isLast: day.id == days.last?.id
+                            pagesOn: hasEarlier && day.id == days.last?.id
                         )
                     } header: {
                         SessionDayHeader(day: day)
                     }
                 }
 
-                earlierSessions
+                earlierSessions(isOffered: hasEarlier)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -129,7 +135,9 @@ struct PracticeProgressView: View {
     /// depth is legible without scrolling it.
     private var historyHeading: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Divider().overlay(Theme.Surface.line)
+            Divider()
+                .overlay(Theme.Surface.line)
+                .padding(.top, Theme.Spacing.loose)
 
             // A heading with nothing under it: its rows are pinned sections,
             // which only stick when they sit directly in the lazy stack.
@@ -145,13 +153,14 @@ struct PracticeProgressView: View {
         return lifetime == 1 ? "History · 1 session" : "History · \(lifetime) sessions"
     }
 
-    /// One day's rows. Reaching the last row of the last day asks for the next
-    /// page — the trigger travels with the data, so a page cannot load a page.
+    /// One day's rows. Where `pagesOn` is set, reaching the last row asks for
+    /// the next page — the trigger travels with the data, so a page cannot
+    /// load a page, and it is absent when there is nothing left to load.
     private func rows(
         of day: SessionDay,
         names: [String: String],
         goals: [String: TechniqueGoal],
-        isLast: Bool
+        pagesOn: Bool
     ) -> some View {
         VStack(spacing: 0) {
             ForEach(day.sessions) { record in
@@ -168,7 +177,7 @@ struct PracticeProgressView: View {
                     }
                 }
                 .onAppear {
-                    if isLast, isFinal {
+                    if pagesOn, isFinal {
                         model.revealEarlierSessions()
                     }
                 }
@@ -184,8 +193,8 @@ struct PracticeProgressView: View {
     /// The explicit way to the next page, for somebody who reaches the end by
     /// a means the last row's appearance does not cover.
     @ViewBuilder
-    private var earlierSessions: some View {
-        if model.hasEarlierSessions {
+    private func earlierSessions(isOffered: Bool) -> some View {
+        if isOffered {
             Button("Show earlier sessions") {
                 model.revealEarlierSessions()
             }

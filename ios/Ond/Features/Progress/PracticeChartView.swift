@@ -10,6 +10,11 @@ import SwiftUI
 struct PracticeChartView: View {
     let rhythm: PracticeRhythm
 
+    /// Whether this device holds any session at all. A lifetime fact, not the
+    /// window's: somebody who stopped a month ago has practised, and must not
+    /// be told their first session is still ahead of them.
+    let hasPractised: Bool
+
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
             HStack(alignment: .firstTextBaseline) {
@@ -27,8 +32,8 @@ struct PracticeChartView: View {
             plot
 
             Text(summary)
-                .font(hasPractice ? .caption : .subheadline)
-                .foregroundStyle(hasPractice ? Theme.Ink.tertiary : Theme.Ink.secondary)
+                .font(hasPractised ? .caption : .subheadline)
+                .foregroundStyle(hasPractised ? Theme.Ink.tertiary : Theme.Ink.secondary)
         }
         .accessibilityIdentifier("practice-chart")
     }
@@ -89,13 +94,9 @@ struct PracticeChartView: View {
     /// width and the bar is what should get it.
     private static let gap: CGFloat = 2
 
-    private var hasPractice: Bool {
-        rhythm.sessions > 0
-    }
-
     /// What the bars say, printed under them and spoken as their value.
     private var summary: String {
-        hasPractice ? caption : "Your first session starts this chart."
+        hasPractised ? caption : "Your first session starts this chart."
     }
 
     /// How many of the four weeks carried practice, and what most of it was for.

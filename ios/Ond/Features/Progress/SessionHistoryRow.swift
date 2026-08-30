@@ -104,11 +104,15 @@ struct SessionHistoryRow: View {
             + record.duration.formatted(Self.length)
     }
 
-    /// The row as one sentence. Spoken in words rather than in the printed
-    /// separators, which read as punctuation nobody wrote.
+    /// The row as one sentence, in words rather than in the printed
+    /// separators, which read as punctuation nobody wrote. Both units are
+    /// spoken: `Duration.spelled` keeps one, which would say "1 minute" beside
+    /// a printed 1:12 — the drift the row's one format constant exists to stop.
     private var spokenLabel: String {
         let ending = record.completed ? "" : "stopped after "
-        return "\(name), \(record.startedAt.formatted(Self.clock)), "
-            + "\(ending)\(record.duration.spelled)"
+        let length = record.duration
+            .formatted(.units(allowed: [.minutes, .seconds], width: .wide))
+
+        return "\(name), \(record.startedAt.formatted(Self.clock)), \(ending)\(length)"
     }
 }

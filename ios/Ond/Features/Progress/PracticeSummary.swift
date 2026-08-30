@@ -23,7 +23,7 @@ struct PracticeSummary: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
             VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
-                PracticeChartView(rhythm: rhythm)
+                PracticeChartView(rhythm: rhythm, hasPractised: !model.history.isEmpty)
                 PracticeFigures(rhythm: rhythm)
             }
             .padding(Theme.Spacing.standard)

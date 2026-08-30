@@ -22,9 +22,11 @@ public struct SessionDay: Sendable, Equatable, Identifiable {
         date
     }
 
-    /// The day as its header names it: `Today`, `Yesterday`, then the weekday
-    /// and the date — `Tuesday 26`. Named rather than dated for the two days
-    /// somebody can place without reading one.
+    /// The day as its header names it: `Today`, `Yesterday`, then the weekday,
+    /// the date and the month — `Tuesday 26 Aug`. The two nearest days are
+    /// named rather than dated, because somebody places them without reading a
+    /// date. The month is named because the log pages over an install's whole
+    /// history, and a bare `Wednesday 12` repeats every month.
     public func title(
         relativeTo now: Date = .now,
         calendar: Calendar = .autoupdatingCurrent
@@ -41,7 +43,30 @@ public struct SessionDay: Sendable, Equatable, Identifiable {
             Date.FormatStyle(calendar: calendar, timeZone: calendar.timeZone)
                 .weekday(.wide)
                 .day()
+                .month(.abbreviated)
         )
+    }
+
+    /// The leading days holding `rows` sessions between them. A day is never
+    /// cut at a page boundary: its header states that day's own total, which
+    /// is wrong over part of it, and would change as the next page landed.
+    public static func wholeDays(
+        of records: [SessionRecord],
+        coveringAtLeast rows: Int,
+        calendar: Calendar = .autoupdatingCurrent
+    ) -> [SessionDay] {
+        var kept: [SessionDay] = []
+        var counted = 0
+
+        for day in grouped(records, calendar: calendar) {
+            kept.append(day)
+            counted += day.sessions.count
+            if counted >= rows {
+                break
+            }
+        }
+
+        return kept
     }
 
     /// Every day carrying practice, in the order `records` arrives — newest

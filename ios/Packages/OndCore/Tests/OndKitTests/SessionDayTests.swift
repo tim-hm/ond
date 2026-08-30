@@ -80,19 +80,59 @@ struct SessionDayTests {
         #expect(older.contains("10"))
     }
 
-    /// The header sums the day before rounding, so two short practices are not
-    /// each rounded away.
+    /// The header sums the day before rounding. Two practices of a hundred
+    /// seconds are three minutes together; rounded first they would be four.
     @Test("A day totals its sessions, and a short one still reads as a minute")
     func aDayTotalsItsPractice() {
         let twoShort = days([
-            HomeFixtures.session("box-breathing", at: Self.moment(12, 9), lasting: .seconds(320)),
-            HomeFixtures.session("box-breathing", at: Self.moment(12, 8), lasting: .seconds(340)),
+            HomeFixtures.session("box-breathing", at: Self.moment(12, 9), lasting: .seconds(100)),
+            HomeFixtures.session("box-breathing", at: Self.moment(12, 8), lasting: .seconds(100)),
         ])
-        #expect(twoShort[0].minutes == 11)
+        #expect(twoShort[0].minutes == 3)
 
         let brief = days([
             HomeFixtures.session("box-breathing", at: Self.moment(12, 8), lasting: .seconds(20)),
         ])
         #expect(brief[0].minutes == 1)
+    }
+
+    /// A page boundary must not fall inside a day: the header states that
+    /// day's total, so half a day under it would understate the practice and
+    /// then change when the next page landed.
+    @Test("A page takes whole days, never part of one")
+    func aPageKeepsItsDaysWhole() {
+        let records = [
+            HomeFixtures.session("box-breathing", at: Self.moment(12, 9)),
+            HomeFixtures.session("box-breathing", at: Self.moment(12, 8)),
+            HomeFixtures.session("box-breathing", at: Self.moment(11, 9)),
+            HomeFixtures.session("box-breathing", at: Self.moment(11, 8)),
+            HomeFixtures.session("box-breathing", at: Self.moment(10, 8)),
+        ]
+
+        // Three rows would cut the eleventh in half; the whole day comes.
+        let page = SessionDay.wholeDays(
+            of: records,
+            coveringAtLeast: 3,
+            calendar: Self.calendar
+        )
+
+        #expect(page.count == 2)
+        #expect(page.map(\.sessions.count) == [2, 2])
+    }
+
+    @Test("Asking for more rows than there are yields every day")
+    func awholePageIsEveryDay() {
+        let records = [
+            HomeFixtures.session("box-breathing", at: Self.moment(12, 8)),
+            HomeFixtures.session("box-breathing", at: Self.moment(11, 8)),
+        ]
+
+        let page = SessionDay.wholeDays(
+            of: records,
+            coveringAtLeast: 50,
+            calendar: Self.calendar
+        )
+
+        #expect(page.count == 2)
     }
 }
