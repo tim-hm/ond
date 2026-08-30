@@ -90,7 +90,7 @@ struct PlusBenefits: View {
         ),
         Benefit(
             title: "Leaderboards, if you want them",
-            limit: "Off by default. It ranks minutes practised.",
+            limit: "Off by default. Streaks, comfortable pauses and minutes.",
             mark: Theme.Ink.tertiary
         ),
     ]
