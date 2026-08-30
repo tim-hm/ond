@@ -1,0 +1,108 @@
+# The session summary and the mood check
+
+Every recorded session ends here. This document is the design behind that screen — what it says, which cases it has to answer, the exact strings, and what the mood check asks. The implementation is [`SessionSummaryView.swift`](../../ios/Ond/Features/Session/SessionSummaryView.swift) on the phone and [its wrist counterpart](../../ios/OndWatch/Features/Session/SessionSummaryView.swift); the strings are [`SessionSummaryLines.swift`](../../ios/Packages/OndCore/Sources/OndKit/SessionSummaryLines.swift), pinned by [`SessionSummaryLinesTests.swift`](../../ios/Packages/OndCore/Tests/OndKitTests/SessionSummaryLinesTests.swift). The mood check's own rules are [`MoodCheckModel.swift`](../../ios/Packages/OndCore/Sources/OndKit/MoodCheckModel.swift).
+
+The screen has one job: confirm the session counted, say what it was, and offer one way out. It is written here rather than improvised at the call site for the reason Home's line is — it is the last thing the app says about a practice, and the last thing said is the thing remembered.
+
+## The screen is the session with the breathing removed
+
+The summary keeps the session's ground, the drifting field behind it, and the three slots the phase words stood in. Only the orb goes; the figures take its place. Nothing about the room changes when the breathing stops, so the screen reads as the end of the session rather than as a new one.
+
+This is why the summary does not sit on the accent wash the countdown and the invitation sit on. Those screens are the way in, and the app's colour is still on them. The session is the one room darker than the app, and it holds until Done.
+
+| Element  | Type                            | Reserved height |
+| :------- | :------------------------------ | :-------------- |
+| Headline | Newsreader Light 42pt           | 50pt            |
+| Note     | 17pt, `Ink.secondary`, one line | 26pt            |
+| Mark     | 15pt, `Ink.secondary`           | 22pt            |
+
+The three heights are the live session's own. They are reserved for the same reason: the mark arrives a moment after the screen does, because the rung is only known once the session has been counted, and a line that arrived into no space would push everything under it down the screen while somebody was reading it.
+
+The mood row below the figures is **not** a reserved slot, and the difference is the point. It changes height only when somebody taps it, and movement that answers a tap is the screen responding rather than the screen moving on its own.
+
+## The rules the copy is written under
+
+**Celebrate what happened, never grade it.** The headline says the session happened. It does not measure it, compare it with a better one, or rate the person who did it.
+
+**An early end is said as an early end.** The record distinguishes a session the timeline finished from one a person stopped, and the note volunteers it. `recorded as it happened` is the same clause Home's line uses, and it means the same thing here: the app states the shape of the record and passes no verdict on it.
+
+**A zero is not a measurement.** A figure with nothing in it is not shown. `0 cycles` is true and says nothing the time does not already say, and three figures reading zero turn a screen that refuses to score into a scorecard of failure.
+
+**One way out, always live.** Done is the screen's one action. No question on the screen gates it, and no answer is required to leave.
+
+## The matrix
+
+| Case        | Condition             | Headline            | Note                                     |
+| :---------- | :-------------------- | :------------------ | :--------------------------------------- |
+| Completed   | The timeline ran out  | `Nicely done.`      | `Box breathing, all the way through.`    |
+| Ended early | The person stopped it | `That's a session.` | `Ended early — recorded as it happened.` |
+
+Two headlines, not one. A single neutral headline for both would be the strictest reading of "never grade", but it would also take the warmth off the ordinary case to avoid praising the rare one. Two are honest because they describe two different records, not two different people.
+
+`That's a session.` was chosen over the repo's earlier `Every breath counts`, which is a claim about worth rather than a statement of the record, and over `Nicely done.` for both, which rounds an abandoned session up. It answers the one doubt somebody who stopped early has — whether it counted — and answers it with the fact rather than with reassurance.
+
+**The exercise is named only when the session ran to its end.** The note holds one line so the figures below it cannot move, and an early end has to spend that line on the ending. The exercise is on the record either way, and Progress names it there.
+
+### The mark
+
+A session that crosses a rung says so, once, in the mark slot: `PracticeStage.arrival`'s existing sentence. This is where a first-ever session is answered — `Your first session. That's the hardest one done.` — so the headline needs no first-session case of its own. A session that crosses no rung leaves the slot empty, and the slot keeps its height.
+
+A first session that also ended early gets both lines, and both are true. The mark never displaces the note.
+
+### The figures
+
+Three figures under the slots, in the treatment Progress uses for its own three: the value at 22pt semibold over a 12pt label.
+
+| Figure  | Value             | Shown                              |
+| :------ | :---------------- | :--------------------------------- |
+| Cycles  | `cyclesCompleted` | when at least one cycle finished   |
+| Time    | `m:ss`            | always                             |
+| Breaths | `breathCount`     | when at least one breath was taken |
+
+The middle label is `time`, not `minutes`: a session of forty seconds under a label saying minutes is a small lie, and it is exactly the session most likely to be read closely.
+
+### A very short session
+
+A session ended by hand inside ten seconds is a false start and never reaches this screen at all — the rule is `SessionRecord.isFalseStart`, and it exists so a journal is not made of mistaps. Above that threshold every session reaches the summary, however short.
+
+A short one therefore renders `That's a session.`, the early-end note, and the figures that have something in them — often the time alone. That is the whole design for the case: no apology, no encouragement, and no third headline.
+
+## The mood check
+
+Two questions around one session, both optional, and neither of them a measurement.
+
+**Before.** A branch off the countdown, reached by tapping `Check in`. It asks `How do you feel right now?` A session begun in a hurry is never delayed by it, which is why it is a branch rather than a step.
+
+**After.** Inline on the summary, under the figures. It asks `How do you feel now?` The summary is the one moment of a session with attention to spare, so a fourth full screen before Done would ask more than the answer is worth.
+
+Both carry the same caption: `Context, not a score.` It is Progress's own line, and it belongs here more than anywhere — a pair of moods across a session is the one thing on this screen that invites reading a difference. Saying what the answer is for, before it is given, is cheaper than correcting the reading afterwards.
+
+**What the pair says back.** `Not good before · Good now` when both halves were answered, the later word alone when the way in was skipped. The rule is `MoodCheckModel.note`, and it states the two words without grading the distance between them.
+
+### When it is skipped
+
+| Condition                               | What happens                                                                                        |
+| :-------------------------------------- | :-------------------------------------------------------------------------------------------------- |
+| `asksHowYouFeel` is off                 | Neither question is asked and the row is absent — no placeholder, no note that nothing was recorded |
+| The session was a false start           | There is no summary, so there is nothing to ask                                                     |
+| The way in was skipped or never offered | The summary still asks; a single reading is still the person's own record                           |
+| The answer is already given             | The question is replaced by the sentence, in place                                                  |
+| A short session                         | It is still asked                                                                                   |
+
+The last row is a decision, not an oversight. A threshold under which a person is not asked how they feel would need a number nobody can defend, and the app does not get to decide whose reading is worth keeping.
+
+A session with no mood recorded says nothing about the absence. It is the same rule Home's line is written under: when there is nothing true to say, say nothing.
+
+## The wrist
+
+The same design at wrist scale, on the watch's own ground: the headline in Newsreader at 22pt, the note and the mark in the platform's caption styles, the figures, Done.
+
+**The wrist reserves no slot heights.** The phone reserves them because its screen is fixed and a late line would push the figures under a reader's eye. The watch scrolls, so a line arriving extends the list instead — and holding three empty slots on a 40mm screen would spend most of it on air.
+
+**The wrist has no mood check.** It has never asked the before half, and asking only the after half on the smaller screen would make the pair a phone feature that occasionally appears on a wrist. The wrist records the session; the phone asks how it felt.
+
+## Still open
+
+- The pulse curve under the figures is drawn only when a watch shared readings through the session. It is the one element here that is a chart, and nobody has argued whether a chart belongs on this screen at all.
+- Nothing on the summary names the occasion a session came from, though the record carries one. A session started from `Awake at three` and one started from the exercise list read identically here.
+- The headline is a function of `completed` alone. It knows nothing about the mood answers, the rung, or the time of day, and none of those has an argued case for entering it yet.

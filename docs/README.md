@@ -21,6 +21,7 @@
 | [product/breathing-science.md](product/breathing-science.md) | Before changing a technique's mechanism or evidence copy, adding a technique or occasion, or writing for any population or condition — every claim the catalogue makes, the trials behind it, and the claims it refuses. |
 | [product/home-sentence.md](product/home-sentence.md) | Before changing Home's one line of state: the cases, the exact strings, the order they are tested in, and the cases that deliberately say nothing. |
 | [product/breathing-foundations.md](product/breathing-foundations.md) | Before changing The basics — the claim-by-claim evidence, limitations, word budgets and presentation rule behind the page. |
+| [product/session-summary.md](product/session-summary.md) | Before changing what a session says when it ends: the cases, the exact strings, which figures are shown, and when the mood check is skipped. |
 
 ## Documentation policy
 
