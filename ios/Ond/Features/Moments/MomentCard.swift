@@ -30,7 +30,7 @@ struct MomentCard: View {
                     GoalBadge(goal: stop.goal)
 
                     if let grade = stop.technique.evidenceGrade {
-                        EvidenceChip(grade: grade, includesSubject: true)
+                        EvidenceChip(grade: grade)
                     }
                 }
                 .padding(.top, Theme.Spacing.tight)

@@ -3,11 +3,10 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// One past session: what it was, when, and how long it ran. An exercise gone
-/// from the catalogue takes the neutral vapour, not a guess — a colour is a
-/// claim about what the session was for. An early ending says only the length
-/// breathed: the refresh spec asks for the plan it fell short of, and no
-/// record holds one — `SessionRecord` never carries what was intended.
+/// One past session under its day's header: what it was, what time it started,
+/// and how long it ran. The day is named above the row, so the row states only
+/// the hour. An exercise gone from the catalogue takes the neutral vapour, not
+/// a guess — a colour is a claim about what the session was for.
 struct SessionHistoryRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -16,6 +15,13 @@ struct SessionHistoryRow: View {
 
     /// What the session was for, or nil where its exercise is gone.
     let goal: TechniqueGoal?
+
+    /// The hour the row prints, hoisted so a lazily built list does not
+    /// construct the style once a row.
+    private static let clock = Date.FormatStyle(date: .omitted, time: .shortened)
+
+    /// The length beside it — minutes and seconds, as a stopwatch reads.
+    private static let length = Duration.TimeFormatStyle(pattern: .minuteSecond)
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.close) {
@@ -32,7 +38,7 @@ struct SessionHistoryRow: View {
                 }
             }
         }
-        .padding(.vertical, Theme.Spacing.tight)
+        .padding(.vertical, Theme.Spacing.close)
         // `.ignore` with a label of its own rather than `.combine`: combine's
         // union frame spans the Spacer-split row — three foregrounds and bare
         // ground — and the accessibility audit measures contrast over exactly
@@ -42,20 +48,9 @@ struct SessionHistoryRow: View {
         .accessibilityLabel(spokenLabel)
     }
 
-    /// How a session's moment is written, spoken and seen alike — one constant
-    /// so the sentence VoiceOver reads cannot drift from the words beside it.
-    private static let stamp = Date.FormatStyle(date: .abbreviated, time: .shortened)
-
-    /// The row as one sentence, in the order the eye reads it.
-    private var spokenLabel: String {
-        "\(name), \(detail), \(record.startedAt.formatted(Self.stamp))"
-    }
-
-    /// The goal's one mark on the row. The words beside it never depend on it,
-    /// so the colour is reinforcement rather than the carrier.
     private var dot: some View {
         Circle()
-            .fill(goal?.accent ?? Theme.Breath.exhale.opacity(0.35))
+            .fill(mark)
             .frame(width: 6, height: 6)
             // Nudged down off the text baseline it is aligned to, so it sits
             // against the middle of the name rather than under it.
@@ -63,49 +58,61 @@ struct SessionHistoryRow: View {
             .accessibilityHidden(true)
     }
 
+    /// The one mark the goal makes on the row. An ending by hand takes the
+    /// neutral vapour instead: the row already says it stopped, and a goal
+    /// accent there would colour it like practice that ran its course.
+    private var mark: Color {
+        guard record.completed, let goal else {
+            return Theme.Breath.exhale.opacity(0.30)
+        }
+        return goal.accent
+    }
+
     private var horizontal: some View {
         HStack(alignment: .firstTextBaseline) {
-            session
+            title
             Spacer()
-            timestamp
+            stamp
         }
     }
 
     private var vertical: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-            session
-            timestamp
+            title
+            stamp
         }
     }
 
-    private var session: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-            Text(name)
-                .font(.body)
-                .foregroundStyle(Theme.Ink.primary)
-
-            Text(detail)
-                .font(.caption)
-                .foregroundStyle(Theme.Ink.tertiary)
-        }
+    private var title: some View {
+        Text(name)
+            .font(.body)
+            .foregroundStyle(Theme.Ink.primary)
     }
 
-    private var timestamp: some View {
-        Text(record.startedAt, format: Self.stamp)
-            .font(.caption)
+    private var stamp: some View {
+        Text(stampLine)
+            .font(.caption.monospacedDigit())
             .foregroundStyle(Theme.Ink.secondary)
     }
 
-    /// Completion is the normal case; only an early ending adds qualification.
-    private var detail: String {
-        let length = record.duration
-            .formatted(.units(allowed: [.minutes, .seconds], width: .narrow))
-        let cycles = record.cyclesCompleted == 1 ? "1 cycle" : "\(record.cyclesCompleted) cycles"
+    /// `08:10 · 5:00`, and `08:10 · stopped 1:12` where the person ended it by
+    /// hand. The length is what was breathed either way: `SessionRecord` never
+    /// carries the plan it fell short of.
+    private var stampLine: String {
+        let ending = record.completed ? "" : "stopped "
+        return "\(record.startedAt.formatted(Self.clock)) · \(ending)"
+            + record.duration.formatted(Self.length)
+    }
 
-        var parts = [length, cycles]
-        if !record.completed {
-            parts.append("ended early")
-        }
-        return parts.joined(separator: " · ")
+    /// The row as one sentence, in words rather than in the printed
+    /// separators, which read as punctuation nobody wrote. Both units are
+    /// spoken: `Duration.spelled` keeps one, which would say "1 minute" beside
+    /// a printed 1:12 — the drift the row's one format constant exists to stop.
+    private var spokenLabel: String {
+        let ending = record.completed ? "" : "stopped after "
+        let length = record.duration
+            .formatted(.units(allowed: [.minutes, .seconds], width: .wide))
+
+        return "\(name), \(record.startedAt.formatted(Self.clock)), \(ending)\(length)"
     }
 }

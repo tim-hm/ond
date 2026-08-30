@@ -68,14 +68,6 @@ public struct PracticeRhythm: Sendable, Equatable {
             .max { goalTotals[$0, default: 0] < goalTotals[$1, default: 0] }
     }
 
-    /// Whether there is enough here to be worth drawing: two distinct days.
-    /// One day is a single bar in an empty frame, and two is the first number
-    /// where the drawing shows where the days sat relative to each other. A
-    /// rule rather than a condition in the view, so a test pins it.
-    public var isWorthCharting: Bool {
-        daysPractised >= 2
-    }
-
     /// - Parameters:
     ///   - sessions: every session on this device, in any order. Anything
     ///     outside the window is discarded here, not by the caller.

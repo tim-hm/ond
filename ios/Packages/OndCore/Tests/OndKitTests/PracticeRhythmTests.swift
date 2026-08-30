@@ -107,8 +107,8 @@ struct PracticeRhythmTests {
     }
 
     /// The map is the caller's join against everything breathable, not just the
-    /// catalogue. Somebody practising only an exercise they wrote was seeing the
-    /// tiles count their days and the chart never appear.
+    /// catalogue. Somebody practising only an exercise they wrote was seeing an
+    /// empty chart beside tiles counting their days.
     @Test("An exercise somebody wrote counts like any other")
     func authoredExercisesAreCounted() {
         let mine = PracticeRhythm(
@@ -123,7 +123,6 @@ struct PracticeRhythmTests {
         )
 
         #expect(mine.daysPractised == 3)
-        #expect(mine.isWorthCharting)
         #expect(mine.leadingGoal == .reset)
     }
 
@@ -169,34 +168,21 @@ struct PracticeRhythmTests {
         ]).leadingGoal == .calm)
     }
 
-    // MARK: when it is worth drawing
+    // MARK: how many days carried practice
 
-    @Test("Nothing breathed is nothing to chart")
-    func nothingIsNotWorthCharting() {
+    @Test("Nothing breathed is no days practised")
+    func nothingIsNoDays() {
         #expect(rhythm([]).daysPractised == 0)
-        #expect(!rhythm([]).isWorthCharting)
     }
 
-    /// One day is a fact somebody already knows, and a chart of it is a single
-    /// bar in an empty frame — however many sessions that day carried.
-    @Test("One day is not worth charting, at any session count")
-    func oneDayIsNotWorthCharting() {
+    /// However many sessions one day carried, it is still one day: the figure
+    /// counts days, which is the number the trial's outcomes scaled with.
+    @Test("One day counts once, at any session count")
+    func oneDayCountsOnce() {
         let sameDay = (8 ... 11)
             .map { HomeFixtures.session("box-breathing", at: Self.moment(12, $0)) }
 
         #expect(rhythm(sameDay).daysPractised == 1)
-        #expect(!rhythm(sameDay).isWorthCharting)
-    }
-
-    @Test("Two distinct days is the first drawing that says something")
-    func twoDaysIsWorthCharting() {
-        let spread = [
-            HomeFixtures.session("box-breathing", at: Self.moment(9, 8)),
-            HomeFixtures.session("four-seven-eight", at: Self.moment(12, 22)),
-        ]
-
-        #expect(rhythm(spread).daysPractised == 2)
-        #expect(rhythm(spread).isWorthCharting)
     }
 
     /// The y ceiling follows time rather than visit count, and never reaches

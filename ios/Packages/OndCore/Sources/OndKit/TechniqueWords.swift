@@ -6,12 +6,15 @@ import Foundation
 // stored, or sent.
 
 public extension EvidenceGrade {
-    /// The word a chip prints. Here rather than at the call sites so the three
-    /// surfaces that draw one cannot disagree about it.
+    /// What a chip prints: plain language rather than a grade. A rubric önd
+    /// does not publish reads as a systematic review, and the two words a chip
+    /// has room for cannot carry one. The fuller picture stays on the exercise
+    /// page, which says what the studies actually were. Here rather than at the
+    /// call sites so the three surfaces that draw one cannot disagree.
     var title: String {
         switch self {
-        case .moderate: "Moderate"
-        case .limited: "Limited"
+        case .moderate: "Well studied"
+        case .limited: "Early research"
         }
     }
 }
