@@ -116,11 +116,11 @@ impl Budget {
                 Ok(_) => {
                     // The write that fills the budget — only one request per
                     // window can be, since every later attempt is refused
-                    // above. `debug` rather than `warn`: the key derives from
-                    // `x-forwarded-for`, so a carrier NAT fills a budget
-                    // routinely with no server fault, and the refusals are counted with status 8.
+                    // above. `warn` because it names which budget filled, and
+                    // status 8 cannot: a carrier NAT spending the request
+                    // budget and a script spending the identity budget differ.
                     if spent + 1 == self.limit {
-                        tracing::debug!(
+                        tracing::warn!(
                             budget = self.name,
                             "a caller has spent their whole budget for this window"
                         );
@@ -231,8 +231,8 @@ pub async fn enforce(State(state): State<Arc<AppState>>, request: Request, next:
         // The key is not logged — it is somebody's IP address, and
         // `web/privacy.html` does not say this service keeps one. `debug`
         // rather than `warn`: one line per refused request, and the throttle
-        // exists for callers making thousands a second; `Budget::spend`
-        // carries the warning, once per window.
+        // exists for callers making thousands a second. `Budget::spend` writes
+        // the `warn` where a budget fills.
         tracing::debug!("refused a request over its rate limit");
         return refused();
     }
