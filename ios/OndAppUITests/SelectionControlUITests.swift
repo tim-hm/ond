@@ -35,12 +35,8 @@ final class SelectionControlUITests: XCTestCase {
         XCTAssertTrue(begin.waitForExistence(timeout: 5))
         begin.tap()
 
-        let checkIn = app.buttons["Check in"]
-        XCTAssertTrue(checkIn.waitForExistence(timeout: 2))
-        checkIn.tap()
-
-        XCTAssertTrue(app.staticTexts["How do you feel right now?"].waitForExistence(timeout: 2))
-        for answer in ["Not good", "Okay", "Good"] {
+        XCTAssertTrue(app.buttons["Okay"].waitForExistence(timeout: 2))
+        for answer in ["Bad", "Not good", "Okay", "Good", "Great"] {
             let button = app.buttons[answer]
             XCTAssertTrue(button.exists)
             XCTAssertGreaterThanOrEqual(button.frame.height, 44)

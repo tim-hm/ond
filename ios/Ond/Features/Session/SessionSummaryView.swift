@@ -31,6 +31,26 @@ struct SessionSummaryView: View {
     @Environment(MoodRecorder.self) private var moodRecorder
 
     var body: some View {
+        // Scrolls rather than clips: at an accessibility size the mood scale
+        // stacks its five points, and the figures above it would go under the
+        // reader's eye. Where it fits, the centred layout is taken instead.
+        ViewThatFits(in: .vertical) {
+            content
+
+            ScrollView {
+                content
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        }
+        .padding(.horizontal, Theme.Spacing.page)
+        .padding(.vertical, Theme.Spacing.loose)
+        .foregroundStyle(Theme.Ink.primary)
+        // Stilled: the breathing has stopped, so the field holds where the
+        // session left it rather than repainting the screen while it is read.
+        .sessionGround(stilled: true)
+    }
+
+    private var content: some View {
         VStack(spacing: Theme.Spacing.loose) {
             Spacer()
 
@@ -48,12 +68,6 @@ struct SessionSummaryView: View {
             Button("Done", action: onDone)
                 .buttonStyle(.inkAction)
         }
-        .padding(.horizontal, Theme.Spacing.page)
-        .padding(.vertical, Theme.Spacing.loose)
-        .foregroundStyle(Theme.Ink.primary)
-        // Stilled: the breathing has stopped, so the field holds where the
-        // session left it rather than repainting the screen while it is read.
-        .sessionGround(stilled: true)
     }
 
     /// What happened, what it was, and the rung it crossed, in the heights
@@ -124,7 +138,7 @@ struct SessionSummaryView: View {
                         .font(.body)
                         .transition(.opacity)
                 } else {
-                    Text("How do you feel now?")
+                    Text(MoodCheckModel.questionAfter)
                         .font(.body)
 
                     MoodScale { tapped in

@@ -23,10 +23,23 @@ public final class MoodCheckModel {
 
     public init() {}
 
+    /// Whether the way in was resolved with no answer in it. The countdown
+    /// keeps drawing an answered scale, so that somebody sees the point they
+    /// tapped; a declined one has nothing left to show.
+    public var wasDeclinedBefore: Bool {
+        isAsked && before == nil
+    }
+
     /// What the check is for, said on both halves before either is answered.
-    /// Here rather than with the summary's lines, because it belongs to the
-    /// question and not to the screen that happens to ask the second half.
+    /// It cannot promise the answer is used for anything: a mood reaches
+    /// Apple Health and stops there, and Settings promises önd never sees it.
     public static let caption = "Context, not a score."
+
+    /// The two questions, kept together for the caption's reason. The same
+    /// scale draws under both, so the only thing telling the halves apart is
+    /// the word at the end of the sentence.
+    public static let questionBefore = "How do you feel right now?"
+    public static let questionAfter = "How do you feel now?"
 
     /// What the summary row says: the pair when there is one, the later
     /// reading alone when the way in was skipped, nil until there is an
@@ -40,9 +53,9 @@ public final class MoodCheckModel {
 
     /// Takes the answer given before the breathing, writes it, and only then
     /// counts the check as asked. That order is why this is awaited: the first
-    /// write of an install opens Health's authorization sheet, and marking the
-    /// check answered up front would restart the paused countdown behind it.
-    /// The guard stops a second tap writing a contradicting sample.
+    /// write of an install opens Health's authorization sheet, and the
+    /// countdown holds on this exact window so the session cannot start behind
+    /// that sheet. The guard stops a second tap writing a contradicting sample.
     public func answerBefore(
         _ mood: Mood,
         writing write: @MainActor (Mood) async -> Void
@@ -53,9 +66,10 @@ public final class MoodCheckModel {
         isAsked = true
     }
 
-    /// Declines the question. Nothing is written: no answer, no sample.
-    /// An answer already being written wins, because completing during that
-    /// write would restart the countdown behind Health's first-use sheet.
+    /// Declines the question. Nothing is written: no answer, no sample. Left
+    /// for the VoiceOver start, which resolves the choice before the spoken
+    /// count begins. An answer already being written wins, because completing
+    /// during that write would release the countdown behind Health's sheet.
     public func skipBefore() {
         guard before == nil, !isAsked else { return }
         isAsked = true
