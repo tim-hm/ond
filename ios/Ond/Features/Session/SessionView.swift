@@ -75,7 +75,7 @@ struct SessionView: View {
             if model.status == .finished, let record = model.record, !model.wasDiscarded {
                 SessionSummaryView(
                     record: record,
-                    title: model.title,
+                    exercise: model.technique.name,
                     reached: model.reachedStage,
                     mood: mood
                 ) { dismiss() }

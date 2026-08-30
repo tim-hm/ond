@@ -28,8 +28,9 @@ struct MoodCheckView: View {
                     }
                     .disabled(check.before != nil)
 
-                    // Said before the answer rather than after: what the check
-                    // is for is cheaper to state than to correct.
+                    // It stands before the answer and stays after it. Stating
+                    // what the check is for is cheaper than correcting a
+                    // reading, and the pair it captions is what invites one.
                     Text(MoodCheckModel.caption)
                         .font(.footnote)
                 }

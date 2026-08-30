@@ -9,7 +9,11 @@ import SwiftUI
 /// the strings and the reserved heights are in docs/product/session-summary.md.
 struct SessionSummaryView: View {
     let record: SessionRecord
-    let title: String
+
+    /// The exercise's own name, never the occasion's. The note holds one line,
+    /// and an occasion title is a sentence — it would be cut short there and
+    /// would read as the wrong noun in the sentence around it.
+    let exercise: String
 
     /// The stage this session earned, if it earned one. Arrives a moment after
     /// the screen does — see `SessionModel.reachedStage` — which is why the
@@ -63,7 +67,7 @@ struct SessionSummaryView: View {
                 .minimumScaleFactor(0.6)
                 .frame(height: SessionSlots.actionHeight)
 
-            Text(SessionSummaryLines.note(for: record, exercise: title))
+            Text(SessionSummaryLines.note(for: record, exercise: exercise))
                 .font(.body)
                 .foregroundStyle(Theme.Ink.secondary)
                 .lineLimit(1)

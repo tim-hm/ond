@@ -43,6 +43,8 @@ Two headlines, not one. A single neutral headline for both would be the strictes
 
 **The exercise is named only when the session ran to its end.** The note holds one line so the figures below it cannot move, and an early end has to spend that line on the ending. The exercise is on the record either way, and Progress names it there.
 
+It is the **exercise's** name, never the occasion's. A session started from `When you can't get a satisfying breath` is titled by that occasion everywhere else, but an occasion title is a sentence: it would be cut short in one line, and it reads as the wrong noun inside this one.
+
 ### The mark
 
 A session that crosses a rung says so, once, in the mark slot: `PracticeStage.arrival`'s existing sentence. This is where a first-ever session is answered — `Your first session. That's the hardest one done.` — so the headline needs no first-session case of its own. A session that crosses no rung leaves the slot empty, and the slot keeps its height.
@@ -75,7 +77,7 @@ Two questions around one session, both optional, and neither of them a measureme
 
 **After.** Inline on the summary, under the figures. It asks `How do you feel now?` The summary is the one moment of a session with attention to spare, so a fourth full screen before Done would ask more than the answer is worth.
 
-Both carry the same caption, `MoodCheckModel.caption`: `Context, not a score.` It is Progress's own line, and it belongs here more than anywhere — a pair of moods across a session is the one thing on this screen that invites reading a difference. Saying what the answer is for, before it is given, is cheaper than correcting the reading afterwards.
+Both carry the same caption, `MoodCheckModel.caption`: `Context, not a score.` It is Progress's own line, and it belongs here more than anywhere — a pair of moods across a session is the one thing on this screen that invites reading a difference. It stands before the answer and stays after it: saying what the answer is for is cheaper than correcting a reading, and the pair it ends up captioning is exactly what invites one.
 
 **What the pair says back.** `Not good before · Good now` when both halves were answered, the later word alone when the way in was skipped. The rule is `MoodCheckModel.note`, and it states the two words without grading the distance between them.
 
