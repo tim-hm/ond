@@ -217,6 +217,25 @@ message Phase {
   // breaths are shaped no particular way. A hold is never shaped at all, which
   // the column behind this states as a constraint rather than leaving to the seed.
   Manner manner = 6;
+
+  // The stillness closing this phase, in milliseconds, capped at 600 by the
+  // column behind it. Absent means the client sizes the gap from the phase's
+  // own length, which every seeded phase means today. Carried with presence
+  // because an authored zero is a real answer: a continuous rhythm turns
+  // without a gap on purpose, and a bare zero could not say so.
+  optional uint32 turn_gap_ms = 7;
+
+  // The haptic pattern this phase plays, named by a key whose definition the
+  // client holds — the way `Technique.slug` names built-in artwork. Absent on
+  // `turn_gap_ms`'s terms, so one concept has one absence rule. No pattern is
+  // designed yet, so nothing authors one; docs/follow-ups.md holds that item.
+  optional string haptic_pattern = 8;
+
+  // The line this phase speaks, named as the clip the voice render wrote. One
+  // entry of the exercise's script, because a script is written against the
+  // real timings and a phase is where those live. Absent means the client
+  // picks the cue from the phase itself.
+  optional string voice_script = 9;
 }
 
 // A run of cycles sharing one phase pattern.

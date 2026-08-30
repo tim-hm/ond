@@ -195,8 +195,9 @@ public extension Prescription {
                 && hasPositivePhaseDurations
             if replacesRhythm {
                 let phases = zip(stage.phases, phaseDurations).map { phase, duration in
-                    Phase(
-                        phase.breath,
+                    // A protocol replaces the rhythm, never how the breath is
+                    // made or how the turn is taken.
+                    phase.carrying(
                         duration: duration,
                         range: min(phase.range.lowerBound, duration) ... max(
                             phase.range.upperBound,

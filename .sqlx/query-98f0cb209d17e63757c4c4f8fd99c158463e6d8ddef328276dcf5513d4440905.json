@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n            technique_id AS \"technique_id: TechniqueId\",\n            stage_ordinal,\n            kind AS \"kind: PhaseKind\",\n            passage AS \"passage: Passage\",\n            manner AS \"manner: Manner\",\n            duration_ms,\n            min_duration_ms,\n            max_duration_ms\n         FROM technique_phases\n         ORDER BY technique_id, stage_ordinal, ordinal",
+  "query": "SELECT\n            technique_id AS \"technique_id: TechniqueId\",\n            stage_ordinal,\n            kind AS \"kind: PhaseKind\",\n            passage AS \"passage: Passage\",\n            manner AS \"manner: Manner\",\n            duration_ms,\n            min_duration_ms,\n            max_duration_ms,\n            turn_gap_ms,\n            haptic_pattern,\n            voice_script\n         FROM technique_phases\n         ORDER BY technique_id, stage_ordinal, ordinal",
   "describe": {
     "columns": [
       {
@@ -125,6 +125,39 @@
             "name": "max_duration_ms"
           }
         }
+      },
+      {
+        "ordinal": 8,
+        "name": "turn_gap_ms",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "technique_phases",
+            "name": "turn_gap_ms"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "haptic_pattern",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "technique_phases",
+            "name": "haptic_pattern"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "voice_script",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "technique_phases",
+            "name": "voice_script"
+          }
+        }
       }
     ],
     "parameters": {
@@ -138,8 +171,11 @@
       true,
       false,
       false,
-      false
+      false,
+      true,
+      true,
+      true
     ]
   },
-  "hash": "41d826af9c00a15f4a9f2d98ac3edb7f6b3d24d4471e93251c82698b4ed8eefe"
+  "hash": "98f0cb209d17e63757c4c4f8fd99c158463e6d8ddef328276dcf5513d4440905"
 }

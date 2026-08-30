@@ -120,6 +120,7 @@ public enum CatalogueExport {
         case unknownRegister(String)
         case unknownEvidenceGrade(String)
         case breathWithoutPassage(String)
+        case turnGapOutsideItsBound(Int)
         /// Both name the occasion's slug rather than the offending number: the
         /// number is always zero or negative, and which moment is broken is the
         /// part a reader cannot work out from the message.
@@ -148,6 +149,8 @@ public enum CatalogueExport {
                 "`\(value)` is not an evidence grade this app knows"
             case let .breathWithoutPassage(kind):
                 "a \(kind) phase in the export names no passage"
+            case let .turnGapOutsideItsBound(milliseconds):
+                "a phase in the export authors a \(milliseconds)ms turn gap"
             }
         }
     }
@@ -203,6 +206,11 @@ public enum CatalogueExport {
         let durationMs: Int
         let minDurationMs: Int
         let maxDurationMs: Int
+        /// The authored cadence, absent wherever the client derives it — which
+        /// is every phase the seed writes today.
+        let turnGapMs: Int?
+        let hapticPattern: String?
+        let voiceScript: String?
     }
 
     fileprivate struct ExportedFoundation: Decodable {
@@ -342,11 +350,22 @@ private extension Phase {
             throw CatalogueExport.Failure.breathWithoutPassage(exported.kind)
         }
 
+        let turnGap = try exported.turnGapMs.map { milliseconds -> Duration in
+            let gap = Duration.milliseconds(milliseconds)
+            guard SessionTurnGap.authored.contains(gap) else {
+                throw CatalogueExport.Failure.turnGapOutsideItsBound(milliseconds)
+            }
+            return gap
+        }
+
         try self.init(
             breath,
             duration: .milliseconds(exported.durationMs),
             range: .milliseconds(exported.minDurationMs) ... .milliseconds(exported.maxDurationMs),
-            manner: exported.manner.map(Manner.init(exported:))
+            manner: exported.manner.map(Manner.init(exported:)),
+            turnGap: turnGap,
+            hapticPattern: exported.hapticPattern?.nilIfEmpty,
+            voiceScript: exported.voiceScript?.nilIfEmpty
         )
     }
 }

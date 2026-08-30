@@ -227,6 +227,12 @@ struct PhaseSeed {
     duration_ms: i32,
     min_duration_ms: i32,
     max_duration_ms: i32,
+    /// The stillness closing this phase, the tap it plays and the line it
+    /// speaks. Nothing authors any of them yet: a cadence is one deliverable
+    /// per exercise, and that design does not exist.
+    turn_gap_ms: Option<i32>,
+    haptic_pattern: Option<&'static str>,
+    voice_script: Option<&'static str>,
 }
 
 /// A run of cycles sharing one phase pattern.
@@ -355,6 +361,9 @@ const fn breath(
         duration_ms,
         min_duration_ms: dial.0,
         max_duration_ms: dial.1,
+        turn_gap_ms: None,
+        haptic_pattern: None,
+        voice_script: None,
     }
 }
 
@@ -368,6 +377,9 @@ const fn hold(kind: PhaseKind, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed 
         duration_ms,
         min_duration_ms: dial.0,
         max_duration_ms: dial.1,
+        turn_gap_ms: None,
+        haptic_pattern: None,
+        voice_script: None,
     }
 }
 
@@ -769,8 +781,9 @@ async fn replace_stages(
             sqlx::query(
                 r"INSERT INTO technique_phases
                      (technique_id, stage_ordinal, ordinal, kind, passage, manner,
-                      duration_ms, min_duration_ms, max_duration_ms)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+                      duration_ms, min_duration_ms, max_duration_ms,
+                      turn_gap_ms, haptic_pattern, voice_script)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
             )
             .bind(id)
             .bind(ordinal)
@@ -781,6 +794,9 @@ async fn replace_stages(
             .bind(phase.duration_ms)
             .bind(phase.min_duration_ms)
             .bind(phase.max_duration_ms)
+            .bind(phase.turn_gap_ms)
+            .bind(phase.haptic_pattern)
+            .bind(phase.voice_script)
             .execute(&mut **tx)
             .await
             .with_context(|| {
@@ -845,6 +861,29 @@ mod tests {
         }
     }
 
+    /// The bound the `turn_gap_ms` column states, checked where the export
+    /// cannot reach it: the export reads these constants and never opens the
+    /// database, so a gap outside the bound would ship to the app, which
+    /// refuses the whole catalogue over one. Vacuous until a table is written,
+    /// which is when it starts earning its place.
+    #[test]
+    fn every_seeded_turn_gap_is_within_its_column_bound() {
+        for technique in TECHNIQUES {
+            for stage in technique.stages {
+                for phase in stage.phases {
+                    let Some(gap) = phase.turn_gap_ms else {
+                        continue;
+                    };
+                    assert!(
+                        (0..=600).contains(&gap),
+                        "`{}` authors a {gap} ms turn gap",
+                        technique.slug
+                    );
+                }
+            }
+        }
+    }
+
     /// The vocabulary the export speaks is the database's and the contract's,
     /// not Rust's. A serde rename lost here would leave the Swift side decoding
     /// `Inhale` where it expects `INHALE`, which fails at the far end of a
@@ -874,6 +913,15 @@ mod tests {
             json["techniques"][0]["stages"][0]["phases"][0]["manner"],
             serde_json::Value::Null
         );
+        // The three cadence keys on the same terms, and null for the same
+        // reason: nothing authors a cadence, and a reader taking an absent key
+        // for an authored zero would drop the derived turn from every phase.
+        for key in ["turnGapMs", "hapticPattern", "voiceScript"] {
+            assert_eq!(
+                json["techniques"][0]["stages"][0]["phases"][0].get(key),
+                Some(&serde_json::Value::Null)
+            );
+        }
         // And one that is shaped, so the label is checked and not only the
         // absence of one — a serialiser that emitted every manner as null would
         // satisfy the line above.

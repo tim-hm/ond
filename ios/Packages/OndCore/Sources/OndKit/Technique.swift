@@ -4,34 +4,50 @@ public struct Phase: Sendable, Hashable, Codable {
     /// What the breath does here, and where the air goes with it.
     public let breath: Breath
     /// The curated default, and what a session plays unless a dial moved it.
-    public let duration: Duration
+    public private(set) var duration: Duration
     /// The evidence-based range, inclusive. Seeded per phase, so the Customise
     /// dials render from the catalogue rather than from limits the app would
     /// have to keep in step with it; a single-point range means no dial at all.
     /// On a stage the person ends it doubles as the typical band the figure and
     /// steps print (`hold · 30s–2m`), and its dial sets the first round's aim.
-    public let range: ClosedRange<Duration>
+    public private(set) var range: ClosedRange<Duration>
     /// How the breath is shaped, or nil — which is most phases.
     ///
     /// Seeded per phase on `range`'s reasoning: the app states no mechanic of its
     /// own, so a technique gains one by being reseeded rather than by this app
     /// learning a slug.
     public let manner: Manner?
+    /// The stillness this phase's table authored to close it, or nil to let
+    /// ``SessionTurnGap`` size one from the phase's own length. Nil for every
+    /// seeded phase: a cadence is one authored deliverable per exercise, and
+    /// none is written yet. An authored zero is not nil — it says this rhythm
+    /// turns without a gap, which a continuous exercise means.
+    public let turnGap: Duration?
+    /// The tap this phase plays and the line it speaks, named by keys the
+    /// client resolves. Nil on ``turnGap``'s terms and for its reason.
+    public let hapticPattern: String?
+    public let voiceScript: String?
 
     /// Defaults the range to the duration itself — the honest description of a
     /// phase nobody has widened, and what keeps a hand-built `Phase` in a test
-    /// or a preview to one line. The manner defaults to none for the same
-    /// reason, and because a shaped breath is the catalogue's exception.
+    /// or a preview to one line. The manner and the cadence default to none for
+    /// the same reason, and because both are the catalogue's exception.
     public init(
         _ breath: Breath,
         duration: Duration,
         range: ClosedRange<Duration>? = nil,
-        manner: Manner? = nil
+        manner: Manner? = nil,
+        turnGap: Duration? = nil,
+        hapticPattern: String? = nil,
+        voiceScript: String? = nil
     ) {
         self.breath = breath
         self.duration = duration
         self.range = range ?? duration ... duration
         self.manner = manner
+        self.turnGap = turnGap
+        self.hapticPattern = hapticPattern
+        self.voiceScript = voiceScript
     }
 
     /// The same phase said as a kind and a passage, for the two decoders that
@@ -68,12 +84,20 @@ public struct Phase: Sendable, Hashable, Codable {
     }
 
     /// The same phase at `duration`, clamped into its own range — a dial cannot
-    /// take a phase somewhere the catalogue says it should not go. Every field
-    /// is carried: a property added above and forgotten here does not fail to
-    /// compile, it silently leaves the session when Customise opens, which is
-    /// how the curated copy was once lost one type down.
+    /// take a phase somewhere the catalogue says it should not go.
     public func dialled(to duration: Duration) -> Self {
-        Self(breath, duration: range.clamping(duration), range: range, manner: manner)
+        carrying(duration: range.clamping(duration), range: range)
+    }
+
+    /// The same phase at another length, keeping everything the length does not
+    /// decide. A copy rather than a rebuild through the initialiser, on
+    /// `Technique.replacing`'s reasoning: a rebuild forgets each newly added
+    /// field silently, and the curated copy was lost that way one type up.
+    public func carrying(duration: Duration, range: ClosedRange<Duration>) -> Self {
+        var copy = self
+        copy.duration = duration
+        copy.range = range
+        return copy
     }
 }
 
