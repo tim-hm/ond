@@ -503,9 +503,9 @@ public nonisolated struct Ond_V1_Phase: Sendable {
 
   /// The stillness closing this phase, in milliseconds, capped at 600 by the
   /// column behind it. Absent means the client sizes the gap from the phase's
-  /// own length, which every seeded phase means today. Carried with presence
-  /// because an authored zero is a real answer: a continuous rhythm turns
-  /// without a gap on purpose, and a bare zero could not say so.
+  /// own length. Carried with presence because an authored zero is a real
+  /// answer: a continuous rhythm turns without a gap on purpose, and a bare
+  /// zero could not say so.
   public var turnGapMs: UInt32 {
     get {_turnGapMs ?? 0}
     set {_turnGapMs = newValue}
@@ -517,8 +517,8 @@ public nonisolated struct Ond_V1_Phase: Sendable {
 
   /// The haptic pattern this phase plays, named by a key whose definition the
   /// client holds — the way `Technique.slug` names built-in artwork. Absent on
-  /// `turn_gap_ms`'s terms, so one concept has one absence rule. No pattern is
-  /// designed yet, so nothing authors one; docs/follow-ups.md holds that item.
+  /// `turn_gap_ms`'s terms, so one concept has one absence rule. A key the
+  /// client does not know plays the derived pattern and logs.
   public var hapticPattern: String {
     get {_hapticPattern ?? String()}
     set {_hapticPattern = newValue}
