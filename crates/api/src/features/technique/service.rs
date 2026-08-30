@@ -250,11 +250,9 @@ fn assemble_playable_stages(
                 duration_ms: row.duration_ms,
                 min_duration_ms: row.min_duration_ms,
                 max_duration_ms: row.max_duration_ms,
-                // Nothing stores a cadence yet; the column arrives with the
-                // seed that can hold one.
-                turn_gap_ms: None,
-                haptic_pattern: None,
-                voice_script: None,
+                turn_gap_ms: row.turn_gap_ms,
+                haptic_pattern: row.haptic_pattern,
+                voice_script: row.voice_script,
             });
     }
 
@@ -340,6 +338,9 @@ mod tests {
             duration_ms: 4000,
             min_duration_ms: 2000,
             max_duration_ms: 8000,
+            turn_gap_ms: None,
+            haptic_pattern: None,
+            voice_script: None,
         }
     }
 

@@ -42,7 +42,10 @@
               "manner": null,
               "durationMs": 4000,
               "minDurationMs": 3000,
-              "maxDurationMs": 8000
+              "maxDurationMs": 8000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "HOLD_IN",
@@ -50,7 +53,10 @@
               "manner": null,
               "durationMs": 4000,
               "minDurationMs": 2000,
-              "maxDurationMs": 8000
+              "maxDurationMs": 8000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "EXHALE",
@@ -58,7 +64,10 @@
               "manner": null,
               "durationMs": 4000,
               "minDurationMs": 3000,
-              "maxDurationMs": 8000
+              "maxDurationMs": 8000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "HOLD_OUT",
@@ -66,7 +75,10 @@
               "manner": null,
               "durationMs": 4000,
               "minDurationMs": 2000,
-              "maxDurationMs": 8000
+              "maxDurationMs": 8000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             }
           ],
           "cycles": 19,
@@ -118,7 +130,10 @@
               "manner": null,
               "durationMs": 5500,
               "minDurationMs": 4000,
-              "maxDurationMs": 7000
+              "maxDurationMs": 7000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "EXHALE",
@@ -126,7 +141,10 @@
               "manner": null,
               "durationMs": 5500,
               "minDurationMs": 4000,
-              "maxDurationMs": 7000
+              "maxDurationMs": 7000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             }
           ],
           "cycles": 27,
@@ -178,7 +196,10 @@
               "manner": null,
               "durationMs": 4000,
               "minDurationMs": 3000,
-              "maxDurationMs": 6000
+              "maxDurationMs": 6000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "HOLD_IN",
@@ -186,7 +207,10 @@
               "manner": null,
               "durationMs": 7000,
               "minDurationMs": 4000,
-              "maxDurationMs": 10000
+              "maxDurationMs": 10000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "EXHALE",
@@ -194,7 +218,10 @@
               "manner": null,
               "durationMs": 8000,
               "minDurationMs": 6000,
-              "maxDurationMs": 12000
+              "maxDurationMs": 12000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             }
           ],
           "cycles": 8,
@@ -246,7 +273,10 @@
               "manner": null,
               "durationMs": 4000,
               "minDurationMs": 3000,
-              "maxDurationMs": 5000
+              "maxDurationMs": 5000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "EXHALE",
@@ -254,7 +284,10 @@
               "manner": null,
               "durationMs": 6000,
               "minDurationMs": 6000,
-              "maxDurationMs": 8000
+              "maxDurationMs": 8000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             }
           ],
           "cycles": 30,
@@ -306,7 +339,10 @@
               "manner": null,
               "durationMs": 1500,
               "minDurationMs": 1000,
-              "maxDurationMs": 2500
+              "maxDurationMs": 2500,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "INHALE",
@@ -314,7 +350,10 @@
               "manner": null,
               "durationMs": 1000,
               "minDurationMs": 500,
-              "maxDurationMs": 1200
+              "maxDurationMs": 1200,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "EXHALE",
@@ -322,7 +361,10 @@
               "manner": null,
               "durationMs": 5000,
               "minDurationMs": 4000,
-              "maxDurationMs": 8000
+              "maxDurationMs": 8000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             }
           ],
           "cycles": 3,
@@ -374,7 +416,10 @@
               "manner": null,
               "durationMs": 2000,
               "minDurationMs": 1500,
-              "maxDurationMs": 3000
+              "maxDurationMs": 3000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "INHALE",
@@ -382,7 +427,10 @@
               "manner": null,
               "durationMs": 1000,
               "minDurationMs": 500,
-              "maxDurationMs": 1500
+              "maxDurationMs": 1500,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "EXHALE",
@@ -390,7 +438,10 @@
               "manner": null,
               "durationMs": 7000,
               "minDurationMs": 5000,
-              "maxDurationMs": 10000
+              "maxDurationMs": 10000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             }
           ],
           "cycles": 30,
@@ -442,7 +493,10 @@
               "manner": null,
               "durationMs": 2000,
               "minDurationMs": 2000,
-              "maxDurationMs": 4000
+              "maxDurationMs": 4000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "EXHALE",
@@ -450,7 +504,10 @@
               "manner": "PURSED_LIPS",
               "durationMs": 4000,
               "minDurationMs": 4000,
-              "maxDurationMs": 8000
+              "maxDurationMs": 8000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             }
           ],
           "cycles": 30,
@@ -502,7 +559,10 @@
               "manner": null,
               "durationMs": 4000,
               "minDurationMs": 3000,
-              "maxDurationMs": 6000
+              "maxDurationMs": 6000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "EXHALE",
@@ -510,7 +570,10 @@
               "manner": "HUM",
               "durationMs": 8000,
               "minDurationMs": 6000,
-              "maxDurationMs": 15000
+              "maxDurationMs": 15000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             }
           ],
           "cycles": 25,
@@ -565,7 +628,10 @@
               "manner": "CURLED_TONGUE",
               "durationMs": 4000,
               "minDurationMs": 3000,
-              "maxDurationMs": 6000
+              "maxDurationMs": 6000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "EXHALE",
@@ -573,7 +639,10 @@
               "manner": null,
               "durationMs": 6000,
               "minDurationMs": 4000,
-              "maxDurationMs": 8000
+              "maxDurationMs": 8000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             }
           ],
           "cycles": 30,
@@ -625,7 +694,10 @@
               "manner": null,
               "durationMs": 1000,
               "minDurationMs": 700,
-              "maxDurationMs": 1500
+              "maxDurationMs": 1500,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "EXHALE",
@@ -633,7 +705,10 @@
               "manner": null,
               "durationMs": 1000,
               "minDurationMs": 700,
-              "maxDurationMs": 1500
+              "maxDurationMs": 1500,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             }
           ],
           "cycles": 20,
@@ -685,7 +760,10 @@
               "manner": null,
               "durationMs": 1500,
               "minDurationMs": 1000,
-              "maxDurationMs": 2500
+              "maxDurationMs": 2500,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "EXHALE",
@@ -693,7 +771,10 @@
               "manner": null,
               "durationMs": 1500,
               "minDurationMs": 1000,
-              "maxDurationMs": 2500
+              "maxDurationMs": 2500,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             }
           ],
           "cycles": 30,
@@ -707,7 +788,10 @@
               "manner": null,
               "durationMs": 4000,
               "minDurationMs": 3000,
-              "maxDurationMs": 6000
+              "maxDurationMs": 6000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "EXHALE",
@@ -715,7 +799,10 @@
               "manner": null,
               "durationMs": 4000,
               "minDurationMs": 2000,
-              "maxDurationMs": 6000
+              "maxDurationMs": 6000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             }
           ],
           "cycles": 1,
@@ -729,7 +816,10 @@
               "manner": null,
               "durationMs": 30000,
               "minDurationMs": 30000,
-              "maxDurationMs": 120000
+              "maxDurationMs": 120000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             }
           ],
           "cycles": 1,
@@ -743,7 +833,10 @@
               "manner": null,
               "durationMs": 3000,
               "minDurationMs": 2000,
-              "maxDurationMs": 5000
+              "maxDurationMs": 5000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "HOLD_IN",
@@ -751,7 +844,10 @@
               "manner": null,
               "durationMs": 15000,
               "minDurationMs": 10000,
-              "maxDurationMs": 20000
+              "maxDurationMs": 20000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "EXHALE",
@@ -759,7 +855,10 @@
               "manner": null,
               "durationMs": 4000,
               "minDurationMs": 2000,
-              "maxDurationMs": 6000
+              "maxDurationMs": 6000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             }
           ],
           "cycles": 1,
@@ -811,7 +910,10 @@
               "manner": null,
               "durationMs": 6000,
               "minDurationMs": 4000,
-              "maxDurationMs": 10000
+              "maxDurationMs": 10000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "HOLD_IN",
@@ -819,7 +921,10 @@
               "manner": null,
               "durationMs": 6000,
               "minDurationMs": 4000,
-              "maxDurationMs": 10000
+              "maxDurationMs": 10000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "EXHALE",
@@ -827,7 +932,10 @@
               "manner": null,
               "durationMs": 6000,
               "minDurationMs": 4000,
-              "maxDurationMs": 10000
+              "maxDurationMs": 10000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "HOLD_OUT",
@@ -835,7 +943,10 @@
               "manner": null,
               "durationMs": 6000,
               "minDurationMs": 4000,
-              "maxDurationMs": 10000
+              "maxDurationMs": 10000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             }
           ],
           "cycles": 13,
@@ -890,7 +1001,10 @@
               "manner": null,
               "durationMs": 4000,
               "minDurationMs": 3000,
-              "maxDurationMs": 6000
+              "maxDurationMs": 6000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "EXHALE",
@@ -898,7 +1012,10 @@
               "manner": null,
               "durationMs": 6000,
               "minDurationMs": 4000,
-              "maxDurationMs": 8000
+              "maxDurationMs": 8000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "INHALE",
@@ -906,7 +1023,10 @@
               "manner": null,
               "durationMs": 4000,
               "minDurationMs": 3000,
-              "maxDurationMs": 6000
+              "maxDurationMs": 6000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             },
             {
               "kind": "EXHALE",
@@ -914,7 +1034,10 @@
               "manner": null,
               "durationMs": 6000,
               "minDurationMs": 4000,
-              "maxDurationMs": 8000
+              "maxDurationMs": 8000,
+              "turnGapMs": null,
+              "hapticPattern": null,
+              "voiceScript": null
             }
           ],
           "cycles": 15,

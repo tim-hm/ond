@@ -108,6 +108,20 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
                     "`{slug}` has a hold shaped {}",
                     phase.manner
                 );
+
+                // Nothing authors a cadence yet, so every phase asks the
+                // client to derive one. Absence rather than a zero or an
+                // empty key: a client reading an authored zero would drop the
+                // derived turn from every phase in the catalogue.
+                assert_eq!(
+                    (
+                        phase.turn_gap_ms,
+                        phase.haptic_pattern.as_deref(),
+                        phase.voice_script.as_deref()
+                    ),
+                    (None, None, None),
+                    "`{slug}` authors a cadence nobody has designed"
+                );
             }
         }
     }

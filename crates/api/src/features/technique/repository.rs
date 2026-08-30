@@ -64,6 +64,11 @@ pub struct PhaseRow {
     pub duration_ms: i32,
     pub min_duration_ms: i32,
     pub max_duration_ms: i32,
+    /// The authored cadence. The column's `CHECK` bounds the gap to 0–600 ms
+    /// and refuses an empty key; `None` is every seeded phase.
+    pub turn_gap_ms: Option<i32>,
+    pub haptic_pattern: Option<String>,
+    pub voice_script: Option<String>,
 }
 
 pub struct FoundationTopicRow {
@@ -160,7 +165,10 @@ pub async fn list_all_phases(pool: &PgPool) -> Result<Vec<PhaseRow>, TechniqueEr
             manner AS "manner: Manner",
             duration_ms,
             min_duration_ms,
-            max_duration_ms
+            max_duration_ms,
+            turn_gap_ms,
+            haptic_pattern,
+            voice_script
          FROM technique_phases
          ORDER BY technique_id, stage_ordinal, ordinal"#
     )
