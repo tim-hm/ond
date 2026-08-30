@@ -39,6 +39,12 @@ tests:
       - eval_time: 25m
         alertname: ServerErrorsSustained
         exp_alerts: []
+      - eval_time: 25m
+        alertname: AuthenticationRefusalsSustained
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: ThrottleRefusalsSustained
+        exp_alerts: []
 
   # ── The floor ───────────────────────────────────────────────────────────────
   - interval: 1m
@@ -265,3 +271,118 @@ tests:
             exp_annotations:
               summary: "/ is below 15% free"
               description: "On the root volume the usual cause is images a deploy left behind — `docker image prune -f`. On the data volume it is Postgres or the Prometheus TSDB, and the TSDB is bounded at 2 GiB, so it is usually Postgres."
+
+  - interval: 1m
+    name: a box that has never reported a backup alerts once the day is out
+    # No input series at all, which is the state this rule exists for: the
+    # textfile collector unconfigured, or the cron never installed. Every other
+    # backup rule compares a value, so none of them can see this.
+    input_series: []
+    alert_rule_test:
+      - eval_time: 20h
+        alertname: BackupMetricMissing
+        exp_alerts: []
+      - eval_time: 26h
+        alertname: BackupMetricMissing
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "The backup has never reported a result"
+              description: "node-exporter is not reading /srv/data/textfile, or /etc/cron.d/ond is not installed. Until one of those is true, BackupStale cannot fire — this rule exists because a backup alert that is structurally incapable of firing is worse than no alert."
+
+  - interval: 1m
+    name: memory the kernel spent on page cache does not alert
+    input_series:
+      - series: "node_memory_MemAvailable_bytes"
+        values: "1000000000x60"
+      - series: "node_memory_MemTotal_bytes"
+        values: "2000000000x60"
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: MemoryLow
+        exp_alerts: []
+
+  - interval: 1m
+    name: memory below fifteen percent available alerts after a quarter hour
+    input_series:
+      - series: "node_memory_MemAvailable_bytes"
+        values: "200000000x60"
+      - series: "node_memory_MemTotal_bytes"
+        values: "2000000000x60"
+    alert_rule_test:
+      # Ten minutes in, `for: 15m` has not elapsed. A container starting is
+      # briefly large, and the OOM killer is not woken by a spike.
+      - eval_time: 10m
+        alertname: MemoryLow
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: MemoryLow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "Less than 15% of memory has been available for fifteen minutes"
+              description: "Nothing here is sized to grow on its own, so the likely cause is a container that was added rather than one that changed. With no swap configured the next step is the OOM killer, which will not pick the process at fault."
+
+  # ── Abuse ───────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: honest reinstalls and a busy client stay under the abuse floors
+    input_series:
+      # A reinstall that kept the user id and lost the Keychain returns 16 on
+      # an honest launch, and a carrier NAT fills a request budget with no
+      # server fault. Both floors sit above this shape on purpose.
+      - series: 'ond_grpc_requests_total{status="16"}'
+        values: "0+6x40"
+      - series: 'ond_grpc_requests_total{status="8"}'
+        values: "0+60x40"
+      - series: 'ond_grpc_requests_total{status="0"}'
+        values: "0+600x40"
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: AuthenticationRefusalsSustained
+        exp_alerts: []
+      - eval_time: 35m
+        alertname: ThrottleRefusalsSustained
+        exp_alerts: []
+
+  - interval: 1m
+    name: a run guessing session credentials alerts
+    input_series:
+      - series: 'ond_grpc_requests_total{status="16"}'
+        values: "0+600x40"
+      - series: 'ond_grpc_requests_total{status="0"}'
+        values: "0+60x40"
+    alert_rule_test:
+      # Ten minutes in, `for: 15m` has not elapsed.
+      - eval_time: 10m
+        alertname: AuthenticationRefusalsSustained
+        exp_alerts: []
+      - eval_time: 35m
+        alertname: AuthenticationRefusalsSustained
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "The API has been refusing unauthenticated calls for fifteen minutes"
+              description: "Status 16 is what an unknown identity, a missing session credential, a merged-away id and a refused Sign in with Apple all return, and each logs at debug, which production drops. So read this as either somebody trying ids and credentials, or a shipped build signing wrongly. `ond_grpc_requests_total` names the RPCs being tried, which separates the two."
+
+  - interval: 1m
+    name: a client held at the rate limit alerts
+    input_series:
+      - series: 'ond_grpc_requests_total{status="8"}'
+        values: "0+600x40"
+      - series: 'ond_grpc_requests_total{status="0"}'
+        values: "0+60x40"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: ThrottleRefusalsSustained
+        exp_alerts: []
+      - eval_time: 35m
+        alertname: ThrottleRefusalsSustained
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "The throttle has been refusing calls for fifteen minutes"
+              description: "One caller has to spend a whole budget before any of this appears — six hundred requests in a minute, or ten new identities — so a sustained rate is a script rather than the app. The throttle is holding, and this says so before the only other symptom, a quiet week, arrives. The server writes a warn naming which budget filled."

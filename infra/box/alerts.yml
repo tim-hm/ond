@@ -199,3 +199,34 @@ groups:
           summary: "The API has been returning Internal errors for ten minutes"
           description: >-
             Every one of these is a bug or a dependency that has gone away, not a caller doing something wrong. During a beta the likeliest causes are a schema the deployed build does not have and a Bedrock call that cannot authenticate. The per-request logs name which.
+
+  - name: abuse
+    rules:
+      # The two codes GrpcUnexpectedFailures excludes on purpose, each given a
+      # rule of its own. Every identity refusal logs at `debug`, which the
+      # production filter drops, so without this a credential-guessing run
+      # against `ond-session-credential` produces no alert and no log line.
+      # Both floors are set against beta traffic and must move as it grows.
+      - alert: AuthenticationRefusalsSustained
+        expr: sum(rate(ond_grpc_requests_total{status="16"}[5m])) > 2
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "The API has been refusing unauthenticated calls for fifteen minutes"
+          description: >-
+            Status 16 is what an unknown identity, a missing session credential, a merged-away id and a refused Sign in with Apple all return, and each logs at debug, which production drops. So read this as either somebody trying ids and credentials, or a shipped build signing wrongly. `ond_grpc_requests_total` names the RPCs being tried, which separates the two.
+
+      # Both budgets refuse with status 8: six hundred requests in a minute, or
+      # ten new identities. So the floor only has to clear a carrier NAT
+      # fronting many strangers. `Budget::spend` writes a warn naming which
+      # budget filled, which is the line to read when this fires.
+      - alert: ThrottleRefusalsSustained
+        expr: sum(rate(ond_grpc_requests_total{status="8"}[5m])) > 4
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "The throttle has been refusing calls for fifteen minutes"
+          description: >-
+            One caller has to spend a whole budget before any of this appears — six hundred requests in a minute, or ten new identities — so a sustained rate is a script rather than the app. The throttle is holding, and this says so before the only other symptom, a quiet week, arrives. The server writes a warn naming which budget filled.
