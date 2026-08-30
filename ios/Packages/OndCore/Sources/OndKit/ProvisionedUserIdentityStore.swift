@@ -20,7 +20,7 @@ public final class ProvisionedUserIdentityStore: UserIdentityStore {
         /// meets its phone would otherwise pay a Keychain round-trip on every
         /// RPC it ever makes, forever.
         case absent
-        case present(UUID)
+        case present(UserId)
     }
 
     private let storage: any IdentityStorage
@@ -61,7 +61,7 @@ public final class ProvisionedUserIdentityStore: UserIdentityStore {
         credentials.adopt(credential)
     }
 
-    public func userId() -> UUID? {
+    public func userId() -> UserId? {
         switch cached.withLock({ $0 }) {
         case .unread: break
         case .absent: return nil
@@ -83,7 +83,7 @@ public final class ProvisionedUserIdentityStore: UserIdentityStore {
     /// every foreground, and the last stored id beats one the next launch forgets.
     /// - Returns: whether the stored identity changed — the signal to kick a sync.
     @discardableResult
-    public func adopt(_ id: UUID) -> Bool {
+    public func adopt(userId id: UserId) -> Bool {
         guard userId() != id else { return false }
 
         guard storage.replace(with: id) else {

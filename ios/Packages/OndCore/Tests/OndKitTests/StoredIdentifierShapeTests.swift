@@ -86,6 +86,24 @@ struct StoredIdentifierShapeTests {
         #expect(try Self.encoded(overrides).hasPrefix("{\"box-breathing\":"))
     }
 
+    /// The identity stamped on the cached exercise list, which decides whose
+    /// list is drawn. A bare UUID string, exactly as it was written before it
+    /// had a type: an object here reads back as somebody else's list, so the
+    /// next launch draws no composed exercises at all.
+    @Test func a_stored_user_id_stays_a_bare_string() throws {
+        struct Stamped: Codable {
+            let userId: UserId
+        }
+
+        let stored = #"{"userId":"3F2504E0-4F89-11D3-9A0C-0305E82C3301"}"#
+
+        let stamped = try Self.decoder.decode(Stamped.self, from: Data(stored.utf8))
+        let expected = try #require(UUID(uuidString: "3F2504E0-4F89-11D3-9A0C-0305E82C3301"))
+
+        #expect(stamped.userId == UserId(rawValue: expected))
+        #expect(try Self.encoded(stamped) == stored)
+    }
+
     /// Home's default exercise, which decides what the button starts.
     @Test func a_stored_home_choice_still_decodes_and_re_encodes_flat() throws {
         let stored = #"{"minutes":5,"slug":"coherent-breathing"}"#

@@ -104,7 +104,7 @@ public struct JourneyRepository: JourneySyncing {
     public init(baseURL: URL, identity: any UserIdentityStore) {
         client = OndClients.journeyService(
             baseURL: baseURL,
-            userId: identity.userId,
+            userId: identity.wireUserId,
             sessionCredential: identity.sessionCredential
         )
     }

@@ -83,7 +83,7 @@ public struct TechniqueRepository: ReferenceFetching {
     public init(baseURL: URL, identity: any UserIdentityStore) {
         client = OndClients.techniqueService(
             baseURL: baseURL,
-            userId: identity.userId,
+            userId: identity.wireUserId,
             sessionCredential: identity.sessionCredential
         )
     }

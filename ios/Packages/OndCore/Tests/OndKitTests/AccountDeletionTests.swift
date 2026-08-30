@@ -47,7 +47,7 @@ private struct DeletionInstall {
 struct AccountDeletionTests {
     private func install(
         accounts: ErasingAccounts = ErasingAccounts(),
-        storage: any IdentityStorage = FakeStorage(holding: UUID())
+        storage: any IdentityStorage = FakeStorage(holding: anIdentity())
     ) throws -> DeletionInstall {
         let directory = URL.temporaryDirectory.appending(path: "ond-deletion-\(UUID().uuidString)")
         let defaults = try #require(UserDefaults(suiteName: "deletion-\(UUID().uuidString)"))

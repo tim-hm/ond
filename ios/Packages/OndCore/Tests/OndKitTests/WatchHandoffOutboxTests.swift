@@ -39,7 +39,7 @@ struct WatchHandoffOutboxTests {
 
     @Test("The first context carries the identity and the best pause")
     func handsOverTheFirstContext() async throws {
-        let id = UUID()
+        let id = anIdentity()
         let radio = Radio()
         let outbox = WatchHandoffOutbox(
             identity: StubIdentity(id: id),
@@ -61,7 +61,7 @@ struct WatchHandoffOutboxTests {
     @Test("A credential the phone gained or lost is a context worth sending")
     func handsOverAChangedCredential() async {
         let radio = Radio()
-        let identity = StubIdentity(id: UUID())
+        let identity = StubIdentity(id: anIdentity())
         let outbox = WatchHandoffOutbox(identity: identity, scores: StubScores())
 
         await outbox.handOver(radio.accept)
@@ -83,7 +83,7 @@ struct WatchHandoffOutboxTests {
     func deduplicatesAnUnchangedContext() async {
         let radio = Radio()
         let outbox = WatchHandoffOutbox(
-            identity: StubIdentity(id: UUID()),
+            identity: StubIdentity(id: anIdentity()),
             scores: StubScores(seconds: [30])
         )
 
@@ -99,7 +99,7 @@ struct WatchHandoffOutboxTests {
     func retriesAFailedHandover() async {
         let radio = Radio()
         let outbox = WatchHandoffOutbox(
-            identity: StubIdentity(id: UUID()),
+            identity: StubIdentity(id: anIdentity()),
             scores: StubScores(seconds: [30])
         )
 
@@ -115,7 +115,7 @@ struct WatchHandoffOutboxTests {
     func handsOverANewBest() async {
         let radio = Radio()
         let scores = StubScores(seconds: [30])
-        let outbox = WatchHandoffOutbox(identity: StubIdentity(id: UUID()), scores: scores)
+        let outbox = WatchHandoffOutbox(identity: StubIdentity(id: anIdentity()), scores: scores)
 
         await outbox.handOver(radio.accept)
         await scores.record(BoltScore(seconds: 45))
@@ -132,12 +132,12 @@ struct WatchHandoffOutboxTests {
     @Test("An identity replaced by a sign-in is handed over")
     func handsOverASwappedIdentity() async {
         let radio = Radio()
-        let identity = StubIdentity(id: UUID())
+        let identity = StubIdentity(id: anIdentity())
         let outbox = WatchHandoffOutbox(identity: identity, scores: StubScores(seconds: [30]))
 
         await outbox.handOver(radio.accept)
-        let adopted = UUID()
-        identity.adopt(adopted)
+        let adopted = anIdentity()
+        identity.adopt(userId: adopted)
         await outbox.handOver(radio.accept)
 
         #expect(radio.handed.count == 2)
@@ -152,7 +152,7 @@ struct WatchHandoffOutboxTests {
     @Test("A deletion is handed over as an erasure, and goes on being one")
     func handsOverAnErasureUntilTheIdentityChangesAgain() async throws {
         let radio = Radio()
-        let identity = StubIdentity(id: UUID())
+        let identity = StubIdentity(id: anIdentity())
         let defaults = try #require(
             UserDefaults(suiteName: "outbox-tests.erasure.\(UUID().uuidString)")
         )
@@ -164,7 +164,7 @@ struct WatchHandoffOutboxTests {
 
         // What a deletion does, in the order `AccountModel` does it: mint, then
         // empty everything that holds anything.
-        identity.adopt(UUID())
+        identity.adopt(userId: anIdentity())
         await outbox.erase()
         await outbox.handOver(radio.accept)
 
@@ -189,7 +189,7 @@ struct WatchHandoffOutboxTests {
     @Test("An identity minted after the deletion is handed over as an ordinary one")
     func stopsErasingOnceTheIdentityMovesOn() async throws {
         let radio = Radio()
-        let identity = StubIdentity(id: UUID())
+        let identity = StubIdentity(id: anIdentity())
         let defaults = try #require(
             UserDefaults(suiteName: "outbox-tests.expiry.\(UUID().uuidString)")
         )
@@ -199,11 +199,11 @@ struct WatchHandoffOutboxTests {
             defaults: defaults
         )
 
-        identity.adopt(UUID())
+        identity.adopt(userId: anIdentity())
         await outbox.erase()
         await outbox.handOver(radio.accept)
 
-        identity.adopt(UUID())
+        identity.adopt(userId: anIdentity())
         await outbox.handOver(radio.accept)
 
         #expect(radio.handed.map(\.erasesPriorHistory) == [true, false])
@@ -275,7 +275,7 @@ struct WatchHandoffOutboxTests {
     func ignoresAWorseScore() async {
         let radio = Radio()
         let scores = StubScores(seconds: [45])
-        let outbox = WatchHandoffOutbox(identity: StubIdentity(id: UUID()), scores: scores)
+        let outbox = WatchHandoffOutbox(identity: StubIdentity(id: anIdentity()), scores: scores)
 
         await outbox.handOver(radio.accept)
         await scores.record(BoltScore(seconds: 12))
@@ -308,7 +308,7 @@ struct WatchHandoffOutboxTests {
 
         #expect(bare?.entitledTier == .free)
         #expect(
-            WatchHandoff(userId: UUID()).dictionary["entitledTier"] == nil,
+            WatchHandoff(userId: anIdentity()).dictionary["entitledTier"] == nil,
             "free is absent rather than zero, so the ordinary context keeps its shape"
         )
     }
@@ -323,7 +323,7 @@ struct WatchHandoffOutboxTests {
         // life of the outbox, and what is under test is the tier moving.
         let tier = OSAllocatedUnfairLock(initialState: SubscriptionTier.free)
         let outbox = WatchHandoffOutbox(
-            identity: StubIdentity(id: UUID()),
+            identity: StubIdentity(id: anIdentity()),
             scores: StubScores(),
             defaults: scratchDefaults(),
             entitledTier: { tier.withLock { $0 } }

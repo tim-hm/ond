@@ -83,7 +83,7 @@ public struct UserTechniqueRepository: UserTechniqueStoring {
     public init(baseURL: URL, identity: any UserIdentityStore) {
         client = OndClients.userTechniqueService(
             baseURL: baseURL,
-            userId: identity.userId,
+            userId: identity.wireUserId,
             sessionCredential: identity.sessionCredential
         )
     }

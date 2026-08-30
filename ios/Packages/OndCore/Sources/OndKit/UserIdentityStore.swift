@@ -10,7 +10,7 @@ public protocol UserIdentityStore: Sendable {
     /// The phone mints one on first use; the watch waits to be handed the
     /// phone's. Callers treat nil as anonymous, not as a failure — an absent
     /// identity costs only the scoped RPCs.
-    func userId() -> UUID?
+    func userId() -> UserId?
 
     /// Makes `id` the identity from now on, in the cache as well as the store.
     /// Sign-in can answer with an older, merged-into identity; the server
@@ -18,7 +18,7 @@ public protocol UserIdentityStore: Sendable {
     /// would stamp the dead id on every request until the next launch.
     /// - Returns: true when the identity changed — the signal to tell copies.
     @discardableResult
-    func adopt(_ id: UUID) -> Bool
+    func adopt(userId id: UserId) -> Bool
 
     /// What proves `userId()` to the server, or nil while this install has
     /// never signed in. Read beside the id on every request. Nil is ordinary,
@@ -32,20 +32,30 @@ public protocol UserIdentityStore: Sendable {
     func adopt(sessionCredential credential: String?)
 }
 
+extension UserIdentityStore {
+    /// The identity as the transport sends it. `OndAPI` sits below this target
+    /// and cannot name `UserId`, so every repository hands the interceptor this
+    /// rather than narrowing for itself. Deliberately not public: an app target
+    /// that could reach a raw id is the state this type exists to remove.
+    func wireUserId() -> UUID? {
+        userId()?.rawValue
+    }
+}
+
 /// A seam over the Keychain, so the identity rules can be pinned by host
 /// tests — where the real Keychain would mean an unsigned process writing to a
 /// developer's login keychain.
 protocol IdentityStorage: Sendable {
-    func read() -> UUID?
+    func read() -> UserId?
 
     /// Stores `id` only where there is nothing stored.
     ///
     /// - Returns: what the store holds afterwards — `id`, or the value a writer
     ///   that got there first put in it, or nil where the write failed.
-    func insert(_ id: UUID) -> UUID?
+    func insert(_ id: UserId) -> UserId?
 
     /// - Returns: whether the store now holds `id`.
-    func replace(with id: UUID) -> Bool
+    func replace(with id: UserId) -> Bool
 }
 
 extension KeychainIdentityItem: IdentityStorage {}
@@ -65,7 +75,7 @@ public final class KeychainUserIdentityStore: UserIdentityStore {
     /// the read, a request could resolve the old id, wait out an adopt, and
     /// cache the deleted identity over its replacement for the life of the
     /// process.
-    private let cached = OSAllocatedUnfairLock<UUID?>(initialState: nil)
+    private let cached = OSAllocatedUnfairLock<UserId?>(initialState: nil)
 
     /// - Parameters:
     ///   - service: defaults to the running bundle so the phone and watch
@@ -96,13 +106,13 @@ public final class KeychainUserIdentityStore: UserIdentityStore {
         credentials.adopt(credential)
     }
 
-    public func userId() -> UUID? {
+    public func userId() -> UserId? {
         cached.withLock { remembered in
             if let remembered {
                 return remembered
             }
 
-            remembered = storage.read() ?? storage.insert(UUID())
+            remembered = storage.read() ?? storage.insert(UserId(rawValue: UUID()))
             return remembered
         }
     }
@@ -113,7 +123,7 @@ public final class KeychainUserIdentityStore: UserIdentityStore {
     /// acquisition, deciding included, so no request resolves the stale id in
     /// a gap. Nothing mints here: `userId()` would mint only to overwrite.
     @discardableResult
-    public func adopt(_ id: UUID) -> Bool {
+    public func adopt(userId id: UserId) -> Bool {
         cached.withLock { remembered in
             let current = remembered ?? storage.read()
             guard current != id else {

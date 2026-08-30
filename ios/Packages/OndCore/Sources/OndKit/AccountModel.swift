@@ -26,7 +26,7 @@ public final class AccountModel {
     /// could not be read. Mirrored rather than computed: a computed read into a
     /// store registers no Observation dependency, so a retired id would keep
     /// showing. Reading it in the initialiser mints it on first launch.
-    public private(set) var userId: UUID?
+    public private(set) var userId: UserId?
 
     /// What a person quotes to support: the first two groups of the id, twelve
     /// hex characters, lowercased. **Must match** the server's
@@ -87,9 +87,9 @@ public final class AccountModel {
     /// the interceptor reads the pair separately, and the reverse order is a
     /// bound id presenting a replaced credential. Returns whether it changed.
     @discardableResult
-    private func swapIdentity(to id: UUID, proving credential: String?) -> Bool {
+    private func swapIdentity(to id: UserId, proving credential: String?) -> Bool {
         identity.adopt(sessionCredential: credential)
-        let changed = identity.adopt(id)
+        let changed = identity.adopt(userId: id)
         userId = id
         return changed
     }
@@ -153,7 +153,7 @@ public final class AccountModel {
         Self.logger.notice(
             "the server refused this identity; retrying Apple authorization under a fresh one"
         )
-        swapIdentity(to: UUID(), proving: nil)
+        swapIdentity(to: UserId(rawValue: UUID()), proving: nil)
 
         do {
             let nonce = try await accounts.beginAppleAuthorization(for: .signIn)
@@ -185,7 +185,7 @@ public final class AccountModel {
 
         state = .localOnly
 
-        if swapIdentity(to: UUID(), proving: nil) {
+        if swapIdentity(to: UserId(rawValue: UUID()), proving: nil) {
             await onIdentityChange()
         }
     }
@@ -224,7 +224,7 @@ public final class AccountModel {
         // minted went with it through `ON DELETE CASCADE`, so a value left in
         // the Keychain here would only be presented on requests belonging to
         // somebody who no longer exists.
-        swapIdentity(to: UUID(), proving: nil)
+        swapIdentity(to: UserId(rawValue: UUID()), proving: nil)
         state = .localOnly
 
         for store in stores {

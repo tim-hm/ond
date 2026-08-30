@@ -17,7 +17,7 @@ public final class WatchHandoffInbox {
     /// The identity now in hand, or nil while this watch is still anonymous.
     /// Observed rather than merely stored so the composition root can start a
     /// sync the moment one lands.
-    public private(set) var userId: UUID?
+    public private(set) var userId: UserId?
 
     /// The phone's best controlled pause, or nil until a context has been
     /// read. Deliberately not persisted: the system replays the last
@@ -96,7 +96,7 @@ public final class WatchHandoffInbox {
         // between the two writes must never send the new id with the old
         // credential, which is the one pairing the server refuses.
         identity.adopt(sessionCredential: handoff.sessionCredential)
-        let changed = identity.adopt(handoff.userId)
+        let changed = identity.adopt(userId: handoff.userId)
         if changed {
             Self.logger.notice("adopted the phone's identity")
         }

@@ -78,7 +78,7 @@ public struct AssistantRepository: AssistantReading {
     ) {
         client = OndClients.assistantService(
             baseURL: baseURL,
-            userId: identity.userId,
+            userId: identity.wireUserId,
             sessionCredential: identity.sessionCredential
         )
         self.healthContext = healthContext

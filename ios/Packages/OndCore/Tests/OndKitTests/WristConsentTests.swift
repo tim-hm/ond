@@ -66,7 +66,7 @@ struct WristConsentTests {
     @Test("A phone that no longer says it agreed puts the terms back")
     func asksAgainWhenThePhoneWithdraws() async {
         let phone = inbox()
-        let id = UUID()
+        let id = anIdentity()
 
         await phone.adopt(WatchHandoff(userId: id, agreedConsentVersion: 1))
         await phone.adopt(WatchHandoff(userId: id))
@@ -94,7 +94,7 @@ struct WristConsentTests {
     /// nothing else about the person.
     private func outbox(agreed: Int?) -> WatchHandoffOutbox {
         WatchHandoffOutbox(
-            identity: StubIdentity(id: UUID()),
+            identity: StubIdentity(id: anIdentity()),
             scores: StubScores(),
             defaults: scratchDefaults(),
             agreedConsentVersion: { agreed }
