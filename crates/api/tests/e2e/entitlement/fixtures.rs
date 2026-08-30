@@ -1,8 +1,8 @@
-//! What every entitlement test builds its world out of.
+//! What the entitlement tests arrange before they call anything.
 //!
-//! Here rather than in each file because all four suites buy and revoke the
-//! same way, and a second scripted verifier is a second place for a signing
-//! date to drift.
+//! Every file in this suite buys and revokes the same way, so the helpers live
+//! here instead of in each one. A second scripted verifier would be a second
+//! place for a signing date to drift.
 
 use std::collections::HashMap;
 use std::sync::Arc;

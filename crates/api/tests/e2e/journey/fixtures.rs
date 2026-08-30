@@ -9,9 +9,9 @@ use api::proto::ond::v1 as pb;
 use chrono::{DateTime, Duration, Utc};
 
 use crate::harness::{
-    DELETE_SESSIONS, GrpcWebResponse, TestDatabase, UPDATE_PROFILE, call_grpc_web_with,
+    DELETE_SESSIONS, GET_JOURNEY, GET_LEADERBOARD, GrpcWebResponse, TestDatabase, UPDATE_PROFILE,
+    call_grpc_web_with, prost_timestamp,
 };
-use crate::harness::{GET_JOURNEY, GET_LEADERBOARD, prost_timestamp};
 
 /// Stable identities, so a failing test leaves rows someone can go and look at.
 pub(super) const ADA: &str = "6a1f0000-0000-4000-8000-000000000001";

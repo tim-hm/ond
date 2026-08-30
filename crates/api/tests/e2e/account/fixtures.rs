@@ -1,8 +1,8 @@
-//! What every account test builds its world out of.
+//! What the account tests arrange before they call anything.
 //!
-//! Here rather than in each file because all four suites lay out rows and read
-//! them back the same way, and a hand-written INSERT per suite is one more
-//! place to update when a table grows a column.
+//! Every file in this suite writes the same rows and reads them back the same
+//! way, so the helpers live here instead of in each one. One copy is also one
+//! place to change when a table gains a column.
 
 use api::proto::ond::v1 as pb;
 use axum::Router;

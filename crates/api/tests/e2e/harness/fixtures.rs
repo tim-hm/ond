@@ -12,9 +12,9 @@ use sqlx::PgPool;
 use super::{GrpcWebResponse, SCRIPTED_NONCE_SEPARATOR, TestDatabase, call_grpc_web_with};
 
 // Every RPC path a suite calls, defined once. A call to a wrong path returns a
-// status in the trailers rather than a transport error, so a rename that leaves
-// one copy behind fails a single suite on an assertion while the rest keep
-// passing against a route that is gone.
+// status in the trailers, not a transport error. A rename that leaves one copy
+// behind therefore fails one suite on an assertion that does not name the stale
+// path, while every other suite keeps passing.
 pub const SIGN_IN: &str = "/ond.v1.AccountService/SignInWithApple";
 pub const SIGN_OUT: &str = "/ond.v1.AccountService/SignOut";
 pub const BEGIN_APPLE_AUTHORIZATION: &str = "/ond.v1.AccountService/BeginAppleAuthorization";

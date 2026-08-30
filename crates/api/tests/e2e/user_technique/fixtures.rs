@@ -1,15 +1,15 @@
-//! What every user-technique test builds its world out of.
+//! What the user-technique tests arrange before they call anything.
 //!
-//! Here rather than in each file because all four suites compose drafts out of
-//! the same phases, and a second copy of a builder is a second place for a
-//! duration to drift out of the seeded range.
+//! Every file in this suite composes drafts from the same phases, so the
+//! builders live here instead of in each one. A second copy of a builder would
+//! be a second place for a duration to drift out of the seeded range.
 
 use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
 
 use crate::harness::{
-    self, GrpcWebResponse, LIST_USER_TECHNIQUES, TestDatabase, UPDATE_USER_TECHNIQUE,
-    call_grpc_web_with,
+    CREATE_USER_TECHNIQUE, GrpcWebResponse, LIST_USER_TECHNIQUES, TestDatabase,
+    UPDATE_USER_TECHNIQUE, call_grpc_web_with,
 };
 
 /// Two stable, valid identities. Fixed rather than random so a failing test
@@ -160,7 +160,7 @@ pub(super) async fn create(
 ) -> GrpcWebResponse<pb::CreateUserTechniqueResponse> {
     call_grpc_web_with(
         db.app(),
-        harness::CREATE_USER_TECHNIQUE,
+        CREATE_USER_TECHNIQUE,
         &pb::CreateUserTechniqueRequest { draft },
         &[(USER_ID_HEADER, user)],
     )
