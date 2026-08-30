@@ -63,9 +63,9 @@ struct MoodCheckModelTests {
         #expect(MoodCheckModel().note == nil)
     }
 
-    /// A requested check pauses the countdown, and the first write of an install
+    /// A tapped answer holds the countdown, and the first write of an install
     /// brings Health's own sheet with it. Resolving the check before the write
-    /// returns restarts a countdown behind a modal nobody asked to have opened.
+    /// returns releases the count behind a modal nobody asked to have opened.
     @Test("The check is not done being asked until the write comes back")
     func theGateWaitsForTheWrite() async throws {
         let check = MoodCheckModel()
@@ -109,9 +109,24 @@ struct MoodCheckModelTests {
         #expect(!check.isAsked)
         #expect(check.before == nil)
         #expect(check.after == nil)
+        #expect(!check.wasDeclinedBefore, "an unanswered scale is still on offer")
     }
 
-    @Test("Not now resolves once without writing")
+    /// The countdown keeps drawing an answered scale and drops a declined one,
+    /// so the two resolved states cannot share one flag.
+    @Test("Only a decline is a resolution with nothing in it")
+    func aDeclineIsToldFromAnAnswer() async {
+        let answered = MoodCheckModel()
+        let declined = MoodCheckModel()
+
+        await answered.answerBefore(.neutral, writing: Writes().write)
+        declined.skipBefore()
+
+        #expect(!answered.wasDeclinedBefore)
+        #expect(declined.wasDeclinedBefore)
+    }
+
+    @Test("A declined way in resolves once without writing")
     func decliningIsOnceOnly() async {
         let check = MoodCheckModel()
         let writes = Writes()
@@ -125,9 +140,9 @@ struct MoodCheckModelTests {
         #expect(writes.moods.isEmpty)
     }
 
-    /// Not now remains on screen while a selected answer waits for Health. It
-    /// must neither erase that answer nor restart the countdown before the write
-    /// and any first-use authorization sheet have finished.
+    /// VoiceOver's own start declines the way in, and it stays on screen while a
+    /// selected answer waits for Health. It must neither erase that answer nor
+    /// release the countdown before the write and any sheet have finished.
     @Test("Declining during a write waits for the answer")
     func decliningCannotFinishAnAnswerEarly() async throws {
         let check = MoodCheckModel()

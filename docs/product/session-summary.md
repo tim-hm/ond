@@ -73,9 +73,19 @@ A short one therefore renders `That's a session.`, the early-end note, and the f
 
 Two questions around one session, both optional, and neither of them a measurement.
 
-**Before.** A branch off the countdown, reached by tapping `Check in`. It asks `How do you feel right now?` A session begun in a hurry is never delayed by it, which is why it is a branch rather than a step.
+**Before.** Drawn on the countdown itself, under the numeral. It asks `How do you feel right now?` The count keeps running behind it: the check is an offer, not a step, and a session begun in a hurry is never delayed by one. Ignoring it is how it is skipped, which is why there is nothing there to decline.
+
+Answering does interrupt the count, for one reason only. The first mood written on an install opens Health's own authorization sheet, and a session that started behind that sheet would be breathing where nobody could see it. The count is held for exactly as long as the write takes — see `MoodCheckModel.answerBefore` and `SessionView.isAnsweringBefore` — and then **starts again from three** rather than resuming where it stopped. That is deliberate: a sheet can stand open for as long as somebody reads it, and coming back to `1` is no settling beat at all. Where the write returns at once, the count is never interrupted and never restarts.
 
 **After.** Inline on the summary, under the figures. It asks `How do you feel now?` The summary is the one moment of a session with attention to spare, so a fourth full screen before Done would ask more than the answer is worth.
+
+### The scale
+
+Five points, drawn as the numerals `1` to `5` with only the two ends named — `Bad` on the left, `Great` on the right. Five words will not fit across a phone, and the two that matter are the two that say which way the row runs. At an accessibility text size the points stack and each says its own word instead.
+
+Every point keeps that word behind its numeral. It is what VoiceOver reads, so a listener hears `Okay` rather than `3`, and it is what the summary says back — the pair is words, never a pair of numbers, because two numbers with a gap between them read as a score.
+
+An odd count is the point of five: the middle is `Okay`, so somebody can report that nothing changed without picking a side. The five map onto Health's own -1...1 pleasantness axis in equal steps, which is the whole of what a State of Mind sample carries.
 
 Both carry the same caption, `MoodCheckModel.caption`: `Context, not a score.` It is Progress's own line, and it belongs here more than anywhere — a pair of moods across a session is the one thing on this screen that invites reading a difference. It stands before the answer and stays after it: saying what the answer is for is cheaper than correcting a reading, and the pair it ends up captioning is exactly what invites one.
 
@@ -87,7 +97,7 @@ Both carry the same caption, `MoodCheckModel.caption`: `Context, not a score.` I
 | :-------------------------------------- | :-------------------------------------------------------------------------------------------------- |
 | `asksHowYouFeel` is off                 | Neither question is asked and the row is absent — no placeholder, no note that nothing was recorded |
 | The session was a false start           | There is no summary, so there is nothing to ask                                                     |
-| The way in was skipped or never offered | The summary still asks; a single reading is still the person's own record                           |
+| The way in was ignored or never offered | The summary still asks; a single reading is still the person's own record                           |
 | The answer is already given             | The question is replaced by the sentence, in place                                                  |
 | A short session                         | It is still asked                                                                                   |
 

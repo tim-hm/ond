@@ -4,9 +4,9 @@ import SwiftUI
 
 /// The breath before the breathing: a beat to settle before the plan's clock
 /// starts. Three seconds, not a preference — long enough to put the phone
-/// down, with an optional Check in branch for somebody who wants longer.
-/// Cancel exists because whoever tapped Begin and thought better of it was
-/// otherwise stuck riding the count into a session they no longer wanted.
+/// down. The optional check-in is drawn under the count, not behind a button;
+/// answering holds the count for the write, then counts again from three.
+/// Cancel exists for whoever tapped Begin and then thought better of it.
 struct CountdownView: View {
     /// Seconds left. The screen presenting this owns the count, because the same
     /// value decides whether this view or the player is on screen at all.
@@ -20,15 +20,35 @@ struct CountdownView: View {
     let preparation: String?
     /// Whether this countdown still offers its optional reflection.
     let showsCheckIn: Bool
+    /// The point already tapped on that reflection, or nil while it stands
+    /// unanswered — which is also how it is skipped.
+    let mood: Mood?
     /// Whether VoiceOver is holding the automatic count for an explicit start.
     let waitsForStart: Bool
-    let onCheckIn: () -> Void
+    let onMood: (Mood) -> Void
     let onStart: () -> Void
     let onCancel: () -> Void
 
     @Environment(SessionSettings.self) private var settings
 
     var body: some View {
+        // Scrolls rather than clips: at an accessibility size the settling
+        // lines, a preparation sentence, the numeral and a stacked scale are
+        // taller than the screen. Where they fit, the plain layout is taken
+        // instead — a scroll view centres on fractions of a point, and a
+        // control laid out across one measures under the minimum tap target.
+        ViewThatFits(in: .vertical) {
+            content
+
+            ScrollView {
+                content
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        }
+        .foregroundStyle(Theme.Ink.primary)
+    }
+
+    private var content: some View {
         VStack(spacing: Theme.Spacing.loose) {
             VStack(spacing: Theme.Spacing.loose) {
                 VStack(spacing: Theme.Spacing.close) {
@@ -61,18 +81,16 @@ struct CountdownView: View {
                     .animation(.easeInOut(duration: 0.3), value: count)
                     .accessibilityHidden(true)
             }
-            // On the count alone — the cancel below must stay reachable.
+            // On the count alone — the controls below must stay reachable.
             .sensoryFeedback(.impact(weight: .light), trigger: count) { _, _ in
                 settings.cueMode.playsHaptics
             }
 
-            VStack(spacing: Theme.Spacing.close) {
-                if showsCheckIn {
-                    Button("Check in", action: onCheckIn)
-                        .buttonStyle(.bordered)
-                        .controlSize(.large)
-                }
+            if showsCheckIn {
+                checkIn
+            }
 
+            VStack(spacing: Theme.Spacing.close) {
                 if waitsForStart {
                     Button("Start countdown", action: onStart)
                         .buttonStyle(.borderedProminent)
@@ -84,6 +102,28 @@ struct CountdownView: View {
                     .tapTarget()
             }
         }
-        .foregroundStyle(Theme.Ink.primary)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, Theme.Spacing.page)
+        .padding(.vertical, Theme.Spacing.loose)
+    }
+
+    /// The way in to the mood check, drawn rather than offered behind a button:
+    /// one tap is the whole of it, and a tap is cheaper than a screen. Ignoring
+    /// it is how it is skipped, which is why there is nothing here to decline.
+    private var checkIn: some View {
+        VStack(spacing: Theme.Spacing.close) {
+            Text(MoodCheckModel.questionBefore)
+                .font(.subheadline)
+                .multilineTextAlignment(.center)
+
+            MoodScale(selection: mood, onSelect: onMood)
+                .disabled(mood != nil)
+
+            // It stands before the answer and stays after it. Stating what the
+            // check is for is cheaper than correcting a reading.
+            Text(MoodCheckModel.caption)
+                .font(.footnote)
+        }
+        .frame(maxWidth: 320)
     }
 }

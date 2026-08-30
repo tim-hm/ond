@@ -32,19 +32,29 @@ struct MoodRecorderTests {
         ])
     }
 
-    /// The three plain-language choices keep the middle of Health's axis and an
-    /// equal step to either side. Asserted as a whole rather than case by case:
-    /// what matters is that the scale stays centred and symmetric.
-    @Test("The three points are evenly centred on nought")
+    /// The five plain-language choices span Health's axis and keep an equal
+    /// step between them. Asserted as a whole rather than case by case: what
+    /// matters is that the scale stays centred and symmetric.
+    @Test("The five points are evenly centred on nought")
     func theScaleIsEvenAndCentred() {
-        #expect(Mood.allCases.map(\.valence) == [-0.5, 0, 0.5])
+        #expect(Mood.allCases.map(\.valence) == [-1, -0.5, 0, 0.5, 1])
         #expect(Mood.neutral.valence == 0)
+    }
+
+    /// The numerals the scale draws. Pinned to the order the cases are in,
+    /// because the two ends label the row and a point numbered out of turn
+    /// would put a name under the wrong end of it.
+    @Test("The points are numbered one to five, in order")
+    func everyPointIsNumbered() {
+        #expect(Mood.allCases.map(\.position) == [1, 2, 3, 4, 5])
+        #expect(Mood.lowest == Mood.allCases.first)
+        #expect(Mood.highest == Mood.allCases.last)
     }
 
     @Test("Every point says what it is")
     func everyPointIsNamed() {
         #expect(Mood.allCases.allSatisfy { !$0.title.isEmpty })
         #expect(Set(Mood.allCases.map(\.title)).count == Mood.allCases.count)
-        #expect(Mood.allCases.map(\.title) == ["Not good", "Okay", "Good"])
+        #expect(Mood.allCases.map(\.title) == ["Bad", "Not good", "Okay", "Good", "Great"])
     }
 }

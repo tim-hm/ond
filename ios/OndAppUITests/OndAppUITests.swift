@@ -282,29 +282,20 @@ final class OndAppUITests: XCTestCase {
         XCTAssertTrue(begin.waitForExistence(timeout: 5))
         begin.tap()
 
-        let checkIn = app.buttons["Check in"]
-        XCTAssertTrue(checkIn.waitForExistence(timeout: 2))
-        checkIn.tap()
-
-        XCTAssertTrue(app.staticTexts["How do you feel right now?"].waitForExistence(timeout: 2))
-        for answer in ["Not good", "Okay", "Good"] {
+        // The check-in is drawn on the countdown itself rather than behind a
+        // button, so the five points are on screen from the first frame.
+        let okay = app.buttons["Okay"]
+        XCTAssertTrue(okay.waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["How do you feel right now?"].exists)
+        for answer in ["Bad", "Not good", "Okay", "Good", "Great"] {
             XCTAssertTrue(app.buttons[answer].exists)
         }
-        XCTAssertFalse(
-            app.staticTexts["Optional. Saved to Health on this phone; önd never sees it."].exists
-        )
-        XCTAssertFalse(app.buttons["Cancel"].exists)
 
+        // Deliberately not tapped. The first mood written on an install opens
+        // Health's own authorization sheet, which is what the countdown holds
+        // for — and this suite has nothing to dismiss it with.
         let pause = app.buttons["Pause"]
-        XCTAssertFalse(
-            pause.waitForExistence(timeout: 4),
-            "the exercise must not start while the optional check-in is open"
-        )
-
-        app.buttons["Not now"].tap()
-        XCTAssertFalse(checkIn.exists, "the restarted countdown must not offer the check-in twice")
-
-        XCTAssertTrue(pause.waitForExistence(timeout: 6))
+        XCTAssertTrue(pause.waitForExistence(timeout: 10))
         XCTAssertTrue(pause.isHittable)
 
         let end = app.buttons["End session"]
