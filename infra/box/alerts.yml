@@ -169,7 +169,7 @@ groups:
         annotations:
           summary: "Most submitted App Store transactions are being rejected"
           description: >-
-            Apple-signed purchases are not being honoured, so somebody is paying and not receiving. The denominator counts only rejected and honoured, so an unentitled caller reaching a gated RPC — the ordinary case, and much the most common outcome — cannot dilute this. Run the server with `RUST_LOG=api=debug` to see the verifier's own reason.
+            Apple-signed purchases are not being honoured, so somebody is paying and not receiving. The denominator counts only rejected and honoured, so an unentitled caller reaching a gated RPC — the ordinary case, and much the most common outcome — cannot dilute this. `sum by (reason) (rate(ond_entitlement_rejections_total[15m]))` names the verifier's own reason, and the Money row draws that breakdown beside the outcomes.
 
       # A panic in a handler is caught by hyper's per-connection unwind: the
       # connection dies, the process carries on, and before the hook existed

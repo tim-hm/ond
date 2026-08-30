@@ -477,7 +477,7 @@
       "description": "The histogram carries the operation and the counter carries the outcome, so this cannot be split by status — deliberately. Note the 10s bucket ceiling: a streamed coach turn is measured by its own time-to-first-token panel instead.",
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 8,
         "x": 0,
         "y": 23
       },
@@ -513,8 +513,8 @@
       "description": "Numeric gRPC status codes. 0 ok, 3 invalid argument, 7 permission denied, 8 resource exhausted, 13 internal, 16 unauthenticated.",
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
+        "w": 8,
+        "x": 8,
         "y": 23
       },
       "datasource": {
@@ -553,6 +553,42 @@
           },
           "expr": "sum by (status) (rate(ond_requests_total[5m]))",
           "legendFormat": "HTTP {{status}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Edge latency p95",
+      "description": "HTTP latency, which is a different population from Latency p95 by RPC rather than a second view of it: a successful gRPC envelope is deliberately not recorded here. What is left is /health, /about, and the envelopes that failed before a native status existed. Mostly the Route 53 probe, so a step here is the edge, not a handler.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 23
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "fillOpacity": 0,
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(ond_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{route}}"
         }
       ]
     },
@@ -699,7 +735,7 @@
       "description": "What the coach costs, per second, split the way Bedrock bills it. Cached reads are not a subset of prompt tokens — they are priced separately, so adding them would overstate the bill.",
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 8,
         "x": 0,
         "y": 40
       },
@@ -739,8 +775,8 @@
       "description": "The same counters read as a daily total, which is the number that turns into an invoice.",
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
+        "w": 8,
+        "x": 8,
         "y": 40
       },
       "datasource": {
@@ -770,6 +806,42 @@
       ]
     },
     {
+      "type": "timeseries",
+      "title": "Provider call latency p95",
+      "description": "A completed non-streaming Bedrock call, end to end. Time to first token answers what somebody waits for; this answers what the provider took. The histogram's last bucket is 10s and the call times out at 45s, so the line saturates at 10 rather than climbing — treat a flat 10 as at least that, not as steady.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 40
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "fillOpacity": 0,
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(ond_assistant_call_duration_seconds_bucket[15m])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
       "type": "row",
       "title": "Money",
       "collapsed": false,
@@ -783,11 +855,11 @@
     },
     {
       "type": "timeseries",
-      "title": "Purchase verification",
-      "description": "What became of each submitted App Store transaction. rejected is the one that matters: a sustained share of it means Apple-signed purchases are not being honoured, and every refusal is logged at debug, which production drops.",
+      "title": "Purchase outcomes",
+      "description": "What became of each submitted App Store transaction. unentitled and faulted are left out: neither is a submitted purchase, and unentitled is much the most common outcome, which flattens the rest. PurchasesBeingRejected reads a narrower slice still — rejected over rejected plus honoured.",
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 8,
         "x": 0,
         "y": 49
       },
@@ -816,8 +888,48 @@
             "type": "prometheus",
             "uid": "ond-prometheus"
           },
-          "expr": "sum by (outcome) (rate(ond_entitlement_verifications_total[1h]))",
+          "expr": "sum by (outcome) (rate(ond_entitlement_verifications_total{outcome=~\"honoured|revoked|rejected|too_large|claimed\"}[1h]))",
           "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Why a purchase was rejected",
+      "description": "The verifier's own reason, which is the first thing PurchasesBeingRejected asks for. Every rejection also logs the reason at debug, which production drops, so this counter is the record that survives.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 49
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 25,
+            "lineWidth": 2,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "sum by (reason) (rate(ond_entitlement_rejections_total[15m]))",
+          "legendFormat": "{{reason}}"
         }
       ]
     },
@@ -827,8 +939,8 @@
       "description": "A TestFlight build points at the production API and transacts in Sandbox, so both are honoured deliberately. This is what makes 'how many are real subscribers' answerable.",
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
+        "w": 8,
+        "x": 16,
         "y": 49
       },
       "datasource": {
@@ -1102,7 +1214,7 @@
       "description": "What Caddy saw, including requests that never reached the API: a failed TLS handshake, a path that fell through to the marketing site, a 502 mid-deploy.",
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 8,
         "x": 0,
         "y": 74
       },
@@ -1142,8 +1254,8 @@
       "description": "Backends against the server's own limit of 100. The API's pool is capped at ten, so anything much above that is migrate or a psql session.",
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
+        "w": 8,
+        "x": 8,
         "y": 74
       },
       "datasource": {
@@ -1169,6 +1281,79 @@
           },
           "expr": "sum by (datname) (pg_stat_database_numbackends{datname=\"ond\"})",
           "legendFormat": "{{datname}}"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Backup verified",
+      "description": "Whether the most recent attempt produced a restorable dump. Backup age says when a dump last verified; this says what happened on the last run, which is the first thing BackupStale leaves a responder asking.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 74
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "failed",
+                  "index": 0
+                },
+                "1": {
+                  "text": "verified",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "ond_backup_success",
+          "legendFormat": "verified",
+          "instant": true
         }
       ]
     },
@@ -1306,6 +1491,84 @@
           },
           "expr": "ond_gross_mrr_usd",
           "legendFormat": "mrr"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "New identities per day",
+      "description": "First launches, which ond_users_total cannot give as a rate. One per install of a fresh app, not per signup — a reinstall that kept its id adds nothing here.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 102
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "sum(increase(ond_identities_created_total[24h]))",
+          "legendFormat": "new identities",
+          "interval": "1h"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Sign-ins per day",
+      "description": "Completed Sign in with Apple, by outcome: claimed is a new account, resumed is a returning device, merged folds a second anonymous id into an existing account.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 102
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "sum by (outcome) (increase(ond_sign_ins_total[24h]))",
+          "legendFormat": "{{outcome}}",
+          "interval": "1h"
         }
       ]
     }

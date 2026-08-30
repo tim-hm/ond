@@ -177,7 +177,7 @@ tests:
               severity: critical
             exp_annotations:
               summary: "Most submitted App Store transactions are being rejected"
-              description: "Apple-signed purchases are not being honoured, so somebody is paying and not receiving. The denominator counts only rejected and honoured, so an unentitled caller reaching a gated RPC — the ordinary case, and much the most common outcome — cannot dilute this. Run the server with `RUST_LOG=api=debug` to see the verifier's own reason."
+              description: "Apple-signed purchases are not being honoured, so somebody is paying and not receiving. The denominator counts only rejected and honoured, so an unentitled caller reaching a gated RPC — the ordinary case, and much the most common outcome — cannot dilute this. `sum by (reason) (rate(ond_entitlement_rejections_total[15m]))` names the verifier's own reason, and the Money row draws that breakdown beside the outcomes."
 
   # ── Panics ──────────────────────────────────────────────────────────────────
   - interval: 1m
