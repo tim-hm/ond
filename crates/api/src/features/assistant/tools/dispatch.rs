@@ -1,6 +1,6 @@
-//! The only cross-tool match in the feature. Declaring a tool and validating
-//! its call live here together on purpose: a tool added to the spec list
-//! cannot reach the model without also being given a payload path.
+//! Where a model's call meets the tool it named, and the numeric bounds every
+//! tool clamps its inputs into. Declaring and dispatching sit together so a
+//! tool cannot reach the model without also having a payload path.
 
 use super::{bolt, exercise, saved_exercise};
 use crate::features::assistant::model::ToolSpec;

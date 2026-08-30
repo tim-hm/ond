@@ -1,7 +1,6 @@
-//! The card that saves a pattern as one of the person's own exercises. It
-//! shapes the model's vocabulary only; `user_technique` owns the safety
-//! limits and validates the finished draft, so a card cannot propose an
-//! exercise the create RPC would refuse.
+//! The card that saves a pattern as one of the person's own exercises. The
+//! one tool whose payload is written to the database rather than played, so
+//! it is the one whose input the owning feature validates in full.
 
 use serde::Deserialize;
 
@@ -83,13 +82,23 @@ pub(super) fn spec() -> ToolSpec {
                                         "passage": {
                                             "type": "string",
                                             "enum": ["nose", "mouth", "left_nostril", "right_nostril"],
-                                            "description": "Where the air goes. Required on an inhale or exhale, omitted on a hold."
+                                            "description": "Where the air goes. Required on an inhale or exhale, and not allowed on a hold."
                                         },
                                         "seconds": {
                                             "type": "number",
                                             "description": "How long this phase lasts, inside the ranges the catalogue's patterns show."
                                         }
-                                    }
+                                    },
+                                    "oneOf": [
+                                        {
+                                            "properties": { "kind": { "enum": ["inhale", "exhale"] } },
+                                            "required": ["passage"]
+                                        },
+                                        {
+                                            "properties": { "kind": { "const": "hold" } },
+                                            "not": { "required": ["passage"] }
+                                        }
+                                    ]
                                 }
                             }
                         }
@@ -158,12 +167,18 @@ fn draft(input_json: &str) -> Option<pb::TechniqueDraft> {
                 .iter()
                 .map(|phase| {
                     let (movement, seconds) = match *phase {
-                        SavedPhaseInput::Inhale { passage, seconds } => {
-                            (pb::draft_phase::Movement::Inhale(air(passage)), seconds)
-                        }
-                        SavedPhaseInput::Exhale { passage, seconds } => {
-                            (pb::draft_phase::Movement::Exhale(air(passage)), seconds)
-                        }
+                        SavedPhaseInput::Inhale { passage, seconds } => (
+                            pb::draft_phase::Movement::Inhale(
+                                passage_to_proto(Some(passage)) as i32
+                            ),
+                            seconds,
+                        ),
+                        SavedPhaseInput::Exhale { passage, seconds } => (
+                            pb::draft_phase::Movement::Exhale(
+                                passage_to_proto(Some(passage)) as i32
+                            ),
+                            seconds,
+                        ),
                         SavedPhaseInput::Hold { seconds } => {
                             (pb::draft_phase::Movement::Hold(pb::Hold {}), seconds)
                         }
@@ -189,10 +204,6 @@ fn draft(input_json: &str) -> Option<pb::TechniqueDraft> {
         stages,
         rounds: clamped(input.rounds.unwrap_or(1), MAX_ROUNDS)?,
     })
-}
-
-fn air(passage: Passage) -> i32 {
-    passage_to_proto(Some(passage)) as i32
 }
 
 #[cfg(test)]

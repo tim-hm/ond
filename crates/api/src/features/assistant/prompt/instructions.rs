@@ -1,8 +1,8 @@
-//! The per-person half of the prompt, built fresh on every call and sent
-//! after the cached prefix. Nothing here may move to `prefix`: one profile
-//! field on the cached side turns every request into a full-price cache
-//! write. Each block is headed as data, never as instructions — the model is
-//! told in the prefix to read them that way.
+//! The per-person half of the prompt, sent after
+//! [`catalogue_prefix`](super::prefix::catalogue_prefix) and never merged into
+//! it. Everything a person types reaches the model through these blocks, each
+//! headed as data rather than instructions, and every slug is resolved against
+//! the catalogue before it is echoed.
 
 use std::fmt::Write as _;
 
@@ -337,6 +337,7 @@ pub(super) fn trend_clause(trend: Option<i32>, unit: Unit) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::super::prefix::catalogue_prefix;
     use super::*;
     use crate::features::assistant::types::{HrvSdnn, RestingHeartRate, SleepingBreaths};
     use crate::features::journey::bolt::types::BoltSnapshot;
@@ -537,7 +538,7 @@ mod tests {
             progression: vec![],
             foundations: vec![],
         };
-        let prefix = super::super::catalogue_prefix(&catalogue(), &empty);
+        let prefix = catalogue_prefix(&catalogue(), &empty);
         assert!(prefix.contains("usual adult resting range is 12–20 breaths per minute"));
         assert!(prefix.contains("around 6 is the direction slow breathing aims towards"));
     }

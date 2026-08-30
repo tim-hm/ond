@@ -1,7 +1,6 @@
-//! The card that offers one catalogue exercise, optionally repaced. The slug
-//! is checked against the catalogue rather than trusted, and every duration
-//! and count is clamped into the ranges the catalogue seeds, so the offer can
-//! only ever be something the app already plays.
+//! The card that offers one catalogue exercise, optionally repaced. Nothing
+//! here is trusted: an offer is built from the resolved technique, never from
+//! the model's words, so a card can only ever name something the app plays.
 
 use serde::Deserialize;
 
