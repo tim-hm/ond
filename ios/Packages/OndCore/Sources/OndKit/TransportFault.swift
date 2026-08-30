@@ -26,7 +26,7 @@ public extension TransportOutcome {
         switch self {
         case .unreachable: "Can't reach the server just now."
         case .timedOut: "The server took too long to answer."
-        case .busy: "The server is busy — give it a moment."
+        case .busy: "The server is busy. Try again shortly."
         case .serverFault: "Something went wrong at our end."
         }
     }

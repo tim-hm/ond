@@ -161,8 +161,8 @@ struct CoachRootView: View {
             Label("Ask the coach", systemImage: CoachGlyph.symbol)
         } description: {
             Text(
-                "Ask about your practice — which exercise fits how you slept, "
-                    + "what your breath test means, where to go next."
+                "Ask about your practice. For example, which exercise fits how you "
+                    + "slept, or what your breath test means."
             )
         } actions: {
             Button {

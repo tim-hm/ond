@@ -41,7 +41,8 @@ struct LeaderboardNameView: View {
                 Text("Display name")
             } footer: {
                 Text(
-                    "This is the only thing other people see — no goals, no notes, no history. "
+                    "This is the only thing other people see. Your goals, notes and history "
+                        + "stay private. "
                         + "Leave it empty and you stay invisible on every board while still "
                         + "seeing your own place. If somebody already has the name, we'll add a "
                         + "number to yours."
@@ -57,7 +58,7 @@ struct LeaderboardNameView: View {
                 Text(
                     "Optional. It decides which decade's board you can compare within, "
                         + "and lets your coach read a breath-test score against the right "
-                        + "baseline — nothing else."
+                        + "baseline. It is not used anywhere else."
                 )
             }
             .listRowBackground(Theme.Surface.raised)

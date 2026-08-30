@@ -29,18 +29,18 @@ struct SessionSummaryLinesTests {
 
         #expect(SessionSummaryLines.headline(for: session) == "Nicely done.")
         #expect(SessionSummaryLines.note(for: session, exercise: "Box breathing")
-            == "Box breathing, all the way through.")
+            == "You finished Box breathing.")
     }
 
-    /// The honesty clause Home's line is written under, said here too: the app
-    /// states the shape of the record and passes no verdict on it.
+    /// The record's shape, stated and left there: no clause after it, and no
+    /// verdict on the person who ended it.
     @Test("An early end is said as an early end")
     func anEarlyEndIsSaidPlainly() {
         let session = record(completed: false)
 
         #expect(SessionSummaryLines.headline(for: session) == "That's a session.")
         #expect(SessionSummaryLines.note(for: session, exercise: "Box breathing")
-            == "Ended early — recorded as it happened.")
+            == "You ended this session early.")
     }
 
     /// The one line the note holds goes to the ending, not to the exercise:

@@ -67,7 +67,7 @@ struct MomentsView: View {
             ContentUnavailableView {
                 Label("No moments yet", systemImage: "checklist")
             } description: {
-                Text("They arrive with the catalogue, the first time this watch can reach it.")
+                Text("They download with the catalogue, the first time this watch can reach it.")
             }
         } else {
             ProgressView()
@@ -95,7 +95,7 @@ struct MomentsView: View {
                 .foregroundStyle(Theme.Ink.tertiary)
             }
         }
-        .accessibilityHint("Taps the rhythm out quietly. Nothing on screen, nothing to hear.")
+        .accessibilityHint("Taps the rhythm quietly, with nothing on screen and no sound.")
     }
 
     /// The discreet moments the catalogue can resolve.

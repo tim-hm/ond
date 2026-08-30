@@ -369,7 +369,7 @@ mod tests {
             "new, severe, or not settling",
             "a doctor, or an emergency number",
             "attention on the breath is itself the unpleasant part",
-            "stopping is allowed and is not giving up",
+            "they can stop at any point",
         ] {
             assert!(care.contains(instruction), "the coach lost `{instruction}`");
         }

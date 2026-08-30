@@ -38,8 +38,8 @@ struct WelcomeStepView: View {
                     .foregroundStyle(Theme.Ink.primary)
 
                 Text("Fall asleep faster, steady yourself before something hard, "
-                    + "and come down from a day that got away from you — with "
-                    + "exercises drawn from what the research actually supports.")
+                    + "and come down from a hard day, with exercises drawn from "
+                    + "what the research supports.")
                     .font(.body)
                     .foregroundStyle(Theme.Ink.secondary)
             }

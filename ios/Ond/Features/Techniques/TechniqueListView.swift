@@ -247,7 +247,7 @@ struct TechniqueListView: View {
     @ViewBuilder
     private var rhythmCaption: some View {
         if !dynamicTypeSize.isAccessibilitySize {
-            Text("Rhythm bars are the stages, to scale. Holds are indigo wherever they appear.")
+            Text("Rhythm bars show the stages to scale, and holds are drawn in indigo.")
                 .font(.caption)
                 .foregroundStyle(Theme.Ink.tertiary)
                 .padding(.top, Theme.Spacing.close)

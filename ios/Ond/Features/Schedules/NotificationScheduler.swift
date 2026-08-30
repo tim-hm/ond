@@ -79,7 +79,7 @@ struct NotificationScheduler: ScheduleNotifying {
     private func request(for schedule: Schedule, on day: Weekday) -> UNNotificationRequest {
         let content = UNMutableNotificationContent()
         content.title = schedule.techniqueName
-        content.body = "Your \(schedule.timeLabel) practice is ready when you are."
+        content.body = "This is your \(schedule.timeLabel) practice reminder."
         content.sound = .default
         // Self-describing, so the tap opens the exercise the reminder named
         // rather than whichever exercise the schedule points at by then. See

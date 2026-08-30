@@ -45,7 +45,7 @@ struct LeaderboardView: View {
         } description: {
             Text(
                 "Streaks, minutes and comfortable pauses, ranked against everybody "
-                    + "practising — and against people born in the same decade as you."
+                    + "practising, and against people born in the same decade as you."
             )
         } actions: {
             UpgradePrompt(reason: "The boards are part of", for: .leaderboards)
@@ -134,7 +134,7 @@ struct LeaderboardView: View {
 
             Text(
                 standing.rank == nil
-                    ? "A session or two and you'll be on here."
+                    ? "Practise once or twice and you will appear here."
                     : "\(leaderboard.board.formatted(standing.value))"
                     + (standing.listed ? "" : " · only you can see this")
             )
@@ -176,7 +176,7 @@ struct LeaderboardView: View {
         DoorCard(
             title: profiles.profile.displayName.isEmpty ? "Join in" : "Your name",
             caption: profiles.profile.displayName.isEmpty
-                ? "Pick a name and others can see you here. Leave it blank and nobody can."
+                ? "Pick a name to appear on the board. Leave it blank to stay invisible."
                 : profiles.profile.displayName
         ) {
             LeaderboardNameView(profiles: profiles)

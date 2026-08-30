@@ -95,7 +95,7 @@ struct TechniqueDialsView: View {
     /// do not reach the watch or survive a reinstall, and a sheet that
     /// implied otherwise would promise what nothing here provides.
     private var scope: some View {
-        Text("Your numbers for this exercise, on this phone. The catalogue's stay as they are.")
+        Text("These numbers change this exercise on this phone. The catalogue keeps its own.")
             .font(.footnote)
             .foregroundStyle(Theme.Ink.secondary)
     }

@@ -18,7 +18,7 @@ struct CheckInsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
                 Text("Two short measurements taken at rest. They give your coach context "
-                    + "over time — neither is a score to chase.")
+                    + "over time.")
                     .font(.callout)
                     .foregroundStyle(Theme.Ink.secondary)
 
@@ -47,7 +47,7 @@ struct CheckInsView: View {
             title: "Resting breathing rate",
             caption: model.lowestRestingRate == nil
                 ? "Count your breaths for one minute while sitting still."
-                : "Slowest recorded. Take it again whenever.",
+                : "Your slowest so far. You can take it again at any time.",
             value: model.lowestRestingRate.map { "\($0) breaths per minute" }
         ) {
             RestingRateTestView(model: model)
@@ -60,7 +60,7 @@ struct CheckInsView: View {
             title: "Comfortable pause",
             caption: model.personalBest == nil
                 ? "A gentle pause, stopped at the first clear urge to breathe."
-                : "Longest recorded. Take it again whenever.",
+                : "Your longest so far. You can take it again at any time.",
             value: model.personalBest.map { "\($0)s" }
         ) {
             BoltTestView(model: model)

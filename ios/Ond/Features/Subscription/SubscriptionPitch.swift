@@ -60,8 +60,8 @@ struct SubscriptionPitch: View {
                 .accessibilityAddTraits(.isHeader)
 
             Text(
-                "önd+ is only the connected layer. If you never want it, "
-                    + "the app is complete without it."
+                "önd+ is only the connected layer. Every other feature works "
+                    + "without it."
             )
             .font(.callout)
             .foregroundStyle(Theme.Ink.secondary)

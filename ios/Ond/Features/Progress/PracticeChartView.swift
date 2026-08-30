@@ -96,7 +96,7 @@ struct PracticeChartView: View {
 
     /// What the bars say, printed under them and spoken as their value.
     private var summary: String {
-        hasPractised ? caption : "Your first session starts this chart."
+        hasPractised ? caption : "This chart fills in once you have practised."
     }
 
     /// How many of the four weeks carried practice, and what most of it was for.

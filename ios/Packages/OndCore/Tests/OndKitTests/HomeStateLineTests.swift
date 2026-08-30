@@ -31,7 +31,7 @@ struct HomeStateLineTests {
     @Test("The first session ever is said as the first")
     func theFirstSessionIsOnTheRecord() {
         #expect(line([HomeFixtures.session("box-breathing", at: Self.now)]) ==
-            "Your first session is on the record.")
+            "Your first session is recorded.")
     }
 
     @Test("A first week is counted as a first week")
@@ -92,7 +92,7 @@ struct HomeStateLineTests {
             HomeFixtures.session("box-breathing", at: Self.now.addingTimeInterval(-8 * 86400)),
         ]
 
-        #expect(line(week) == "One session this week, ended early — recorded as it happened.")
+        #expect(line(week) == "One session this week, ended early.")
     }
 
     @Test("One early end among several is stated as the record it is")
@@ -110,7 +110,7 @@ struct HomeStateLineTests {
         ]
 
         #expect(line(week) ==
-            "Four sessions this week. One you ended early — recorded as it happened.")
+            "Four sessions this week. One you ended early.")
     }
 
     @Test("Several early ends pluralise the record")
@@ -131,7 +131,7 @@ struct HomeStateLineTests {
         ]
 
         #expect(line(week) ==
-            "Three sessions this week. Two you ended early — recorded as they happened.")
+            "Three sessions this week. Two you ended early.")
     }
 
     /// The calendar's week is half-open: a record stamped exactly on the
@@ -153,7 +153,7 @@ struct HomeStateLineTests {
             HomeFixtures.session("box-breathing", at: Self.now.addingTimeInterval(-14 * 86400)),
         ]
 
-        #expect(line(history) == "Your first session back is on the record.")
+        #expect(line(history) == "Your first session back is recorded.")
     }
 
     /// The threshold is exact, so the day below it must read as an ordinary
@@ -176,7 +176,7 @@ struct HomeStateLineTests {
         ]
 
         #expect(line(history) ==
-            "Your first session back, ended early — recorded as it happened.")
+            "Your first session back, ended early.")
     }
 
     /// Whole calendar days, not elapsed time: 01:00 is 14 days after 23:00 a
@@ -191,7 +191,7 @@ struct HomeStateLineTests {
             HomeFixtures.session("box-breathing", at: Date(timeIntervalSince1970: 1_775_516_400)),
         ]
 
-        #expect(line(history) == "Your first session back is on the record.")
+        #expect(line(history) == "Your first session back is recorded.")
     }
 
     @Test("A second session this week takes the line back from the return")
@@ -228,7 +228,7 @@ struct HomeStateLineTests {
         ]
 
         #expect(line(history) ==
-            "Two sessions this week. One you ended early — recorded as it happened.")
+            "Two sessions this week. One you ended early.")
     }
 
     @Test("Last week's early end does not haunt this week's line")

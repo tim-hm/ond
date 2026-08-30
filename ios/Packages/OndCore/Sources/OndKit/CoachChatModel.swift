@@ -14,7 +14,7 @@ public final class CoachChatModel {
     /// row, not a banner: the conversation is the screen, so the conversation
     /// is where the answer — including this one — appears.
     static let unavailableReply =
-        "The coach can't answer just now — nothing else is affected, so try again in a little while."
+        "The coach can't answer just now. Try again shortly."
 
     /// How often a streaming reply republishes, for a view that wants to animate
     /// one step over exactly the window it will be on screen for. The pacer has

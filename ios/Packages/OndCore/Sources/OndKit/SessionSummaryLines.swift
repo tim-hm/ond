@@ -18,8 +18,8 @@ public enum SessionSummaryLines {
     /// an early end is the fact that has to survive it.
     public static func note(for record: SessionRecord, exercise: String) -> String {
         record.completed
-            ? "\(exercise), all the way through."
-            : "Ended early — recorded as it happened."
+            ? "You finished \(exercise)."
+            : "You ended this session early."
     }
 
     /// One figure under the slots: a value and what it counts.

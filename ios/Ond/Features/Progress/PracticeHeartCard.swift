@@ -100,9 +100,9 @@ struct PracticeHeartCard: View {
         return Self.stub + (Self.plotHeight - Self.stub) * fraction
     }
 
-    /// Context, and the refusal to be anything else.
+    /// Why the card is showing no trend.
     private static let caption =
-        "Context, not a score. Too few readings to say anything about trend."
+        "There are too few readings to show a trend."
 
     /// What the bars say, for somebody who cannot see them.
     private var spokenValue: String {

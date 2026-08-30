@@ -35,7 +35,7 @@ struct TechniqueAboutSection: View {
                 }
         } footer: {
             Text(
-                "The name is yours — it is what the exercise is called everywhere in the app. "
+                "The name is yours. It is what the exercise is called everywhere in the app. "
                     + "What it's for shows beneath it, the way the app's own exercises describe "
                     + "themselves."
             )

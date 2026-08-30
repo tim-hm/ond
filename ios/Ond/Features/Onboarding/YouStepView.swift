@@ -13,7 +13,7 @@ struct YouStepView: View {
     var body: some View {
         OnboardingQuestion(
             title: "A little about you",
-            subtitle: "None of this is required."
+            subtitle: "You can skip any of these."
         ) {
             name
             goals

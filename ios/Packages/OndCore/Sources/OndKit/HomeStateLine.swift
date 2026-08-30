@@ -45,8 +45,8 @@ public enum HomeStateLine {
             : "\(count) sessions this week."
         switch early {
         case 0: return counted
-        case 1: return counted + " One you ended early — recorded as it happened."
-        default: return counted + " \(spelled(early)) you ended early — recorded as they happened."
+        case 1: return counted + " One you ended early."
+        default: return counted + " \(spelled(early)) you ended early."
         }
     }
 
@@ -89,12 +89,12 @@ public enum HomeStateLine {
     /// sentences about one thing.
     private static func oneSession(_ standing: Standing, endedEarly: Bool) -> String {
         switch (standing, endedEarly) {
-        case (.first, false): "Your first session is on the record."
-        case (.first, true): "Your first session, ended early — recorded as it happened."
-        case (.returning, false): "Your first session back is on the record."
-        case (.returning, true): "Your first session back, ended early — recorded as it happened."
+        case (.first, false): "Your first session is recorded."
+        case (.first, true): "Your first session, ended early."
+        case (.returning, false): "Your first session back is recorded."
+        case (.returning, true): "Your first session back, ended early."
         case (.ordinary, false): "One session this week."
-        case (.ordinary, true): "One session this week, ended early — recorded as it happened."
+        case (.ordinary, true): "One session this week, ended early."
         }
     }
 

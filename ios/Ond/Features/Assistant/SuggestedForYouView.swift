@@ -84,12 +84,12 @@ struct SuggestedForYouView: View {
     private func caption(for source: GuidanceSource) -> String {
         switch source {
         case .model:
-            "Chosen from what you told us at the start."
+            "These are chosen from what you told us at the start."
         case .fallback, .subscriptionRequired:
             // One caption for both rule-based cases: it describes how the list
             // was made, which is the same either way, and the line below is
             // where the difference belongs.
-            "Based on the goals you picked."
+            "These are based on the goals you picked."
         }
     }
 

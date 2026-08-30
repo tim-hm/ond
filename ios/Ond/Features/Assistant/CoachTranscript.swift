@@ -211,8 +211,8 @@ struct CoachTranscript<Row: View>: View {
     /// would be the screen talking over itself.
     private var invitation: some View {
         Text(
-            "Ask about your practice — which exercise fits how you slept, "
-                + "what your breath test means, where to go next."
+            "Ask about your practice. For example, which exercise fits how you "
+                + "slept, or what your breath test means."
         )
         .font(.body)
         .foregroundStyle(Theme.Ink.tertiary)

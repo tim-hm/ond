@@ -78,19 +78,19 @@ struct PlusBenefits: View {
     private static let benefits = [
         Benefit(
             title: "A coach who reads your notes",
-            limit: "Answers in text. Doesn't diagnose anything."
+            limit: "Answers in text. It cannot diagnose anything."
         ),
         Benefit(
             title: "Phone and watch in one session",
-            limit: "Haptics on the wrist, geometry on the phone."
+            limit: "The wrist taps the rhythm while the phone draws it."
         ),
         Benefit(
             title: "Health trends over months",
-            limit: "Ranges and counts. No readiness score, ever."
+            limit: "Ranges and counts, with no readiness score."
         ),
         Benefit(
             title: "Leaderboards, if you want them",
-            limit: "Off by default. Minutes practised, nothing ranked by calm.",
+            limit: "Off by default. It ranks minutes practised.",
             mark: Theme.Ink.tertiary
         ),
     ]

@@ -105,11 +105,11 @@ struct BoardCard: View {
               leaderboard.standing.listed
         else { return unlisted }
 
-        return "\(model.board.detail) It ranks what you did, never how calm anybody got."
+        return model.board.detail
     }
 
     /// The opt-in, in the words the whole feature is bound by.
     private var unlisted: String {
-        "Off until you put a name to it. It ranks what you did, never how calm anybody got."
+        "Off until you put a name to it. It ranks minutes practised, streaks and comfortable pauses."
     }
 }
