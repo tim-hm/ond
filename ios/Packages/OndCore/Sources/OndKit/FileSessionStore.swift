@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Session history as one JSON file.
 ///
@@ -7,6 +8,7 @@ import Foundation
 public actor FileSessionStore: SessionRecording, TombstoneStoring, PersonalStore {
     private let file: JSONFileStore<SessionRecord>
     private let tombstones: JSONFileStore<UUID>
+    private let logger = Logger(category: "session-store")
 
     /// - Parameter directory: where `sessions.json` lives. Defaults to
     ///   Application Support — user data the system backs up and never purges,
@@ -34,8 +36,17 @@ public actor FileSessionStore: SessionRecording, TombstoneStoring, PersonalStore
     /// reinstall, so somebody who comes back has a server full of sessions and
     /// an empty file. Matching on id makes this safe to call after every sync.
     public func merge(_ incoming: [SessionRecord]) async -> Bool {
+        // A deletion list that will not decode names no deletions. A merge then
+        // hands back every session the person deleted, so this one refuses.
+        // Refusals continue until an erasure clears the list, because nothing
+        // else may write over deletions it cannot read.
+        guard case let .decoded(deleted) = tombstones.contents() else {
+            logger.notice("skipped a merge: the deleted-session list will not decode")
+            return false
+        }
+
         let held = file.load()
-        var unwanted = Set(held.map(\.id)).union(tombstones.load())
+        var unwanted = Set(held.map(\.id)).union(deleted)
         // `insert` also de-duplicates within `incoming` itself: a restore hands
         // over a whole walk of pages in one call, and a server that repeated an
         // id across pages must not double the session in the file.
@@ -52,12 +63,22 @@ public actor FileSessionStore: SessionRecording, TombstoneStoring, PersonalStore
     /// drains these through `DeleteSessions` and only then calls
     /// `forgetTombstones` — a list of deletions in flight, not a record.
     public func remove(_ id: SessionRecord.ID) async {
-        let held = file.load()
-        let remaining = held.filter { $0.id != id }
-        guard remaining.count != held.count else { return }
+        // An id the file does not hold is a session this device has not seen,
+        // not one the person deleted, so it earns no tombstone. A file that
+        // will not decode cannot say either way. It is tombstoned anyway,
+        // because a missing tombstone hands the session back at a restore.
+        if case let .decoded(held) = file.contents() {
+            guard held.contains(where: { $0.id == id }) else { return }
 
-        file.save(remaining)
-        tombstones.save(tombstones.load() + [id])
+            file.save(held.filter { $0.id != id })
+        }
+
+        // A deletion list that will not decode is left alone. `merge` refuses
+        // every restore while it stays that way, which holds this deletion
+        // more firmly than one tombstone written over the rest would.
+        if case let .decoded(deleted) = tombstones.contents() {
+            tombstones.save(deleted + [id])
+        }
     }
 
     public func recordedSessions() async -> [SessionRecord] {
