@@ -136,7 +136,7 @@ extension PhaseKind {
     }
 
     /// The outbound direction, used by a technique somebody composed. Beside the
-    /// inbound one for the reason `TechniqueGoal.proto` gives: both halves have
+    /// inbound one for the reason `technique_service.proto` gives: both halves have
     /// to change together, and the asymmetry over `unspecified` is only
     /// reviewable if they sit next to each other.
     var proto: Ond_V1_PhaseKind {
