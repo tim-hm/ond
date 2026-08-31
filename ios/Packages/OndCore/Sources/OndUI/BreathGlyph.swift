@@ -171,7 +171,11 @@ public struct BreathGlyph: View {
         /// of the size.
         public static let flat = CoreGlow(alpha: 0, reach: 0)
 
-        let reach: Double
+        /// How wide a core and its light are together, as a multiple of the
+        /// core's own diameter. The one place that rule is written: the
+        /// gradient's edge stop, the field's frame and a surface sizing its
+        /// drawing to a frame all read it rather than spelling it again.
+        public let spread: Double
         let inhale: CorePaint
         let hold: CorePaint
 
@@ -181,8 +185,9 @@ public struct BreathGlyph: View {
         ///     the core's diameter.
         public init(alpha: Double, reach: Double) {
             // A ratio, not a size: one gradient serves every core.
-            let edge = 1 / (1 + 2 * reach)
-            self.reach = reach
+            let spread = 1 + 2 * reach
+            let edge = 1 / spread
+            self.spread = spread
             inhale = CorePaint(phase: Theme.Breath.inhale, alpha: alpha, edge: edge)
             hold = CorePaint(phase: Theme.Breath.hold, alpha: alpha, edge: edge)
         }
@@ -231,7 +236,7 @@ public struct BreathGlyph: View {
         @ViewBuilder
         private func light(_ paint: CorePaint) -> some View {
             if diameter >= BreathGlyph.flatFillThreshold {
-                let field = diameter * (1 + 2 * glow.reach)
+                let field = diameter * glow.spread
 
                 Circle()
                     .fill(

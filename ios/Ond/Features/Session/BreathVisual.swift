@@ -20,7 +20,9 @@ struct BreathVisual: View {
     /// that changed shape a frame in would announce itself.
     let register: CopyRegister
 
-    /// How much room the drawing takes at the default text size.
+    /// How much room the drawing takes at the default text size, light
+    /// included: the orb draws on a smaller circle inside this, so that a
+    /// breath at its fullest ends at this edge — see `SessionOrb.figure(in:)`.
     static let extent: CGFloat = 300
 
     /// Whether the filling arc is the guide on screen rather than the orb.
@@ -35,17 +37,18 @@ struct BreathVisual: View {
     @Environment(SessionSettings.self) private var settings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// The breath ring's stroke, and how far inside the frame it is wound.
-    /// Heavy, because at this size it is the loudest mark on the drawing; and
-    /// inset far enough to clear the parked core it sweeps around, which the
-    /// extent hairline and the session arc at the frame's own edge do not.
-    private static let breathLineWidth: CGFloat = 12
-    private static let arcInset: CGFloat = Theme.Spacing.loose + Theme.Spacing.close
+    /// The breath ring's stroke, and how far inside the orb's circle it is
+    /// wound. Heavy, because at this size it is the loudest mark on the
+    /// drawing; and inset far enough to clear the parked core it sweeps
+    /// around, which the extent hairline and the session arc do not. Both are
+    /// fractions of the circle, or the clearance closes as the guide shrinks.
+    private static let breathLineWidth = 12.0 / 300
+    private static let arcInset = 32.0 / 300
 
     /// Where the core parks while the arc carries the phase: the middle of its
     /// own travel. Not either end — the arc beside it already says which way
     /// the breath is going, and a core parked at the top of the travel fills
-    /// 92% of the frame, which is over the track the arc is wound on.
+    /// 92% of the orb's circle, which is over the track the arc is wound on.
     private static let parkedLevel = 0.5
 
     /// How far the guide may ever shrink, as a fraction of `extent`. The
@@ -129,15 +132,21 @@ struct BreathVisual: View {
     /// differ in which of its two parts moves — the core is never dropped, so
     /// a stroke with nothing inside it is not one of the two renderings.
     private func sweeping(extent: CGFloat) -> some View {
-        ZStack {
+        // Wound on the orb's own circle, not on the frame: the frame is wider
+        // than the drawing by the light the core sheds, and an arc on its edge
+        // would stand away from the core it sweeps around.
+        let figure = SessionOrb.figure(in: extent)
+        let inset = (extent - figure) / 2 + figure * Self.arcInset
+
+        return ZStack {
             orb(level: Self.parkedLevel, travels: false, extent: extent)
 
             PhaseArc(
                 fraction: beat?.fraction(at: elapsed) ?? 0,
                 tint: tint,
-                lineWidth: Self.breathLineWidth
+                lineWidth: figure * Self.breathLineWidth
             )
-            .padding(Self.arcInset)
+            .padding(inset)
             .animation(.easeInOut(duration: 0.4), value: isStill)
         }
     }
