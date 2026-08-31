@@ -60,12 +60,27 @@ The box joins it from cloud-init — the pinned Tailscale package from its Noble
 
 `accept` and not `check`, which is the opposite of what an interactive admin tailnet should choose. `check` demands a periodic browser sign-in, and `deploy:api` opens several sessions back to back with nobody watching — `docker save | ssh`, an rsync, then the compose commands — which is the pattern Tailscale's own documentation warns that check mode disrupts.
 
+The `ssh` section decides who may open a session; it does not open the port. Tailnet traffic is filtered by `acls`, and Tailscale's default policy accepts everything — so **declaring an `acls` section at all replaces that default**, and anything else on the tailnet then needs its own rule. These two are what this box needs:
+
+```json
+"acls": [
+  // Tailscale SSH needs the port allowed here as well as in `ssh` above.
+  {"action": "accept", "src": ["autogroup:member"], "dst": ["tag:server:22"]},
+  // Grafana, Prometheus and Alertmanager. Narrower than SSH on purpose.
+  {"action": "accept", "src": ["autogroup:admin"], "dst": ["tag:server:18104-18106"]},
+],
+```
+
+That rule is the whole authentication on those three ports, and it has to be, because two of them have none of their own: Prometheus and Alertmanager ship no login. An Alertmanager silence suppresses every alert this box can raise. Grafana is anonymous behind the rule too, at `Viewer` with `viewers_can_edit` — which keeps Explore and temporary panel edits, and removes the ability to add a datasource, because a datasource makes Grafana's proxy a request forger signing as the box. It was `Admin` until the 2026-08-30 audit, so any device that merely joined the tailnet could have done both, and read every application log in Loki.
+
 `ssh_public_key` survives this without authorising anything, and stays because the key pair is ForceNew on the instance: dropping it would rebuild the box to remove a credential that already opens nothing.
 
 Two properties of the auth key are load-bearing rather than stylistic, and `infra/variables.tf` says so on the variable:
 
 - **Single-use.** It reaches the box in `user_data`, which anything running on the box can read back through IMDS, and which stays readable for the life of the instance. A key already spent by the time cloud-init finishes is worth nothing to whoever reads it. The cost is that the key in `terraform.tfvars` is spent the moment a box uses it — replacing the instance means minting a new one first, because a rebuild with a stale key is a box that boots and never appears.
 - **Tagged `tag:server`.** A node registered under a person's identity inherits that person's key expiry and drops off the tailnet some months later, silently, with nothing failing until the next deploy. Tagged nodes do not expire.
+
+Neither property is in the key's text, so neither can be validated; the variable's `validation` block checks the prefix and nothing more. Single-use stays an operator promise, and the repair for breaking it is rotation: mint a new key, revoke the old one on the tailnet's Keys page, and rebuild the box. A key already in a running instance's `user_data` cannot be taken back out of it.
 
 ### When the tailnet is what broke
 
@@ -146,6 +161,53 @@ assistant_profile_regions = ["eu-west-1", "eu-central-1", ...]  # from the conso
 
 Changing the model means changing `BEDROCK_MODEL_ID` in `crates/api/src/config.rs` and `assistant_inference_profile` here together, then re-reading the destination list — a different profile can have a different one. That constant's doc comment carries the standing constraint on which models may be adopted at all.
 
+## Inside the module
+
+`infra/main.tf` is one file and its comments say what each resource is for. The three arguments too long to sit beside a resource are here.
+
+### The two buckets
+
+**Backups** holds thirty days of `pg_dump` output, and under this identity model a dump is every `users.id` — each one that person's bearer credential — beside `apple_user_id`, session credential hashes and entitlements. So it states its hardening rather than inheriting it: `block_public_acls`, `block_public_policy`, `ignore_public_acls`, `restrict_public_buckets` and `attach_deny_insecure_transport_policy`, plus AES256 and versioning. The module's v4 defaults already block public access and AWS encrypts new buckets anyway. Writing both out is what stops an upstream default changing under a major version bump from silently relaxing the more sensitive of the two buckets. There is no `prevent_destroy` to match the state bucket's, because dumps expire at 30 days by design and this bucket is reproducible in a way state never is.
+
+Its lifecycle rule is three clauses, and only the first is the retention:
+
+| Clause                                   | Why                                                                                                                  |
+| :--------------------------------------- | :------------------------------------------------------------------------------------------------------------------- |
+| `expiration` 30 days                     | Dumps are worthless past the point anyone would restore them                                                         |
+| `noncurrent_version_expiration` 1 day    | Versioning turns the expiry above into a delete marker; without this the bytes stay for ever and the 30 is fiction   |
+| `abort_incomplete_multipart_upload_days` | The upload is multipart, so a dropped link mid-dump strands parts that are billed and invisible to both expiry rules |
+
+One day rather than thirty, because the current-version expiry _is_ the retention policy and the noncurrent window only has to outlast a mistaken delete.
+
+**Logs** is Loki's chunk store, and takes the same public-access block and the same deny on insecure transport for the same argument. It holds thirty-five days of application logs — support references, request paths, framework error text. Versioning is the only thing deliberately left off: the compactor rewrites and deletes chunks constantly, so versioning them would keep every superseded chunk for the length of the retention it is supposed to enforce. It is a bucket rather than a prefix in the first one because the two want different rules; [observability.md](observability.md) has the retention window and why it sits past Loki's own.
+
+### What the instance role holds
+
+`ond-api` is the role every container on the box signs with, reachable from inside Docker because `http_put_response_hop_limit` is 2. It is therefore what an SSRF or an RCE in anything here reaches for, and every grant on it is scoped to one resource:
+
+| Policy                         | Grants                                                                            | On                                    |
+| :----------------------------- | :-------------------------------------------------------------------------------- | :------------------------------------ |
+| `write-backups`                | `s3:PutObject`, `s3:ListBucket`                                                   | the dumps bucket                      |
+| `store-logs`                   | `s3:ListBucket`, `GetObject`, `PutObject`, `DeleteObject`, `AbortMultipartUpload` | the logs bucket                       |
+| `invoke-model`                 | `bedrock:InvokeModel`, `InvokeModelWithResponseStream`                            | one inference profile and its model   |
+| `publish-alarms`               | `sns:Publish`                                                                     | the `ond-alarms` topic                |
+| `put-metrics`                  | `cloudwatch:PutMetricData`                                                        | the `Ond` namespace, by IAM condition |
+| `AmazonSSMManagedInstanceCore` | Session Manager                                                                   | AWS's managed policy, unchanged       |
+
+**Nothing on the box reads a dump back.** `backup.sh` dumps to a local file, verifies it with `gunzip -t` and a size floor, and only then copies it up; `ListBucket` is there so an operator on the box can run `aws s3 ls` and see what actually landed, which is the check that was missing while eight days of backups went to the wrong database. `s3:GetObject` on that bucket was granted, never used, and removed on 2026-08-30: it turned "an attacker is on the box" into "an attacker has every row the product has ever held". [Restore](#restore) runs from the operator's machine under the `ond` profile, and any later ad-hoc read belongs there too — not on the instance profile.
+
+### The alarm path
+
+What the two Route 53 probes watch, and why a dead-man's switch is the only thing that can report a Prometheus which never evaluated a rule, is in [observability.md](observability.md). Three details are properties of this module rather than of the monitoring, and live here instead.
+
+**Two SNS topics, both named `ond-alarms`.** A CloudWatch alarm may only publish to a topic in its own region, and the health-check alarms are pinned to us-east-1 by where Route 53 puts those metrics. SNS cannot subscribe to SNS, so funnelling one into the other would need a Lambda — a great deal of machinery to avoid one extra confirmation click. The cost is that a first `tofu apply` sends **two** confirmation emails and both must be clicked. An unconfirmed subscription accepts every publish and drops it, so a half-confirmed pair looks exactly like a working one until the day it matters.
+
+**Each search string is chosen, not obvious.** It has to be absent from the other name's response and to fall inside the first 5120 bytes, which is all Route 53 reads. So the whole JSON member rather than `ok`, since any "look" or "booking" in a wrong-handler response would satisfy two characters — and the page's `<h1>` rather than its title, which is the same word in non-ASCII punctuation.
+
+**One alarm per probe, named for which one it is.** A page reading "önd is down" when only the marketing site 404s sends somebody to the wrong half of the box. Each alarm's description carries the URL to `curl`, built from the probe rather than written out, so it names whatever the check actually watches.
+
+The heartbeat alarm is the one that needs none of this. Its metric is written by `heartbeat.sh`, which signs for the box's own region, so that alarm sits beside the main topic and needs no second subscription — us-east-1 is the exception here, not the rule, and only because AWS chooses where health-check metrics live.
+
 ## Identity and state
 
 Three AWS profiles, and the split is the point:
@@ -204,7 +266,7 @@ Editing the backend literal on its own — without step 2 having created the buc
 5. Delegate the domain: set the four addresses from the `name_servers` output as `ondbreathe.app`'s nameservers at the registrar, then wait until `dig +short ondbreathe.app` and `dig +short api.ondbreathe.app` both answer with the `elastic_ip`. Do this before the first deploy — Caddy requests a certificate per site block on first boot, and issuance fails (then retries with backoff) until each name resolves. The `A` records themselves were applied in step 4; delegation is what makes the world able to read them.
 6. `mise run deploy:api` — builds the arm64 image locally, ships it over SSH (`docker save | docker load`, no registry), rsyncs `infra/box/`, runs `migrate` as a one-shot container, brings the stack up. From a machine on the tailnet: the SSH it uses goes to `ond-api`, which resolves nowhere else. If it does not resolve, the box has not joined — [Reachability](#when-the-tailnet-is-what-broke), not this step.
 7. `mise run deploy:website` — rsyncs `web/` to `/srv/ond/web/`. Separate from step 6 because the two share no version or schema, and it needs none of that step's gates. Run it after step 6 on a first launch: step 6 is what creates `/srv/ond/web` owned by `ubuntu`, and without it `docker compose` creates that path as root and the rsync cannot write to it.
-8. `curl https://api.ondbreathe.app/health` → `{"status":"ok"}`, and `/about` for the commit now serving and the assistant's resolved mode. `curl -I https://ondbreathe.app` should answer the page, confirming both certificates issued.
+8. `curl https://api.ondbreathe.app/health` → `{"status":"ok"}`, and `/about` for the build time, the environment and the assistant's resolved mode. `curl -I https://ondbreathe.app` should answer the page, confirming both certificates issued.
 
 Every subsequent release is step 6, step 7, or both — whichever surface changed. Neither implies the other: editing `web/` and running `deploy:api` ships nothing, which is the cost of the narrower default and the reason each task names its surface.
 
@@ -245,9 +307,10 @@ Restores into the live database; for a from-scratch rebuild, apply migrations fi
 - **No registry.** `docker save | ssh docker load` is the whole supply chain while there is one box. A registry earns its place when there are two, or when CI deploys.
 - **S3 state, no DynamoDB.** OpenTofu locks against S3 itself (`use_lockfile`), so the lock table every Terraform tutorial provisions is dead weight. `infra/bootstrap` keeps local state only because it creates the bucket.
 - **An IAM user, not SSO, and not least privilege.** One account and one operator do not justify standing up Identity Center. `AdministratorAccess` because this user's only job is applying a module that creates IAM roles, buckets, EC2 and EBS — scoping it would mean enumerating every service the module might ever grow into, and the enumeration would be stale immediately. The security this buys is not a smaller blast radius; it is a credential that can be rotated and revoked, which a root key cannot.
-- **Provenance via build arg.** `.dockerignore` excludes `.git`, so `build.rs` cannot read the commit inside a container. `deploy:api` passes it as `GIT_COMMIT_HASH`, and `build.rs` prefers that over git — otherwise `/about` reports `"unknown"` in the one environment where the question matters.
-- **The reported commit is `origin/main`, and the tree has to match it.** Deploys run from the `gitbutler/workspace` branch, whose `HEAD` is a synthetic commit on no branch — a hash nobody can look up, which is worthless as an answer to "what is on the box". So `deploy:api` reports `origin/main` and refuses to build when the working tree differs from it, listing what drifted. `DEPLOY_DRIFT_ACK="<why>"` overrides that for a hotfix that cannot wait for a PR; the acknowledged build reports `<hash>-dirty`, so the shortcut stays visible in `/about` long after the incident.
+- **Provenance via build arg.** `.dockerignore` excludes `.git`, so `build.rs` cannot read the commit inside a container. `deploy:api` passes it as `GIT_COMMIT_HASH`, and `build.rs` prefers that over git — otherwise the commit reads `"unknown"` in the one environment where the question matters.
+- **The commit is on the metrics listener, not on `/about`.** Caddy proxies every path on the API host, so `/about` answers anybody; this repository is public, so an exact commit turns "is that deployment affected" into a lookup. The hash is a label of `ond_build_info` instead, on the port nothing publishes — the same reasoning that put `/metrics` there. `/about` keeps `built_at`, `environment` and `assistant`, which are what an operator checks after a deploy and none of which names a revision.
+- **The reported commit is `origin/main`, and the tree has to match it.** Deploys run from the `gitbutler/workspace` branch, whose `HEAD` is a synthetic commit on no branch — a hash nobody can look up, which is worthless as an answer to "what is on the box". So `deploy:api` reports `origin/main` and refuses to build when the working tree differs from it, listing what drifted. `DEPLOY_DRIFT_ACK="<why>"` overrides that for a hotfix that cannot wait for a PR; the acknowledged build reports `<hash>-dirty`, so the shortcut stays visible in `ond_build_info` long after the incident.
 - **A tailnet, not a narrowed CIDR and not a bastion.** 22/tcp used to be open to `admin_cidr`, which is a residential prefix: it is re-issued by the ISP, it covers every other subscriber on it, and it strands the operator on the day it renews. A bastion is a second box to patch and a second key to lose. The tailnet is neither — nothing is exposed, the credential is a device rather than an address, and the same enrolment is what makes an internal dashboard reachable without ever publishing it. What it costs is a dependency on a third party being up between the laptop and the box, which is why the SSM path stays.
 - **The box self-heals, and now says so when it cannot.** `restart: unless-stopped` covers crashes. Alertmanager publishes the Prometheus rules to an SNS topic and one email subscription takes them, signed with the instance profile so no credential lands on the box. What that could never cover is the box itself going away, so a Route 53 health check probes the public endpoint from outside and a five-minute heartbeat into CloudWatch alarms on its own silence. See [observability.md](observability.md).
 - **Backups are verified, not merely attempted.** The nightly dump is read back with `gunzip -t` and measured against a size floor before it is uploaded, and it writes its result to node-exporter's textfile collector so `BackupStale` can fire on the age of the last _verified_ dump. The one-line `pg_dump | gzip | aws s3 cp` it replaces had no `pipefail`, so a failed dump uploaded a valid gzip of nothing and exited 0 — which is how eight days of backups were lost, and why the cron now ships with every deploy instead of being written once by cloud-init.
-- **EBS snapshots cover what the dump does not.** A DLM policy keeps seven dailies of the data volume: the Prometheus TSDB, Grafana's database and Alertmanager's silences, none of which the logical dump touches. They are crash-consistent, so Postgres WAL-replays from one and usually comes up clean — but the dump stays the trustworthy restore path for the database itself, and that distinction is the reason both exist.
+- **EBS snapshots cover what the dump does not.** A DLM policy keeps seven dailies of the data volume: the Prometheus TSDB, Grafana's database and Alertmanager's silences, none of which the logical dump touches. Snapshots are incremental after the first, so seven dailies of a mostly-static volume cost roughly a coffee a month. They are crash-consistent, so Postgres WAL-replays from one and usually comes up clean — but the dump stays the trustworthy restore path for the database itself, and that distinction is the reason both exist.

@@ -14,12 +14,12 @@ pub const BUILD_INFO: BuildInfo = BuildInfo {
     built_at: env!("BUILD_TIMESTAMP"),
 };
 
-/// Which build is answering, as `/about` reports it.
+/// Which build is answering, as the metrics listener labels `ond_build_info`.
 ///
 /// `&'static str` rather than owned strings because both fields are `env!`
 /// values baked in by `build.rs` — there is nothing to read at runtime, nothing
 /// to fail, and therefore one `const` [`BUILD_INFO`] rather than a lookup.
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy)]
 pub struct BuildInfo {
     /// The source revision baked into this binary.
     pub commit: &'static str,
@@ -28,10 +28,14 @@ pub struct BuildInfo {
     pub built_at: &'static str,
 }
 
+/// What `/about` answers. Caddy proxies every path on the API host, so this
+/// body is public and unrationed — and it names no source revision. The commit
+/// is a label of `ond_build_info` on the metrics listener instead, which no
+/// rule of Caddy's can expose.
 #[derive(Serialize)]
 pub(super) struct About {
-    #[serde(flatten)]
-    build: BuildInfo,
+    /// When this binary was built.
+    built_at: &'static str,
 
     /// Which environment this process believes it is. Reported because
     /// `OND_ENV` decides the CORS policy and the log format, and "it is
@@ -49,7 +53,7 @@ pub(super) struct About {
 
 pub(super) async fn about(State(state): State<Arc<AppState>>) -> Json<About> {
     Json(About {
-        build: BUILD_INFO,
+        built_at: BUILD_INFO.built_at,
         environment: state.config.environment.as_str(),
         assistant: state.assistant.mode().as_str(),
     })

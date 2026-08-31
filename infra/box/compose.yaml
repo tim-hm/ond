@@ -19,6 +19,12 @@ services:
     <<: *logging
     image: caddy:2
     restart: unless-stopped
+    # A ceiling for the reason the block at postgres-exporter gives, and this is
+    # the one to watch: a limit makes caddy the process the kernel kills, where
+    # before it was too small to be chosen. 128m is roughly three times what a
+    # proxy fronting one API and three static files uses, and a first estimate
+    # like the others — node-exporter is what will correct it.
+    mem_limit: 128m
     ports:
       - "80:80"
       - "443:443"
@@ -96,8 +102,8 @@ services:
     <<: *logging
     image: quay.io/prometheuscommunity/postgres-exporter:v0.19.0
     restart: unless-stopped
-    # Every observability container carries a `mem_limit`; `db` and `api`
-    # deliberately do not. The box has 2 GiB and no swap, so the OOM killer
+    # Every resident container carries a `mem_limit` except `db` and `api`,
+    # which deliberately do not. The box has 2 GiB and no swap, so the OOM killer
     # arbitrates by size — unbounded, this file would answer "the log store
     # got busy" by killing Postgres. Ceilings, not reservations: ordinary
     # usage sits well under them.
@@ -247,13 +253,14 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     environment:
-      # No password, and no login form. The tailnet ACL already decided who may
-      # reach this port — the same rule that admits an SSH session — so a second
-      # credential in front of it would be one more thing to lose without being
-      # one more thing to pass. This is only correct while the port stays on
-      # loopback: publishing it anywhere else makes the dashboard world-writable.
+      # No password and no login form: the tailnet ACL decides who reaches this
+      # port, and docs/deployment.md § Reachability carries the rule. `Viewer`
+      # rather than `Admin` because Admin can add a datasource, which turns
+      # Grafana's proxy into a request forger signing as the box.
+      # `viewers_can_edit` keeps Explore and temporary panel edits.
       GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_VIEWERS_CAN_EDIT: "true"
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"

@@ -1,9 +1,8 @@
-# One box, deliberately: API + Postgres + Caddy under Docker Compose on a
-# single Graviton instance, data on its own EBS volume, nightly dumps to S3.
-# The instance is disposable — everything it runs arrives via `mise run deploy:api`
-# (image over SSH, compose files via rsync), and everything worth keeping lives
-# on the data volume or in the bucket. RDS is the graduation path, not the
-# starting point: at V1 scale it buys nothing a dump schedule doesn't.
+# One box: API, Postgres and Caddy under Docker Compose on a single Graviton
+# instance, data on its own EBS volume, nightly dumps to S3. The instance is
+# disposable — everything it runs arrives from `mise run deploy:api`, and
+# everything worth keeping lives on the data volume or in a bucket.
+# docs/deployment.md holds the shape and the decisions behind it.
 
 data "aws_vpc" "default" {
   default = true
@@ -36,17 +35,11 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-# There is no ingress rule for 22/tcp and there is not meant to be — which is
-# not the same as saying the box has no SSH. sshd still listens, and
-# `mise run deploy:api` still uses it; the connection simply arrives over the
-# tailnet, decapsulated from WireGuard on tailscale0, and a security group
-# filters the ENI rather than the tunnel that terminates behind it. So the
-# port is unreachable from the internet and reachable from every device on the
-# tailnet, with no rule here describing either fact.
-#
-# Tailscale needs nothing inbound to make that work: it dials out to establish
-# the link, and falls back to a DERP relay when NAT refuses a direct path.
-# `all-all` egress is what it depends on.
+# No ingress rule for 22/tcp, and the box still has SSH: the connection arrives
+# over the tailnet on tailscale0, and a security group filters the ENI rather
+# than the tunnel behind it. Tailscale needs nothing inbound — it dials out and
+# relays through DERP when NAT refuses a direct path — so `all-all` egress is
+# what it depends on. docs/deployment.md § Reachability.
 module "security_group" {
   source  = "terraform-aws-modules/security-group/aws"
   version = "~> 5.0"
@@ -76,15 +69,11 @@ module "backups" {
 
   bucket_prefix = "ond-backups-"
 
-  # A nightly dump holds the whole `users` table, and under this identity model
-  # every `users.id` *is* the bearer credential for that person's profile,
-  # journey and entitlement — so this bucket takes the same hardening the state
-  # bucket takes in bootstrap/main.tf, stated rather than inherited. The module's
-  # v4 defaults already block public access and AWS encrypts new buckets by
-  # default; writing both out is what stops an upstream default changing under a
-  # major version bump from silently relaxing the more sensitive of the two
-  # buckets. No `prevent_destroy` to match, though: dumps expire at 30 days by
-  # design, so this bucket is reproducible in a way state never is.
+  # A nightly dump holds every `users.id`, and under this identity model that id
+  # *is* the person's bearer credential. So this bucket states its hardening
+  # rather than inheriting a module default a major version could relax. No
+  # `prevent_destroy`: dumps expire at 30 days by design.
+  # docs/deployment.md § The two buckets.
   versioning = {
     enabled = true
   }
@@ -107,19 +96,10 @@ module "backups" {
   # plaintext transport is the same cheap insurance bootstrap takes on state.
   attach_deny_insecure_transport_policy = true
 
-  # Dumps are worthless past the point anyone would restore them; 30 days keeps
-  # the bucket from quietly accumulating forever. Both of the other two clauses
-  # exist to keep that 30 honest:
-  #
-  # Versioning turns `expiration` into a delete marker rather than a delete, so
-  # without a noncurrent rule the bytes would stay for ever and the number above
-  # would be fiction. One day, not thirty — the current-version expiry *is* the
-  # retention policy, and the noncurrent window only has to outlast a mistaken
-  # delete.
-  #
-  # The cron pipes `pg_dump | gzip | aws s3 cp -` from stdin, which is always a
-  # multipart upload, so a reboot or a dropped link mid-dump strands parts that
-  # are billed as storage and are invisible to both expiry rules.
+  # Thirty days, and the two clauses beside it keep that 30 honest. Versioning
+  # turns `expiration` into a delete marker, so only the noncurrent rule deletes
+  # bytes; the dump is uploaded as multipart, so a dropped link strands parts
+  # that neither expiry rule can see.
   lifecycle_rule = [
     {
       id      = "expire-dumps"
@@ -135,20 +115,11 @@ module "backups" {
   ]
 }
 
-# The instance may write backups and nothing else — no keys on the box, just
-# the instance profile.
-# Loki's chunk store.
-#
-# Its own bucket rather than a prefix in the backups one, on the grounds that
-# the two hold different things and want different rules: a dump is every row
-# the product has and takes versioning and a deny on insecure transport; logs
-# are high-volume, rewritten constantly by the compactor, and versioning them
-# would keep every superseded chunk for the length of the retention it is
-# supposed to enforce.
-#
-# On S3 rather than the data volume because that volume is the one Postgres
-# writes to, and because logs that die with the instance are logs that are
-# missing exactly when the instance is what failed.
+# Loki's chunk store, on S3 rather than the volume Postgres writes to — logs
+# that die with the instance are missing when the instance is what failed. Its
+# own bucket rather than a prefix in the backups one: the compactor rewrites
+# logs constantly, and versioning them would keep every superseded chunk.
+# docs/deployment.md § The two buckets.
 module "logs" {
   source  = "terraform-aws-modules/s3-bucket/aws"
   version = "~> 4.0"
@@ -163,6 +134,18 @@ module "logs" {
       bucket_key_enabled = true
     }
   }
+
+  # The same hardening the dumps bucket states rather than inherits, and for the
+  # same reason: an upstream default that relaxes under a major version bump
+  # must not be what decides. Thirty-five days of application logs cross the
+  # internet from the compactor, so refusing plaintext transport costs as little
+  # here as it does there.
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+
+  attach_deny_insecure_transport_policy = true
 
   # Belt as well as Loki's own compactor. `retention_period` in loki.yaml is
   # what actually deletes, and it only runs because the compactor is explicitly
@@ -191,24 +174,20 @@ data "aws_iam_policy_document" "assume_ec2" {
   }
 }
 
+# What the box may do with the dumps: write one, and list the bucket to see what
+# landed. `PutObject` alone was enough while nothing checked, which is how a
+# nightly dump of the wrong database went unnoticed for eight days. No
+# `s3:GetObject` — nothing on the box reads a dump back, and a restore runs from
+# the operator's machine. docs/deployment.md § What the instance role holds.
 data "aws_iam_policy_document" "write_backups" {
   statement {
     actions   = ["s3:PutObject"]
     resources = ["${module.backups.s3_bucket_arn}/*"]
   }
 
-  # Reading back what was written. `PutObject` alone was enough while nothing
-  # ever checked, which is precisely how a nightly dump of the wrong database
-  # went unnoticed for eight days — the operator could not `aws s3 ls` from the
-  # box to see what had actually landed. Verification needs the read side.
   statement {
     actions   = ["s3:ListBucket"]
     resources = [module.backups.s3_bucket_arn]
-  }
-
-  statement {
-    actions   = ["s3:GetObject"]
-    resources = ["${module.backups.s3_bucket_arn}/*"]
   }
 }
 
@@ -234,13 +213,10 @@ data "aws_iam_policy_document" "store_logs" {
   }
 }
 
-# Where every alert ends up, from both directions: Alertmanager publishes the
-# Prometheus rules here, and the CloudWatch alarms below publish the two
-# failures Prometheus cannot see because it is inside them.
-#
-# One topic rather than one per severity. Fan-out belongs to the subscriptions —
-# adding an SMS subscription filtered to `severity: critical` later needs no
-# change on the box, which is why Alertmanager stamps that attribute already.
+# Where every alert ends up: Alertmanager publishes the Prometheus rules here,
+# and the CloudWatch alarms below publish the two failures Prometheus cannot see
+# because it is inside them. One topic rather than one per severity — fan-out
+# belongs to the subscriptions. docs/deployment.md § The alarm path.
 resource "aws_sns_topic" "alarms" {
   name = "ond-alarms"
 }
@@ -291,31 +267,18 @@ locals {
   heartbeat_metric    = "MonitoringHeartbeat"
 
   # The foundation model behind the inference profile: the same id with the
-  # geography prefix taken off, because that prefix is the profile and not part
-  # of the model's name. Derived rather than written out a second time — two
-  # literals naming one model is a pair that can disagree, and the way it would
-  # disagree is an AccessDenied at invoke time.
-  #
-  # The optional group matches `eu.`, `us.`, `apac.` and anything else shaped
-  # like a geography, and leaves a profile id carrying no prefix alone.
+  # geography prefix removed, because that prefix names the profile. Derived
+  # rather than written twice — two literals naming one model can disagree, and
+  # they disagree as an AccessDenied at invoke time. The optional group matches
+  # `eu.`, `us.` and `apac.`, and leaves an unprefixed profile id alone.
   assistant_foundation_model = regex("^(?:[a-z]{2,4}\\.)?(.*)$", var.assistant_inference_profile)[0]
 }
 
-# The assistant's model calls. Scoped to one profile and one model rather than
-# `bedrock:*` on `*`, because this role is what an SSRF in anything the box runs
-# would be reaching for.
-#
-# Both ARN families are load-bearing and the second one is the trap. Invoking a
-# cross-region inference profile is authorised twice: once against the profile,
-# which is where the call is addressed, and once against the underlying
-# foundation model in whichever destination region Bedrock forwards it to. A
-# policy naming only the profile is accepted by a plan, applies cleanly, and
-# then fails every call with AccessDenied — in production, because that is the
-# first place a real invocation happens.
-#
-# `var.assistant_profile_regions` therefore has to be the profile's *complete*
-# destination list, not the regions we expect to be used: a region left out is a
-# failure that appears only when Bedrock happens to route there under load.
+# The assistant's model calls, scoped to one profile and one model rather than
+# `bedrock:*` on `*`. Both ARN families are required: an invocation is
+# authorised against the profile and against the underlying foundation model in
+# whichever region Bedrock forwards it to, so `assistant_profile_regions` has to
+# be complete. docs/deployment.md § The assistant's permission.
 data "aws_iam_policy_document" "invoke_model" {
   statement {
     actions = [
@@ -372,20 +335,17 @@ resource "aws_iam_role_policy" "store_logs" {
   policy = data.aws_iam_policy_document.store_logs.json
 }
 
-# The everyday dev loop's identity. `mise run dev` idles all day holding
-# credentials in order to call exactly one API, and before this role the
-# credentials it held were the `ond-tofu` user's AdministratorAccess. A role
-# assumable by that user alone, rather than a second user, so the laptop keeps
-# one set of long-lived keys — and the process that sits open all day signs as
-# something that can invoke Bedrock and do nothing else.
+# The everyday dev loop's identity. `mise run dev` idles all day holding a
+# credential to call one API, and before this role that credential was the
+# `ond-tofu` user's AdministratorAccess. A role assumable by that user alone, so
+# the laptop keeps one set of long-lived keys and the long-running process signs
+# as something that can invoke Bedrock and nothing else.
 data "aws_iam_user" "tofu" {
-  # Must match `tofu_user_name` in infra/bootstrap/variables.tf. Bootstrap keeps
-  # local state, so there is no remote-state output to read the name from — two
-  # literals that have to agree, which is the arrangement the rest of this file
-  # avoids. A rename fails this lookup at plan time; a *recreated* user does
-  # not — IAM stores the trust principal as the old user's unique id, so
-  # re-running bootstrap leaves this role unassumable until the next apply
-  # rewrites the trust policy it plans as unchanged-looking.
+  # Must match `tofu_user_name` in infra/bootstrap/variables.tf, which keeps
+  # local state and so exports nothing to read the name from. A rename fails
+  # this lookup at plan time. A *recreated* user does not: IAM stores the trust
+  # principal as the old user's unique id, so this role stays unassumable until
+  # a later apply rewrites a trust policy that plans as unchanged.
   user_name = "ond-tofu"
 }
 
@@ -414,13 +374,10 @@ resource "aws_iam_role_policy" "dev_invoke_model" {
   policy = data.aws_iam_policy_document.invoke_model.json
 }
 
-# Break-glass, and load-bearing now in a way it was not before. With 22/tcp
-# closed the tailnet is the only route to a shell, so every way the tailnet can
-# fail — an expired node key, an auth key spent before a rebuild, a `tailscale
-# up` that never ran because cloud-init died at an earlier step — is a way to be
-# locked out of the box entirely. Session Manager reaches it through the
-# instance profile over the same outbound path, needing no port, no key and
-# nothing on the tailnet to be working.
+# Break-glass. With 22/tcp closed the tailnet is the only route to a shell, so
+# every way the tailnet can fail is a way to be locked out of the box. Session
+# Manager reaches it through the instance profile over the same outbound path,
+# needing no port, no key and nothing on the tailnet to be working.
 resource "aws_iam_role_policy_attachment" "ssm" {
   role       = aws_iam_role.api.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
@@ -438,14 +395,10 @@ resource "aws_key_pair" "admin" {
 
 locals {
   # The name the box registers on the tailnet under, and so the name MagicDNS
-  # answers for it — which is how `mise run deploy:api` and the restore command find
-  # it now that no public address reaches 22/tcp. Defined once and read by both
-  # the cloud-init template and the `ssh_host` output, because the box
-  # announcing one name while deploy dials another is a lockout with no error
-  # message on the box's side.
-  #
-  # Tailscale appends `-1` when a name is already taken, so a second node called
-  # this would answer to something else and leave deploy pointing at the first.
+  # answers for. Defined once and read by both the cloud-init template and the
+  # `ssh_host` output: a box announcing one name while deploy dials another is a
+  # lockout with no error on the box's side. Tailscale appends `-1` when the
+  # name is taken, so a second node would answer to something else.
   tailscale_hostname = "ond-api"
 }
 
@@ -477,14 +430,11 @@ module "instance" {
     data_device = "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${replace(aws_ebs_volume.data.id, "-", "")}"
   })
 
-  # cloud-init formats and mounts the data volume by label on first boot; a
-  # user_data change must not silently rebuild the box out from under it.
-  #
-  # The corollary is the trap in every tailnet change made from here: a new auth
-  # key plans as an in-place user_data update, applies in seconds, and does
-  # nothing at all to the running instance, whose cloud-init finished long ago.
-  # This file describes how the *next* box joins. Joining the current one is the
-  # `tailscale up` in docs/deployment.md, run over SSM.
+  # cloud-init formats and mounts the data volume on first boot; a user_data
+  # change must not silently rebuild the box out from under it. The corollary is
+  # the trap: a new auth key plans as an in-place update, applies in seconds, and
+  # does nothing to the running instance. This file describes how the *next* box
+  # joins. docs/deployment.md § When the tailnet is what broke.
   user_data_replace_on_change = false
 
   # The module's volume_tags apply to every volume attached to the instance,
@@ -539,20 +489,11 @@ resource "aws_volume_attachment" "data" {
   instance_id = module.instance.id
 }
 
-# Daily snapshots of the data volume.
-#
-# Not a second database backup — the nightly `pg_dump` is that, and it stays the
-# path a restore should take, because an EBS snapshot of a running Postgres is
-# crash-consistent rather than clean: it comes back and WAL-replays, which
-# usually works and is not a thing to find out about during an incident.
-#
-# What this covers is everything the dump does not, and until now nothing did:
-# the Prometheus TSDB, Grafana's database, Alertmanager's silences, and the
-# ability to rebuild the box without starting from an empty disk. Losing the
-# volume used to mean losing all of it silently.
-#
-# Snapshots are incremental after the first, so seven dailies of a
-# mostly-static volume cost roughly a coffee a month.
+# Daily snapshots of the data volume, and not a second database backup — the
+# `pg_dump` is that, and stays the restore path because a snapshot is only
+# crash-consistent. These cover what the dump does not: the Prometheus TSDB,
+# Grafana's database, Alertmanager's silences, and a rebuild that does not start
+# from an empty disk. docs/deployment.md § Decisions and their edges.
 resource "aws_dlm_lifecycle_policy" "data" {
   # ASCII only, and not a style choice: DLM validates this field against
   # `[0-9A-Za-z _-]+` and rejects the o-umlaut in "önd" at apply time.
@@ -622,15 +563,11 @@ resource "aws_eip" "api" {
   domain   = "vpc"
 }
 
-# DNS. The zone lives here rather than at the registrar so the record and the
-# address it points at are applied together — that pairing was the one manual
-# step in a launch, and a record left pointing at a released address is a
-# failure nothing in this repo could have caught. The registrar keeps only the
-# NS delegation, which is set once and never again.
-#
-# Both records below are exported (`api_host`, `web_host`) and rendered into
-# infra/box/Caddyfile by deploy:api, so the site blocks Caddy requests
-# certificates for cannot name anything these records do not.
+# DNS. The zone lives here rather than at the registrar so a record and the
+# address it points at are applied together; the registrar keeps only the NS
+# delegation. Both records below are exported as `api_host` and `web_host` and
+# rendered into infra/box/Caddyfile by deploy:api, so Caddy cannot request a
+# certificate for a name these records do not answer.
 resource "aws_route53_zone" "primary" {
   name = "ondbreathe.app"
 }
@@ -646,13 +583,10 @@ resource "aws_route53_record" "apex" {
   records = [aws_eip.api.public_ip]
 }
 
-# The API's own name, pointing at the same box the apex does.
-#
-# One address today, and that is not the point: this record is the indirection
-# the shipped app cannot supply for itself. The iOS Release build compiles its
-# host in, so only an App Store release changes what it asks for, and whatever
-# moves the API later moves it by editing this record. docs/deployment.md
-# carries the rest of the argument.
+# The API's own name, pointing at the same box the apex does. One address today,
+# and that is not the point: the iOS Release build compiles its host in, so only
+# an App Store release changes what it asks for. This record is the indirection
+# the shipped app cannot supply for itself. docs/deployment.md § Shape.
 resource "aws_route53_record" "api" {
   zone_id = aws_route53_zone.primary.zone_id
   name    = "api.${aws_route53_zone.primary.name}"
@@ -661,28 +595,11 @@ resource "aws_route53_record" "api" {
   records = [aws_eip.api.public_ip]
 }
 
-# One probe per public name, and the response that proves each name is being
-# served by the thing that should be serving it.
-#
-# A map rather than two resources because the two differ only in what a healthy
-# answer looks like: splitting the hostnames gave each its own certificate and
-# its own site block, so each needs its own probe, and everything else about
-# probing them is identical. A third name gets a line here.
-#
-# The paths are chosen to exercise what is actually fragile on each name. The
-# API answers `/health` from the one handler that touches no database. The page
-# answers `/privacy` rather than `/`, because the extensionless form resolves
-# only through the Caddyfile's `try_files` directive — the thing most likely to
-# break silently, and the one App Review rejects a paywall over.
-#
-# `HTTPS_STR_MATCH` on both, because Route 53 does not verify the certificate it
-# is served — a 200 here is not a claim about who answered, and the body is the
-# only part of the response that is. Each string is picked to be absent from the
-# other name's response and to fall inside the first 5120 bytes, which is all
-# Route 53 searches: the whole JSON member rather than `ok`, since any "look" or
-# "booking" in a wrong-handler response would satisfy two characters, and the
-# page's `<h1>` rather than its title, which is the same word in non-ASCII
-# punctuation.
+# One probe per public name, and the response that proves each name is served by
+# the thing that should serve it. A map because the two differ only in what a
+# healthy answer looks like, so a third name gets a line here. No path or search
+# string here is arbitrary: docs/observability.md says why these paths, and
+# docs/deployment.md § The alarm path why these strings.
 locals {
   public_probes = {
     api = {
@@ -698,15 +615,11 @@ locals {
   }
 }
 
-# The only thing watching this service from outside it.
-#
-# Everything else in this project's monitoring runs on the box it monitors, and
-# that is fine for the failures the box survives and worthless for the ones it
-# does not. It also cannot see the failure this project has actually had:
-# `tailscale serve` taking 443, after which Caddy loses its bind and ends up
-# running with no network attached — `docker ps` says up, Prometheus reports
-# every container healthy, and the site answers nothing. Not one of the rules in
-# alerts.yml can fire on that, because from inside the box nothing is wrong.
+# The only thing watching this service from outside it. Everything else runs on
+# the box it monitors, which is worthless for the failures the box does not
+# survive — and blind to the one this project has had: `tailscale serve` taking
+# 443, after which Caddy runs with no network attached while `docker ps` says up
+# and every on-box check passes.
 resource "aws_route53_health_check" "public" {
   for_each = local.public_probes
 
@@ -732,16 +645,10 @@ moved {
 }
 
 # Route 53 publishes health-check metrics into us-east-1 and nowhere else, so
-# the alarm reading them has to be created there whatever region the rest of
-# this lives in. An alarm built against the default provider applies cleanly and
-# then sits in INSUFFICIENT_DATA for ever — a monitor that looks configured and
-# watches nothing, which is worse than an absent one.
-#
-# One alarm per probe, named for which one it is: a page reading "önd is down"
-# when the marketing site 404s and the API is answering would send somebody to
-# the wrong half of the box. The description carries the URL to curl, built from
-# the probe rather than written out, so it names whatever the check actually
-# watches.
+# the alarm reading them has to be created there. An alarm built against the
+# default provider applies cleanly and sits in INSUFFICIENT_DATA for ever. One
+# alarm per probe, named for which one it is, with the URL to curl built from
+# the probe rather than written out.
 resource "aws_cloudwatch_metric_alarm" "public_unhealthy" {
   for_each = local.public_probes
   provider = aws.us_east_1
@@ -762,16 +669,11 @@ resource "aws_cloudwatch_metric_alarm" "public_unhealthy" {
   ok_actions    = [aws_sns_topic.alarms_us_east_1.arn]
 }
 
-# The second topic, and it exists for one reason: a CloudWatch alarm may only
-# publish to an SNS topic in its own region, and the alarm above is pinned to
-# us-east-1 by where Route 53 puts its metrics. SNS cannot subscribe to SNS, so
-# there is no way to funnel this into the main topic without a Lambda, which is
-# a great deal of machinery to avoid one extra confirmation click.
-#
-# The cost is that `tofu apply` sends *two* subscription confirmations on first
-# run and both must be clicked. An unconfirmed subscription accepts every
-# publish and silently drops it, so a half-confirmed pair looks exactly like a
-# working one until the day it matters.
+# The second topic, for one reason: a CloudWatch alarm may only publish to a
+# topic in its own region, and the alarm above is pinned to us-east-1. SNS
+# cannot subscribe to SNS. The cost is two subscription confirmations on first
+# apply, and an unconfirmed subscription accepts every publish and drops it — so
+# a half-confirmed pair looks exactly like a working one.
 resource "aws_sns_topic" "alarms_us_east_1" {
   provider = aws.us_east_1
   name     = "ond-alarms"
@@ -785,20 +687,10 @@ resource "aws_sns_topic_subscription" "alarms_us_east_1_email" {
 }
 
 # The dead-man's switch, and the only alert here that fires on silence.
-#
-# heartbeat.sh publishes while Prometheus *and* Alertmanager both answer, every
-# five minutes. `treat_missing_data = "breaching"` turns the absence of that
-# into an alarm, which is the only construction that can report a box that has
-# stopped, a disk that has filled, or a Prometheus crash-looping on a rule file
-# that does not parse — `check:alerts` exists because that last one is a real
-# way to lose monitoring, and until now losing it looked exactly like nothing
-# firing.
-#
-# Three periods before it trips: one missed heartbeat is a slow metadata lookup.
-# Region matters here only in that it does not have to: this metric is written
-# by heartbeat.sh, which signs for the box's own region, so the alarm sits
-# beside the main topic and needs no second subscription. The Route 53 alarm
-# above is the exception, and only because AWS chooses where those metrics live.
+# heartbeat.sh publishes while Prometheus and Alertmanager both answer, so
+# `treat_missing_data = "breaching"` is what reports a stopped box, a full disk,
+# or a Prometheus crash-looping on a rule file that does not parse. Three
+# periods, because one missed heartbeat is a slow metadata lookup.
 resource "aws_cloudwatch_metric_alarm" "monitoring_silent" {
   alarm_name          = "ond-monitoring-silent"
   alarm_description   = "The box has stopped reporting that its monitoring stack is alive."
@@ -821,12 +713,10 @@ resource "aws_cloudwatch_metric_alarm" "monitoring_silent" {
 # here belongs to one Google Workspace tenant — see docs/deployment.md before
 # applying this into a fresh account.
 
-# The apex TXT set. DNS keeps one TXT set per name, so every apex string lives in
-# the list below: a second `aws_route53_record` at this name does not add to this
-# one, it fights it. Only one string may start `v=spf1` — two SPF policies is a
-# `permerror`, which receivers treat as no policy at all.
-#
-# Google re-checks the verification token rather than reading it once, so
+# The apex TXT set. DNS keeps one TXT set per name, so every apex string lives
+# in the list below: a second `aws_route53_record` at this name fights this one
+# rather than adding to it. Only one string may start `v=spf1` — two SPF
+# policies is a `permerror`. Google re-checks the verification token, so
 # deleting it after enrolment un-verifies the domain.
 resource "aws_route53_record" "apex_txt" {
   zone_id = aws_route53_zone.primary.zone_id
@@ -853,12 +743,10 @@ resource "aws_route53_record" "apex_mx" {
 }
 
 # The public half of the key Google signs outgoing mail with, under the selector
-# named in a signature's `s=` tag.
-#
-# One key split across two strings: a DNS character-string caps at 255 bytes and
-# this key's base64 runs to 408, so the `""` in the middle is a real boundary,
-# not a typo. A resolver concatenates adjacent strings before any verifier parses
-# them.
+# a signature's `s=` tag names. One key split across two strings: a DNS
+# character-string caps at 255 bytes and this key's base64 runs to 408, so the
+# `""` in the middle is a real boundary. A resolver concatenates adjacent
+# strings before any verifier parses them.
 resource "aws_route53_record" "google_domainkey" {
   zone_id = aws_route53_zone.primary.zone_id
   name    = "google._domainkey.${aws_route53_zone.primary.name}"
@@ -867,21 +755,11 @@ resource "aws_route53_record" "google_domainkey" {
   records = ["v=DKIM1;k=rsa;p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsn5him2Gh5VlT5TgFPytX39+sK9LWweR0ptYpKwkWELZrDJBGVil2ChdVKciIva5HkRUghEdqnBjEl4fSh5qZZYmePE6MvM+AWQ2KrUSU0reHvWXjZZZUzfkHzp7doUc8rw/AKfizCU4KOdVujNqHrp7rAdbxJCu2FKeSO0OMfIFUrLnhC7d1X3mnDRyeXDdq26\"\"LzDtUoArd3SLRvBEcrCq49xvJ2SnnmAodt4cKFqVUxthxe97Hi1k4rCfS3ERhCOhw06Vqtgc/F040rTQ1lBCYZ08AnmnG1lNOi4IQwfNgUfn+t0UGJz4D0weQaLYSaL/4kd/AqsgyX5rHpqj/nQIDAQAB"]
 }
 
-# What makes the two records above enforceable: without a policy, a receiver
-# holding a failing signature has nothing telling it what to do.
-#
-# This record does not enforce anything yet, and does not collect anything
-# either. `p=none` asks receivers to act on nothing, and with no `rua` there is
-# nowhere for them to report to — so today it is a placeholder that reserves the
-# name, not a control. That is deliberate on both halves: a policy written before
-# anyone has watched a week of traffic rejects the sender somebody forgot about,
-# and there is no mailbox in this domain yet to read reports at. An address in
-# another domain only receives them if that zone publishes
-# `ondbreathe.app._report._dmarc.<their-domain>`, which is why `rua` is not
-# simply pointed elsewhere.
-#
-# Turning it into a control is two edits in order: add `rua` and read the reports
-# first, then tighten `p`.
+# What makes the two records above enforceable. It enforces nothing yet and
+# collects nothing: `p=none` asks receivers to act on nothing, and with no `rua`
+# there is nowhere to report to. Both are deliberate — nobody has watched a week
+# of traffic, and this domain has no mailbox. Turning it into a control is two
+# edits in order: add `rua` and read the reports, then tighten `p`.
 resource "aws_route53_record" "dmarc" {
   zone_id = aws_route53_zone.primary.zone_id
   name    = "_dmarc.${aws_route53_zone.primary.name}"

@@ -28,6 +28,11 @@ buf = "latest"
 protoc = "latest"
 lychee = "latest"
 "npm:markdownlint-cli2" = "0.23.2"
+# `web:serve` used to reach for this through `pnpm dlx`, which resolves and
+# executes whatever the registry answers with — on a machine holding the AWS
+# credential and the deploy path. Pinned here instead, so the version moves
+# only in a reviewed change, like every other tool in this block.
+"npm:serve" = "14.2.6"
 # Vite+'s formatter (oxfmt). Pinned because its output is committed, so a
 # version bump reformats the tree and fails `check` for everyone behind it —
 # markdownlint-cli2 is pinned for the same reason.
@@ -545,7 +550,7 @@ run = ["mise run coverage:rs", "mise run coverage:swift"]
 [tasks."web:serve"]
 description = "Serve the marketing one-pager locally"
 # 18102: next free port in the 18100–18199 block (API 18100, Postgres 18101).
-run = "pnpm dlx serve --listen 18102 {{config_root}}/web"
+run = "serve --listen 18102 {{config_root}}/web"
 
 # infra: applied deliberately — nothing below runs from `check` or CI. Every
 # task that reaches AWS pins AWS_PROFILE for DATABASE_URL's reason: an
