@@ -1,7 +1,11 @@
+//! The card that offers one catalogue exercise, optionally repaced. Nothing
+//! here is trusted: an offer is built from the resolved technique, never from
+//! the model's words, so a card can only ever name something the app plays.
+
 use serde::Deserialize;
 
 use super::super::model::ToolSpec;
-use super::{clamped, clamped_ms};
+use super::dispatch::{clamped, clamped_ms};
 use crate::features::technique::types::{PlayableStage, Technique, resolve};
 use crate::features::user_technique::types::{MAX_CYCLES, MAX_ROUNDS};
 use crate::proto::ond::v1 as pb;

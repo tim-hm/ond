@@ -1,3 +1,7 @@
+//! Where a model's call meets the tool it named, and the numeric bounds every
+//! tool clamps its inputs into. Declaring and dispatching sit together so a
+//! tool cannot reach the model without also having a payload path.
+
 use super::{bolt, exercise, saved_exercise};
 use crate::features::assistant::model::ToolSpec;
 use crate::features::technique::types::Technique;
@@ -29,6 +33,23 @@ pub(in crate::features::assistant) fn dispatch(
         saved_exercise::NAME => saved_exercise::payload(input_json, limits),
         _ => None,
     }
+}
+
+/// A count inside its ceiling, and never zero: both tools read counts the
+/// model wrote, and every one of them is bounded by the same limits.
+pub(super) fn clamped(value: i64, ceiling: i32) -> Option<u32> {
+    u32::try_from(value.clamp(1, i64::from(ceiling))).ok()
+}
+
+/// Seconds as wire milliseconds inside an inclusive range.
+///
+/// The cast is safe after the f64 clamp into bounds already represented by
+/// `i32`; the standard library has no checked float-to-integer conversion.
+#[allow(clippy::cast_possible_truncation)]
+pub(super) fn clamped_ms(seconds: f64, min: i32, max: i32) -> i32 {
+    (seconds * 1000.0)
+        .round()
+        .clamp(f64::from(min), f64::from(max)) as i32
 }
 
 #[cfg(test)]
@@ -85,8 +106,8 @@ mod tests {
             "name": "Evening four",
             "goal": "sleep",
             "stages": [{ "phases": [
-                { "kind": "inhale", "seconds": 4 },
-                { "kind": "exhale", "seconds": 4 }
+                { "kind": "inhale", "passage": "nose", "seconds": 4 },
+                { "kind": "exhale", "passage": "mouth", "seconds": 4 }
             ] }]
         }"#;
         assert!(matches!(

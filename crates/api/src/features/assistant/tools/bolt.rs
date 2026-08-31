@@ -1,3 +1,5 @@
+//! The card that offers the breath-hold (BOLT) test.
+
 use super::super::model::ToolSpec;
 use crate::proto::ond::v1 as pb;
 

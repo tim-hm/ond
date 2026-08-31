@@ -10,6 +10,7 @@ use sqlx::PgPool;
 
 use super::errors::AssistantError;
 use super::model::{ModelClient, ModelRequest, ModelStream};
+use super::prompt::PrefixCache;
 use super::stream::{
     ChatStream, chat_from_model, conversation, fixed_reply, with_offer_annotations,
 };
@@ -25,7 +26,7 @@ use crate::features::journey::sessions::types::PracticeSnapshot;
 use crate::features::profile::service as profile;
 use crate::features::profile::types::ProfileSnapshot;
 use crate::features::technique::cache::CuratedCache;
-use crate::features::technique::types::{Reference, Technique};
+use crate::features::technique::types::Technique;
 use crate::features::user_technique::service as user_technique;
 use crate::features::user_technique::types::{PhaseLimits, SavedSummary};
 use crate::identity::UserId;
@@ -40,10 +41,11 @@ pub async fn get_recommendation(
     pool: &PgPool,
     model: &dyn ModelClient,
     curated: &CuratedCache,
+    prefixes: &PrefixCache,
     user_id: UserId,
     health: Option<pb::HealthContext>,
 ) -> Result<pb::GetRecommendationResponse, AssistantError> {
-    let context = read_context(pool, curated, user_id, None).await?;
+    let context = read_context(pool, curated, prefixes, user_id, None).await?;
 
     let health = clamp_health(health);
     let claim = claim_call(pool, model, user_id, context.tier).await;
@@ -74,16 +76,16 @@ struct Context {
     /// Refcounts into `technique`'s process-lifetime cache rather than copies:
     /// the chat's reply stream outlives the call that read them.
     catalogue: Arc<Vec<Technique>>,
-    /// The occasions, the progression, and the foundation headings — the
-    /// curated routes the coach names so that it and the app's own screens
-    /// agree.
-    reference: Arc<Reference>,
     profile: ProfileSnapshot,
     practice: PracticeSnapshot,
     tier: Tier,
     /// The exercises this person has built for themselves, so the coach can
     /// name one back to them and stop offering to save what they already keep.
     saved: Vec<SavedSummary>,
+    /// The cacheable half of the prompt, rendered once for the process. Held
+    /// rather than rebuilt: it is the same bytes for every caller, and it is
+    /// four fifths of what the model is sent.
+    prefix: Arc<str>,
 }
 
 /// Reads the [`Context`], concurrently — none of the reads depends on the
@@ -94,6 +96,7 @@ struct Context {
 async fn read_context(
     pool: &PgPool,
     cache: &CuratedCache,
+    prefixes: &PrefixCache,
     user_id: UserId,
     utc_offset_minutes: Option<i32>,
 ) -> Result<Context, AssistantError> {
@@ -123,11 +126,11 @@ async fn read_context(
 
     Ok(Context {
         catalogue: Arc::clone(&curated.catalogue),
-        reference: Arc::clone(&curated.reference),
         profile,
         practice,
         tier,
         saved,
+        prefix: prefixes.get(&curated.catalogue, &curated.reference),
     })
 }
 
@@ -142,7 +145,7 @@ async fn model_recommendations(
     health: Option<&HealthContext>,
 ) -> Option<Vec<Recommendation>> {
     let request = ModelRequest {
-        cacheable_prefix: prompt::catalogue_prefix(&context.catalogue, &context.reference),
+        cacheable_prefix: context.prefix.to_string(),
         instruction: prompt::recommendation_instruction(
             &context.profile,
             &context.practice,
@@ -188,6 +191,7 @@ pub async fn chat(
     pool: &PgPool,
     model: &dyn ModelClient,
     curated: &CuratedCache,
+    prefixes: &PrefixCache,
     user_id: UserId,
     request: pb::ChatRequest,
     limits: Arc<PhaseLimits>,
@@ -200,7 +204,8 @@ pub async fn chat(
     // send is a question about the caller's tier, and the tier is in the
     // context. While the assistant is free this read buys nothing — kept so
     // the ordering is not deleted and rediscovered when the gate returns.
-    let context = read_context(pool, curated, user_id, request.utc_offset_minutes).await?;
+    let context =
+        read_context(pool, curated, prefixes, user_id, request.utc_offset_minutes).await?;
     let health = clamp_health(request.health_context);
     let turns = with_offer_annotations(turns, &context.catalogue);
 
@@ -210,7 +215,7 @@ pub async fn chat(
         user_id,
         context.tier,
         || ModelRequest {
-            cacheable_prefix: prompt::catalogue_prefix(&context.catalogue, &context.reference),
+            cacheable_prefix: context.prefix.to_string(),
             instruction: prompt::chat_instruction(
                 &context.profile,
                 &context.practice,

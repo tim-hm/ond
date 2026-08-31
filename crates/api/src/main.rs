@@ -17,10 +17,12 @@ use api::{assistant, config, http, obs};
 use sqlx::ConnectOptions;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 
-/// Sized for a local machine and a small deployment. Postgres' own default
-/// `max_connections` is 100, so this leaves ample room for the migrate binary
-/// and a psql session alongside.
-const MAX_DB_CONNECTIONS: u32 = 10;
+/// Sized against the widest fan-out: one assistant call peaks at ten
+/// connections, because `assistant::service::read_context` joins four reads
+/// and one of them, `journey::sessions::service::practice_snapshot`, joins
+/// seven more. Forty admits four such calls at once. Postgres' own default
+/// `max_connections` is 100, so the migrate binary and a psql session still fit.
+const MAX_DB_CONNECTIONS: u32 = 40;
 
 /// How long a request waits for a connection. sqlx's default thirty seconds
 /// turns an exhausted pool into hanging requests and retries; three seconds is
