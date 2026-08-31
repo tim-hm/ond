@@ -21,6 +21,18 @@ public final class MoodCheckModel {
     /// mood in it. The countdown can finish while this is still false.
     public private(set) var isAsked = false
 
+    /// Whether the write this check makes can still raise Health's own sheet.
+    /// True until the recorder says otherwise — see `expectPrompt(_:)`, which
+    /// answers after a round trip a tapped scale need not wait for.
+    public private(set) var writeMayPrompt = true
+
+    /// Whether a countdown must stop and start again for this answer. Only
+    /// the write that can put Health's sheet over the screen earns that; every
+    /// later one is written under a count that keeps running.
+    public var holdsCountdown: Bool {
+        writeMayPrompt && before != nil && !isAsked
+    }
+
     public init() {}
 
     /// Whether the way in was resolved with no answer in it. The countdown
@@ -46,11 +58,18 @@ public final class MoodCheckModel {
         return "\(before.title) before · \(after.title) now"
     }
 
+    /// Says whether Health can still show its authorization sheet for this
+    /// session's write. Told rather than asked, because only the app target
+    /// holds the recorder, and the answer arrives after the screen does.
+    public func expectPrompt(_ mayPrompt: Bool) {
+        writeMayPrompt = mayPrompt
+    }
+
     /// Takes the answer given before the breathing, writes it, and only then
     /// counts the check as asked. That order is why this is awaited: the first
-    /// write of an install opens Health's authorization sheet, and the
-    /// countdown holds on this exact window so the session cannot start behind
-    /// that sheet. The guard stops a second tap writing a contradicting sample.
+    /// write of an install opens Health's sheet, and `holdsCountdown` is true
+    /// across this exact window so the session cannot start behind it. The
+    /// guard stops a second tap writing a contradicting sample.
     public func answerBefore(
         _ mood: Mood,
         writing write: @MainActor (Mood) async -> Void

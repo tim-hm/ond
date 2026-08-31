@@ -100,4 +100,10 @@ public protocol HealthStore: Sendable {
     /// sheet — has been attempted, because the one caller that asks before a
     /// session starts must not let a countdown run underneath a modal.
     func writeMood(_ mood: Mood, at date: Date) async
+
+    /// Whether writing a mood can still put Health's authorization sheet on
+    /// screen — true only while the grant is undecided. The countdown holds
+    /// itself for that one answer and counts through every later one, so a
+    /// session neither starts behind a modal nor restarts for nothing.
+    func writeMoodMayPrompt() async -> Bool
 }

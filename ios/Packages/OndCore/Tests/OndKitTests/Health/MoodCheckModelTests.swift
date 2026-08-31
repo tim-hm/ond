@@ -77,11 +77,33 @@ struct MoodCheckModelTests {
 
         #expect(check.before == .pleasant, "the scale fills in on the tap")
         #expect(!check.isAsked, "but the countdown is still held off")
+        #expect(check.holdsCountdown, "which is the count's own reading of it")
 
         writes.isBlocked = false
         await answering.value
 
         #expect(check.isAsked)
+    }
+
+    /// The hold costs a countdown its three seconds, so it is spent only where
+    /// Health can actually put a sheet over the screen. Everywhere else the
+    /// write happens under a count that keeps running.
+    @Test("Only a write that can raise Health's sheet holds the countdown")
+    func onlyAPromptingWriteHolds() async throws {
+        let check = MoodCheckModel()
+        let writes = Writes()
+        writes.isBlocked = true
+        check.expectPrompt(false)
+
+        let answering = Task { await check.answerBefore(.pleasant, writing: writes.write) }
+        try await settle { check.before != nil }
+
+        #expect(!check.holdsCountdown, "the count runs on through a write nothing can interrupt")
+
+        writes.isBlocked = false
+        await answering.value
+
+        #expect(!check.holdsCountdown)
     }
 
     /// A Health write can outlive the gesture that began it. Without the guard
