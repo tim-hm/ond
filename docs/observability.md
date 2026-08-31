@@ -24,6 +24,8 @@ One record per request is the exception, and it earns the level because it is th
 
 A monitor's _successful_ probe is the exception to the exception, and only the level moves — the record is still emitted exactly once per request. `/health` and `/metrics` carry theirs at `debug` on the `api::probe` target, which the default filter drops. They are the only two paths anything asks for on a timer, and between them they were most of this process's log volume: Route 53 probes `/health` every 30s from roughly fifteen global checkers and Prometheus scrapes `/metrics` every 15s, on the order of two thousand identical `status=200` lines an hour before the server had answered a single person. That is the `info` test above applied to the request record itself. A probe answering anything other than 2xx stays at `info`, because a check that has started failing is the one you were watching for — which is also why the level cannot be keyed on the route alone. Nothing is lost by the demotion: `ond_requests_total{route="/health"}` still counts every probe, and `up` / `TargetDown` already answer "did the scrape happen" for `/metrics`. The mechanism is worth knowing before reordering `build_app`: `OnResponse` is handed the response and not the request, so a marker layer sitting directly beneath the `TraceLayer` stamps the response and the layer above reads it. Anything inserted between those two could rebuild the response, drop the marker, and silently restore the noise.
 
+**The Bedrock call is the other per-request `info`.** A completed non-streaming provider call writes one line carrying the model, `duration_ms` and its token counts. Every number in it is already a metric; what the line adds is _which caller_ the spend belongs to, through the request span, and no counter can give that. It is not the only other `info` a request can write — the three audit lines below are — but those are rare by design and this one fires on every completed call. It is affordable while the daily allowance bounds the volume, so the expiry condition is that allowance ceasing to bound it: raise the cap, or reach a traffic level where the coach answers continuously, and this line demotes to `debug` with `ond_assistant_tokens_total` left carrying the total.
+
 ## Field conventions
 
 - `error`, never `err`.
@@ -48,6 +50,8 @@ A monitor's _successful_ probe is the exception to the exception, and only the l
 JSON in production, human-readable in dev — chosen once at boot in `crates/api/src/obs/trace.rs` from `OND_ENV`. JSON is unreadable in a terminal and mandatory in a log aggregator, and `Environment` already knows which one is reading.
 
 `RUST_LOG` overrides the filter; the default is `api=info,tower_http=info,warn`.
+
+**A deploy's migration step decides this a second time.** `crates/migrate/src/main.rs` installs its own subscriber, defaulting to `migrate=info,warn` and picking JSON by comparing `OND_ENV` against the literal `"production"`. The API matches on `Environment` instead, so a new environment name is a compile error there and silent unparsed text here — in the one step whose failure a deploy has to read. The fix is a leaf crate both can depend on, the way `crates/physiology` already works.
 
 To watch probe traffic during an incident, `RUST_LOG=api=info,api::probe=debug` — the demoted access records have a target of their own precisely so that reading them does not also turn on every other `debug!` in the crate.
 
@@ -130,7 +134,7 @@ Served on **18103, a separate listener from the public 18100** (`api::metrics_ro
 | `ond_assistant_call_duration_seconds`       | histogram | A completed non-streaming provider call                                                                            |
 | `ond_assistant_time_to_first_token_seconds` | histogram | How long somebody waits before the coach starts writing                                                            |
 | `ond_assistant_mode`                        | gauge     | Where a reply would come from, as a state set over `mode`                                                          |
-| `ond_entitlement_verifications_total`       | counter   | What became of a submitted purchase, labelled `outcome`                                                            |
+| `ond_entitlement_verifications_total`       | counter   | What became of an entitlement decision, labelled `outcome`. Two outcomes are not purchases — see below             |
 | `ond_entitlement_rejections_total`          | counter   | Why one was rejected, labelled `reason` — the breakdown that makes the alert diagnosable                           |
 | `ond_entitlement_purchases_total`           | counter   | Honoured purchases, labelled `environment`. A revocation is not one                                                |
 | `ond_identities_created_total`              | counter   | First sightings — the rate `ond_users_total` cannot give                                                           |
@@ -140,10 +144,13 @@ Served on **18103, a separate listener from the public 18100** (`api::metrics_ro
 | `ond_build_info`                            | gauge     | Always 1; the labels say which build is answering                                                                  |
 | `ond_process_start_time_seconds`            | gauge     | When this process started. A step here is a deploy                                                                 |
 | `ond_backup_last_success_timestamp_seconds` | gauge     | When a dump was last verified and uploaded                                                                         |
+| `ond_backup_last_attempt_timestamp_seconds` | gauge     | When the backup last ran, whatever came of it. A stale one says cron stopped firing, which no other metric says    |
 | `ond_backup_success`                        | gauge     | Whether the most recent attempt produced a restorable dump                                                         |
 | `ond_backup_bytes` / `_duration_seconds`    | gauge     | Size and runtime of that dump                                                                                      |
 
-The last three are written by `infra/box/backup.sh` into node-exporter's textfile collector rather than by this process, and they are metrics all the same — a rule cannot tell the difference and should not have to.
+The last four are written by `infra/box/backup.sh` into node-exporter's textfile collector rather than by this process, and they are metrics all the same — a rule cannot tell the difference and should not have to.
+
+**Two of the seven entitlement outcomes are not purchases.** `unentitled` is recorded whenever any gated RPC refuses a free caller, and `faulted` on a database error during any entitlement read. Neither involves a submitted transaction, and `unentitled` is by a long way the largest series of the seven. `PurchasesBeingRejected` divides by `rejected|honoured` alone for that reason, and the Money row's "Purchase outcomes" panel leaves the same two out — a wider slice than the alert, but still only the outcomes a purchase can reach.
 
 **Every label comes from a closed set.** HTTP `route` is `/health`, `/about`, `grpc_transport`, or `other`; it excludes HTTP-200 gRPC envelopes because their native outcome is recorded once by the gRPC families. A label taken straight from the URI lets anything that can reach this server mint a time series per request, so scanner paths collapse to `other` and pre-envelope gRPC failures to `grpc_transport`. The native status label is likewise restricted to gRPC's numeric codes 0–16; malformed or missing final statuses become `Unknown` (2), including a body that fails or ends without trailers.
 
@@ -167,9 +174,11 @@ Grafana runs with **anonymous access and no login form**, which is only correct 
 
 The datasource and the dashboards are **provisioned from `infra/box/grafana/`**, so a panel edited in the browser is temporary by design — the file wins at the next restart, and a dashboard worth keeping is a commit.
 
-Six rows, in the order somebody actually reads them: **Now** (the census, targets down, the coach's mode, and a list of firing alerts), **Traffic** (calls, failures and latency per RPC), **Coach** (where answers come from, why it fell back, time to first token, tokens), **Money** (verification outcomes and the sandbox/production split), **The box** (both disks, memory, CPU, the pool, database size, backup age, the edge), and **Product** (people and MRR over time).
+Seven rows, in the order somebody actually reads them: **Now** (the census, targets down, the coach's mode, and a list of firing alerts), **Traffic** (calls, failures and latency per RPC, outcomes by status code, and edge latency), **Coach** (where answers come from, why it fell back, time to first token, tokens, provider call latency), **Money** (purchase outcomes, why one was rejected, and the sandbox/production split), **The box** (both disks, memory, CPU, the pool, database size, backup age, whether the last backup verified, the edge, Postgres connections), **Logs**, and **Product** (people and MRR over time, new identities and sign-ins per day).
 
 Two details are load-bearing. The firing-alerts panel reads Prometheus' own `ALERTS` series rather than Grafana's `alertlist` panel, which renders only Grafana-managed rules — these are datasource-managed, so that panel would list nothing for ever. And "targets down" counts `up == 0` rather than comparing against a hard-coded healthy total, which would leave the panel permanently red the day a scrape job is added and green at a wrong number the day one is removed.
+
+**The Logs row is the only place Loki appears in Grafana.** One panel, "Errors", on the `ond-loki` datasource, reading `{host="ond"} |~ "(?i)error"` over every container on the box. It filters the line rather than selecting on a label because only the API emits a `level` — the other containers log plain text, and a label selector would silently drop exactly the containers whose failures nothing else reports.
 
 A **deploy shows as an annotation**, read from `ond_process_start_time_seconds`. Not from `ond_build_info`: that series is always 1 and what a deploy changes is its labels, so `changes()` over its value sees nothing on either side. Every deploy restarts the process, so a step in the start time is a release — and a crash-restart, which is worth marking for the same reason.
 
@@ -177,21 +186,25 @@ A **deploy shows as an annotation**, read from `ond_process_start_time_seconds`.
 
 `infra/box/alerts.yml`, rsynced to the box with everything else in `infra/box/` and read by Prometheus at startup. `mise run check:alerts` parses them with `promtool` from the same image tag compose runs, because a rule that does not parse stops Prometheus booting — and `restart: unless-stopped` then loops it quietly while the API and Caddy carry on serving. The same task runs `promtool test rules` against `alerts_test.yml`, which is the half that matters: parsing says nothing about whether a rule fires when it should and, more importantly, stays quiet when it should not.
 
-| Alert                    | Fires when                                         | Why it is not noise                                                                                        |
-| :----------------------- | :------------------------------------------------- | :--------------------------------------------------------------------------------------------------------- |
-| `TargetDown`             | any scrape target is down 2m                       | Eight scrape intervals, so a deploy's own restart does not reach it                                        |
-| `DatabaseUnreachable`    | `pg_up == 0` for 2m                                | `/health` answers without touching Postgres, so nothing else separates a live process from a live database |
-| `BackupStale`            | no verified dump for 26h                           | One daily cycle plus slack. The timestamp only moves after a dump is read back and measured                |
-| `BackupMetricMissing`    | the backup has never reported                      | `BackupStale` cannot fire on a metric that does not exist; this is what notices that                       |
-| `DiskFillingUp`          | either volume below 15% free for 30m               | A disk crossing a threshold is a trend, so a dump's temp file cannot page anyone on its way past           |
-| `MemoryLow`              | under 15% available for 15m                        | 2 GiB with no swap: what follows is the OOM killer picking a process, and it will not pick the culprit     |
-| `GrpcUnexpectedFailures` | >5% of calls fail for 10m, above an absolute floor | Excludes the statuses this API returns on purpose — see below                                              |
-| `AssistantFallingBack`   | >50% of coach answers come from the rules for 15m  | Excludes an unsubscribed caller and a spent allowance, which are the product working                       |
-| `PurchasesBeingRejected` | >50% of submitted purchases rejected for 15m       | A share, not a count: one rejection is a sandbox tester, half of them is the money path broken             |
-| `ProcessPanicked`        | any panic                                          | Hyper unwinds the connection and the process survives, so nothing else reports it                          |
-| `ServerErrorsSustained`  | any `Internal` for 10m                             | There is no acceptable rate of the server being wrong                                                      |
+| Alert | Fires when | Why it is not noise |
+| :-- | :-- | :-- |
+| `TargetDown` | any scrape target is down 2m | Eight scrape intervals, so a deploy's own restart does not reach it |
+| `DatabaseUnreachable` | `pg_up == 0` for 2m | `/health` answers without touching Postgres, so nothing else separates a live process from a live database |
+| `BackupStale` | no verified dump for 26h | One daily cycle plus slack. The timestamp only moves after a dump is read back and measured |
+| `BackupMetricMissing` | the backup has never reported | `BackupStale` cannot fire on a metric that does not exist; this is what notices that |
+| `DiskFillingUp` | either volume below 15% free for 30m | A disk crossing a threshold is a trend, so a dump's temp file cannot page anyone on its way past |
+| `MemoryLow` | under 15% available for 15m | 2 GiB with no swap: what follows is the OOM killer picking a process, and it will not pick the culprit |
+| `GrpcUnexpectedFailures` | >5% of calls fail for 10m, above an absolute floor | Excludes the statuses this API returns on purpose — see below |
+| `AssistantFallingBack` | >50% of coach answers come from the rules for 15m | Excludes an unsubscribed caller and a spent allowance, which are the product working |
+| `PurchasesBeingRejected` | >50% of submitted purchases rejected for 15m | A share, not a count: one rejection is a sandbox tester, half of them is the money path broken |
+| `ProcessPanicked` | any panic | Hyper unwinds the connection and the process survives, so nothing else reports it |
+| `ServerErrorsSustained` | any `Internal` for 10m | There is no acceptable rate of the server being wrong |
+| `AuthenticationRefusalsSustained` | status 16 above a floor for 15m | The identity path refuses at `debug`, which production drops, so nothing else sees a run guessing credentials |
+| `ThrottleRefusalsSustained` | status 8 above a floor for 15m | A caller must spend a whole budget — six hundred requests a minute, or ten new identities — before one exists |
 
 The exclusion in `GrpcUnexpectedFailures` is the load-bearing part. Four codes are ordinary: `16` before an identity settles, `8` from the throttle, `7` from a free caller reaching a paid lever, `3` from a malformed request. Two more, `1` and `2`, are a phone disconnecting. A rule on "not zero" would fire on a working system, which is the failure mode that teaches people to ignore alerts. `alerts_test.yml` drives exactly that traffic and asserts silence.
+
+**Two of those excluded codes get a rule of their own instead**, because being ordinary at a trickle does not make them ordinary at volume. Both read an absolute rate rather than a share: an attack against a busy server would dilute away in a share. Each floor therefore sits above today's honest baseline — a reinstall that kept its id and lost the Keychain returns `16`, and a carrier NAT fills a request budget — and each has to move as real traffic arrives. `alerts_test.yml` drives that baseline and asserts silence, then drives an attack and asserts each fires.
 
 **Three of these exist because a successful response is this server's most common way to fail.** A Bedrock outage returns gRPC 0 with a rule-based answer; a rejected Apple purchase returns gRPC 3, which is excluded above, and logs at `debug`, which production drops; a panicking task leaves a dead connection and a live process. None was visible in the transport metrics, and each needed a metric that names the thing rather than the transport carrying it.
 
