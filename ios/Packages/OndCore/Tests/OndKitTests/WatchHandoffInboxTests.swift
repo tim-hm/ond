@@ -24,7 +24,7 @@ struct WatchHandoffInboxTests {
     /// initialiser is what keeps that first frame attributable.
     @Test("A stored identity is in hand before any context arrives")
     func readsTheStoredIdentityAtOnce() {
-        let id = UUID()
+        let id = anIdentity()
         let inbox = inbox(storage: FakeStorage(holding: id))
 
         #expect(inbox.userId == id)
@@ -34,7 +34,7 @@ struct WatchHandoffInboxTests {
     func adoptsAContext() async {
         let inbox =
             inbox(storage: FakeStorage())
-        let id = UUID()
+        let id = anIdentity()
 
         await inbox.adopt(WatchHandoff(userId: id, boltBestSeconds: 38))
 
@@ -52,10 +52,13 @@ struct WatchHandoffInboxTests {
         let identity = ProvisionedUserIdentityStore(storage: FakeStorage())
         let inbox = inbox(identity: identity)
 
-        await inbox.adopt(WatchHandoff(userId: UUID(), sessionCredential: "issued-on-the-phone"))
+        await inbox.adopt(WatchHandoff(
+            userId: anIdentity(),
+            sessionCredential: "issued-on-the-phone"
+        ))
         #expect(identity.sessionCredential() == "issued-on-the-phone")
 
-        await inbox.adopt(WatchHandoff(userId: UUID()))
+        await inbox.adopt(WatchHandoff(userId: anIdentity()))
         #expect(
             identity.sessionCredential() == nil,
             "the phone signed out, so the wrist holds nothing that proves the account"
@@ -69,7 +72,7 @@ struct WatchHandoffInboxTests {
     func isIdempotent() async {
         let inbox =
             inbox(storage: FakeStorage())
-        let handoff = WatchHandoff(userId: UUID(), boltBestSeconds: 38)
+        let handoff = WatchHandoff(userId: anIdentity(), boltBestSeconds: 38)
 
         await inbox.adopt(handoff)
         await inbox.adopt(handoff)
@@ -85,7 +88,7 @@ struct WatchHandoffInboxTests {
     func keepsABestASilentContextOmits() async {
         let inbox =
             inbox(storage: FakeStorage())
-        let id = UUID()
+        let id = anIdentity()
 
         await inbox.adopt(WatchHandoff(userId: id, boltBestSeconds: 38))
         await inbox.adopt(WatchHandoff(userId: id))
@@ -98,9 +101,9 @@ struct WatchHandoffInboxTests {
     /// syncing to an identity nothing else writes to.
     @Test("A new identity from the phone replaces the old one")
     func followsThePhoneToANewIdentity() async {
-        let storage = FakeStorage(holding: UUID())
+        let storage = FakeStorage(holding: anIdentity())
         let inbox = inbox(storage: storage)
-        let replacement = UUID()
+        let replacement = anIdentity()
 
         await inbox.adopt(WatchHandoff(userId: replacement))
 
@@ -115,10 +118,10 @@ struct WatchHandoffInboxTests {
     @Test("A context that replaces a deleted identity empties the wrist")
     func erasesWhatADeletedAccountLeftBehind() async {
         let store = CountingStore()
-        let inbox = inbox(storage: FakeStorage(holding: UUID()), stores: [store])
+        let inbox = inbox(storage: FakeStorage(holding: anIdentity()), stores: [store])
 
-        await inbox.adopt(WatchHandoff(userId: UUID(), boltBestSeconds: 41))
-        await inbox.adopt(WatchHandoff(userId: UUID(), erasesPriorHistory: true))
+        await inbox.adopt(WatchHandoff(userId: anIdentity(), boltBestSeconds: 41))
+        await inbox.adopt(WatchHandoff(userId: anIdentity(), erasesPriorHistory: true))
 
         #expect(store.erasures == 1)
         #expect(inbox.boltBestSeconds == nil, "the best pause belonged to the person erased")
@@ -133,7 +136,7 @@ struct WatchHandoffInboxTests {
     func erasesOnlyOnce() async {
         let store = CountingStore()
         let inbox = inbox(stores: [store])
-        let handoff = WatchHandoff(userId: UUID(), erasesPriorHistory: true)
+        let handoff = WatchHandoff(userId: anIdentity(), erasesPriorHistory: true)
 
         await inbox.adopt(handoff)
         await inbox.adopt(handoff)
@@ -148,9 +151,9 @@ struct WatchHandoffInboxTests {
     @Test("An identity swapped by a sign-in erases nothing")
     func keepsThePracticeThroughAnOrdinarySwap() async {
         let store = CountingStore()
-        let inbox = inbox(storage: FakeStorage(holding: UUID()), stores: [store])
+        let inbox = inbox(storage: FakeStorage(holding: anIdentity()), stores: [store])
 
-        await inbox.adopt(WatchHandoff(userId: UUID(), boltBestSeconds: 41))
+        await inbox.adopt(WatchHandoff(userId: anIdentity(), boltBestSeconds: 41))
 
         #expect(store.erasures == 0)
         #expect(inbox.boltBestSeconds == 41)
@@ -161,7 +164,7 @@ struct WatchHandoffInboxTests {
     /// order composes records under whoever the context says the person is.
     @Test("A fresh order is admitted, alongside the identity it came with")
     func admitsAFreshOrder() async {
-        let id = UUID()
+        let id = anIdentity()
         let inbox = inbox()
         let order = WatchSessionOrder(
             id: UUID(),
@@ -185,7 +188,7 @@ struct WatchHandoffInboxTests {
     /// lands.
     @Test("An order is refused below the subscription, and the identity is not")
     func refusesAnOrderFromAFreeTier() async {
-        let id = UUID()
+        let id = anIdentity()
         let inbox = inbox()
         let order = WatchSessionOrder(id: UUID(), errand: .sharePulse, issuedAt: .now)
 
@@ -205,7 +208,7 @@ struct WatchHandoffInboxTests {
         let defaults = scratchDefaults()
         let first = inbox(storage: storage, defaults: defaults)
 
-        await first.adopt(WatchHandoff(userId: UUID(), entitledTier: .plus))
+        await first.adopt(WatchHandoff(userId: anIdentity(), entitledTier: .plus))
         #expect(first.entitledTier == .plus)
 
         #expect(inbox(storage: storage, defaults: defaults).entitledTier == .plus)
@@ -221,7 +224,7 @@ struct WatchHandoffInboxTests {
         let defaults = scratchDefaults()
         let first = inbox(storage: storage, defaults: defaults)
 
-        await first.adopt(WatchHandoff(userId: UUID(), agreedConsentVersion: 1))
+        await first.adopt(WatchHandoff(userId: anIdentity(), agreedConsentVersion: 1))
         #expect(first.agreedConsentVersion == 1)
 
         #expect(inbox(storage: storage, defaults: defaults).agreedConsentVersion == 1)
@@ -234,7 +237,7 @@ struct WatchHandoffInboxTests {
     @Test("A context with no agreed version takes back the one held")
     func clearsTheAgreedVersionThePhoneStopsSending() async {
         let inbox = inbox()
-        let id = UUID()
+        let id = anIdentity()
 
         await inbox.adopt(WatchHandoff(userId: id, agreedConsentVersion: 1))
         await inbox.adopt(WatchHandoff(userId: id))
@@ -249,7 +252,7 @@ struct WatchHandoffInboxTests {
     func refusesAReplayedOrder() async {
         let inbox = inbox()
         let handoff = WatchHandoff(
-            userId: UUID(),
+            userId: anIdentity(),
             order: WatchSessionOrder(
                 id: UUID(),
                 errand: .breathe(
@@ -283,7 +286,7 @@ struct WatchHandoffInboxTests {
             issuedAt: Date(timeIntervalSinceNow: -(WatchOrderLedger.freshness + 60))
         )
 
-        await inbox.adopt(WatchHandoff(userId: UUID(), order: stale))
+        await inbox.adopt(WatchHandoff(userId: anIdentity(), order: stale))
 
         #expect(inbox.order == nil)
     }

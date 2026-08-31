@@ -18,7 +18,7 @@ struct AccountCredentialTests {
     /// of its own would satisfy every other test here and send no header at all.
     @Test("A sign-in keeps the credential that identity now has to prove")
     func keepsTheCredentialASignInReturns() async throws {
-        let identity = mintingStore(holding: UUID())
+        let identity = mintingStore(holding: anIdentity())
         let account = try accountModel(
             identity: identity,
             accounts: FakeAccounts(identity: identity),
@@ -39,7 +39,7 @@ struct AccountCredentialTests {
     /// the call goes out *before* the credential is cleared.
     @Test("Signing out revokes the credential this install was presenting")
     func revokesTheCredentialOnTheWayOut() async throws {
-        let identity = mintingStore(holding: UUID())
+        let identity = mintingStore(holding: anIdentity())
         let accounts = FakeAccounts(identity: identity)
         let account = try accountModel(
             identity: identity,
@@ -63,7 +63,7 @@ struct AccountCredentialTests {
     /// account revokes along with everything else.
     @Test("A sign-out the server never heard still returns this install to local only")
     func signsOutWithoutTheServer() async throws {
-        let identity = mintingStore(holding: UUID())
+        let identity = mintingStore(holding: anIdentity())
         let account = try accountModel(
             identity: identity,
             accounts: RefusingAccounts(identity: identity),

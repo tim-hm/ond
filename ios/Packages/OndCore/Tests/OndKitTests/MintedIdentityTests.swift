@@ -6,17 +6,17 @@ import Testing
 /// A Keychain that refuses every write, standing in for the only failure this
 /// store has a deliberate answer to.
 private struct RefusingStorage: IdentityStorage {
-    let stored: UUID?
+    let stored: UserId?
 
-    func read() -> UUID? {
+    func read() -> UserId? {
         stored
     }
 
-    func insert(_: UUID) -> UUID? {
+    func insert(_: UserId) -> UserId? {
         nil
     }
 
-    func replace(with _: UUID) -> Bool {
+    func replace(with _: UserId) -> Bool {
         false
     }
 }
@@ -47,13 +47,13 @@ struct MintedIdentityTests {
     /// and writing onto an orphan.
     @Test("Adopting replaces the cached id, not only the stored one")
     func adoptingInvalidatesTheCache() {
-        let storage = FakeStorage(holding: UUID())
+        let storage = FakeStorage(holding: anIdentity())
         let store = KeychainUserIdentityStore(storage: storage)
-        let adopted = UUID()
+        let adopted = anIdentity()
 
         _ = store.userId()
 
-        #expect(store.adopt(adopted))
+        #expect(store.adopt(userId: adopted))
         #expect(store.userId() == adopted)
         #expect(storage.read() == adopted)
     }
@@ -63,11 +63,11 @@ struct MintedIdentityTests {
     /// should be woken to hear about it.
     @Test("Adopting the id already held changes nothing")
     func ignoresAdoptingTheSameId() {
-        let held = UUID()
+        let held = anIdentity()
         let storage = FakeStorage(holding: held)
         let store = KeychainUserIdentityStore(storage: storage)
 
-        #expect(store.adopt(held) == false)
+        #expect(store.adopt(userId: held) == false)
         #expect(storage.writes == 0)
     }
 
@@ -78,9 +78,9 @@ struct MintedIdentityTests {
     func adoptingNeverMints() {
         let storage = FakeStorage()
         let store = KeychainUserIdentityStore(storage: storage)
-        let adopted = UUID()
+        let adopted = anIdentity()
 
-        #expect(store.adopt(adopted))
+        #expect(store.adopt(userId: adopted))
         #expect(storage.inserts == 0)
         #expect(store.userId() == adopted)
     }
@@ -92,10 +92,10 @@ struct MintedIdentityTests {
     /// swap this install forgets when it next launches.
     @Test("A swap the Keychain refused still takes effect in this process")
     func adoptsDespiteAFailedWrite() {
-        let store = KeychainUserIdentityStore(storage: RefusingStorage(stored: UUID()))
-        let adopted = UUID()
+        let store = KeychainUserIdentityStore(storage: RefusingStorage(stored: anIdentity()))
+        let adopted = anIdentity()
 
-        #expect(store.adopt(adopted))
+        #expect(store.adopt(userId: adopted))
         #expect(store.userId() == adopted)
     }
 
@@ -109,11 +109,11 @@ struct MintedIdentityTests {
         let storage = FakeStorage()
         let store = KeychainUserIdentityStore(storage: storage)
         let before = try #require(store.userId())
-        let after = UUID()
-        let observed = OSAllocatedUnfairLock<[UUID?]>(initialState: [])
+        let after = anIdentity()
+        let observed = OSAllocatedUnfairLock<[UserId?]>(initialState: [])
 
         await withTaskGroup(of: Void.self) { group in
-            group.addTask { _ = store.adopt(after) }
+            group.addTask { _ = store.adopt(userId: after) }
 
             for _ in 0 ..< 64 {
                 group.addTask {

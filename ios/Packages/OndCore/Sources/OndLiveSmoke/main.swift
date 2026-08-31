@@ -4,11 +4,11 @@ import OndKit
 
 /// An identity-free caller for the public catalogue smoke test.
 private struct AnonymousIdentity: UserIdentityStore {
-    func userId() -> UUID? {
+    func userId() -> UserId? {
         nil
     }
 
-    func adopt(_: UUID) -> Bool {
+    func adopt(userId _: UserId) -> Bool {
         false
     }
 

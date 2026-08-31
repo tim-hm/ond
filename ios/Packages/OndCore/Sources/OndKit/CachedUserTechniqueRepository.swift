@@ -11,7 +11,7 @@ public struct CachedUserTechniqueRepository: UserTechniqueStoring, UserTechnique
 
     /// The list as it goes to disk, stamped with the identity it belongs to.
     private struct StoredList: Codable {
-        let userId: UUID
+        let userId: UserId
         let list: UserTechniqueList
     }
 

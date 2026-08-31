@@ -12,7 +12,7 @@ struct WatchHandoffTests {
     @Test("The context round-trips every field")
     func roundTripsEverything() throws {
         let sent = WatchHandoff(
-            userId: UUID(),
+            userId: anIdentity(),
             sessionCredential: "a-credential-the-phone-was-issued",
             boltBestSeconds: 42,
             erasesPriorHistory: true,
@@ -30,7 +30,7 @@ struct WatchHandoffTests {
     /// would leave a deleted person's agreement standing on their watch.
     @Test("A phone that has agreed to nothing carries no version at all")
     func omitsAnAbsentConsentVersion() throws {
-        let unasked = WatchHandoff(userId: UUID())
+        let unasked = WatchHandoff(userId: anIdentity())
 
         #expect(!unasked.dictionary.keys.contains("agreedConsentVersion"))
 
@@ -45,7 +45,7 @@ struct WatchHandoffTests {
     /// when populated would leave the wrist presenting a revoked value forever.
     @Test("A context with no credential carries the key at all")
     func omitsAnAbsentCredential() throws {
-        let anonymous = WatchHandoff(userId: UUID())
+        let anonymous = WatchHandoff(userId: anIdentity())
 
         #expect(!anonymous.dictionary.keys.contains("sessionCredential"))
 
@@ -59,7 +59,7 @@ struct WatchHandoffTests {
     /// mistyped key has to read as false, and does.
     @Test("An erasure nobody asked for cannot be read out of a context")
     func defaultsToKeepingTheHistory() throws {
-        let id = UUID()
+        let id = anIdentity()
         let ordinary: [[String: Any]] = [
             ["userId": id.uuidString],
             ["userId": id.uuidString, "erasesPriorHistory": "true"],
@@ -81,7 +81,7 @@ struct WatchHandoffTests {
     /// never taken a controlled-pause test.
     @Test("A handoff with no BOLT score round-trips as no score")
     func roundTripsWithoutAScore() throws {
-        let sent = WatchHandoff(userId: UUID())
+        let sent = WatchHandoff(userId: anIdentity())
 
         let context = sent.dictionary
         let received = try #require(WatchHandoff(dictionary: context))
@@ -96,7 +96,7 @@ struct WatchHandoffTests {
     /// of the wire the zero came in on.
     @Test("A zero-second best is no best, however it arrives")
     func rejectsAZeroScore() throws {
-        let id = UUID()
+        let id = anIdentity()
         let context: [String: Any] = ["userId": id.uuidString, "boltBestSeconds": 0]
 
         let decoded = try #require(WatchHandoff(dictionary: context))
@@ -122,13 +122,13 @@ struct WatchHandoffTests {
             ),
             issuedAt: Date(timeIntervalSince1970: 1_754_900_000)
         )
-        let sent = WatchHandoff(userId: UUID(), order: order)
+        let sent = WatchHandoff(userId: anIdentity(), order: order)
 
         let received = try #require(WatchHandoff(dictionary: sent.dictionary))
 
         #expect(received.order == order)
         #expect(
-            !WatchHandoff(userId: UUID()).dictionary.keys.contains("order"),
+            !WatchHandoff(userId: anIdentity()).dictionary.keys.contains("order"),
             "an ordinary context should not carry the key at all"
         )
     }
@@ -137,7 +137,7 @@ struct WatchHandoffTests {
     /// still provisions the wrist, and only the order reads as absent.
     @Test("A context with a broken order still hands over the identity")
     func survivesABrokenOrder() throws {
-        let id = UUID()
+        let id = anIdentity()
         let context: [String: Any] = [
             "userId": id.uuidString,
             "order": ["id": "not-a-uuid"],

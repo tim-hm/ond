@@ -3,6 +3,13 @@ import Foundation
 import os
 import Testing
 
+/// One identity a test needs and does not otherwise care about. Here rather
+/// than in a feature's doubles because a dozen suites across the account, the
+/// hand-over and the cache all ask for one.
+func anIdentity() -> UserId {
+    UserId(rawValue: UUID())
+}
+
 /// The watch's half of the identity seam, through a fake store — on the host
 /// the real Keychain means an unsigned process writing to a developer's login
 /// keychain. A watch that minted its own id would split a person's journey in
@@ -10,7 +17,7 @@ import Testing
 /// reads. File scope because `WatchHandoffInboxTests` provisions through this.
 final class FakeStorage: IdentityStorage {
     private struct State {
-        var id: UUID?
+        var id: UserId?
         var reads = 0
         var writes = 0
         var inserts = 0
@@ -18,7 +25,7 @@ final class FakeStorage: IdentityStorage {
 
     private let state = OSAllocatedUnfairLock(initialState: State())
 
-    init(holding id: UUID? = nil) {
+    init(holding id: UserId? = nil) {
         state.withLock { $0.id = id }
     }
 
@@ -37,14 +44,14 @@ final class FakeStorage: IdentityStorage {
         state.withLock { $0.inserts }
     }
 
-    func read() -> UUID? {
+    func read() -> UserId? {
         state.withLock {
             $0.reads += 1
             return $0.id
         }
     }
 
-    func insert(_ id: UUID) -> UUID? {
+    func insert(_ id: UserId) -> UserId? {
         state.withLock {
             $0.inserts += 1
             $0.id = $0.id ?? id
@@ -52,7 +59,7 @@ final class FakeStorage: IdentityStorage {
         }
     }
 
-    func replace(with id: UUID) -> Bool {
+    func replace(with id: UserId) -> Bool {
         state.withLock {
             $0.id = id
             $0.writes += 1
@@ -131,9 +138,9 @@ struct ProvisionedIdentityTests {
     @Test("The handed-over id is stored and answered from then on")
     func adoptsTheHandedOverId() {
         let store = ProvisionedUserIdentityStore(storage: FakeStorage())
-        let id = UUID()
+        let id = anIdentity()
 
-        #expect(store.adopt(id))
+        #expect(store.adopt(userId: id))
         #expect(store.userId() == id)
     }
 
@@ -141,11 +148,11 @@ struct ProvisionedIdentityTests {
     /// each one as news would kick a sync it has nothing to say in.
     @Test("Re-sending the same id changes nothing")
     func ignoresARepeatedHandover() {
-        let id = UUID()
+        let id = anIdentity()
         let storage = FakeStorage(holding: id)
         let store = ProvisionedUserIdentityStore(storage: storage)
 
-        #expect(store.adopt(id) == false)
+        #expect(store.adopt(userId: id) == false)
         #expect(storage.writes == 0)
     }
 
@@ -154,11 +161,11 @@ struct ProvisionedIdentityTests {
     /// nothing else writes to.
     @Test("A different id replaces the stored one")
     func followsThePhoneToANewId() {
-        let storage = FakeStorage(holding: UUID())
+        let storage = FakeStorage(holding: anIdentity())
         let store = ProvisionedUserIdentityStore(storage: storage)
-        let replacement = UUID()
+        let replacement = anIdentity()
 
-        #expect(store.adopt(replacement))
+        #expect(store.adopt(userId: replacement))
         #expect(store.userId() == replacement)
         #expect(storage.read() == replacement)
     }

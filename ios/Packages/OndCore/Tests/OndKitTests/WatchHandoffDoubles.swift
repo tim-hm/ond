@@ -6,10 +6,10 @@ import os
 /// be the person who signs in between two foregrounds and has their id replaced
 /// by the one their Apple account already had.
 final class StubIdentity: UserIdentityStore {
-    private let stored: OSAllocatedUnfairLock<UUID?>
+    private let stored: OSAllocatedUnfairLock<UserId?>
     private let credential: OSAllocatedUnfairLock<String?>
 
-    init(id: UUID?, credential: String? = nil) {
+    init(id: UserId?, credential: String? = nil) {
         stored = OSAllocatedUnfairLock(initialState: id)
         self.credential = OSAllocatedUnfairLock(initialState: credential)
     }
@@ -22,12 +22,12 @@ final class StubIdentity: UserIdentityStore {
         credential.withLock { $0 = value }
     }
 
-    func userId() -> UUID? {
+    func userId() -> UserId? {
         stored.withLock { $0 }
     }
 
     @discardableResult
-    func adopt(_ id: UUID) -> Bool {
+    func adopt(userId id: UserId) -> Bool {
         stored.withLock { current in
             guard current != id else { return false }
             current = id
@@ -71,7 +71,7 @@ final class PlacedOrders {
     /// pinned by its own tests, which pass `.free` deliberately.
     init(tier: SubscriptionTier = .plus) {
         outbox = WatchHandoffOutbox(
-            identity: StubIdentity(id: UUID()),
+            identity: StubIdentity(id: anIdentity()),
             scores: StubScores(),
             // Nobody else's, so the erasure marker one test writes cannot be
             // read by the next one.

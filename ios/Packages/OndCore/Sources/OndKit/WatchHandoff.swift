@@ -8,7 +8,7 @@ import Foundation
 public struct WatchHandoff: Sendable, Equatable {
     /// The anonymous id both devices attribute their sessions to. The watch
     /// never invents one, so this is the only way it ever gets an identity.
-    public let userId: UUID
+    public let userId: UserId
     /// What proves that id once the phone has signed in, and nil while it has
     /// not. The wrist syncs what was breathed on it, so a bound identity needs
     /// the credential too; a signed-out phone sends nil, which stops the wrist
@@ -49,7 +49,7 @@ public struct WatchHandoff: Sendable, Equatable {
     /// Normalises the score here, in the one initialiser everything else routes
     /// through, so neither the encoder nor the decoder has to remember to.
     public init(
-        userId: UUID,
+        userId: UserId,
         sessionCredential: String? = nil,
         boltBestSeconds: Int? = nil,
         erasesPriorHistory: Bool = false,
@@ -113,7 +113,9 @@ public struct WatchHandoff: Sendable, Equatable {
     /// queue with whatever the system hands over, and a watch app can only
     /// ignore a malformed one.
     public init?(dictionary: [String: Any]) {
-        guard let userId = dictionary.uuid(Self.userIdKey) else { return nil }
+        guard let userId = dictionary.uuid(Self.userIdKey).map(UserId.init(rawValue:)) else {
+            return nil
+        }
 
         // A missing or unreadable flag reads as false — the direction that
         // cannot erase a wrist whose phone asked for nothing of the kind. A

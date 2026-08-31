@@ -67,7 +67,7 @@ public struct SignedInIdentity: Sendable, Equatable {
     /// The identity to send in every request from now on. Anything that keeps
     /// using the old one writes onto a row the server recreates empty — see
     /// `UserIdentityStore.adopt`.
-    public let userId: UUID
+    public let userId: UserId
 
     /// What proves it. Issued once and never handed back: an install that loses
     /// this signs in again under a fresh anonymous id, which is the same path a
@@ -76,7 +76,7 @@ public struct SignedInIdentity: Sendable, Equatable {
 
     /// Memberwise, made public: the server mints these, and a test double has
     /// to be able to as well.
-    public init(userId: UUID, sessionCredential: String) {
+    public init(userId: UserId, sessionCredential: String) {
         self.userId = userId
         self.sessionCredential = sessionCredential
     }
@@ -157,7 +157,7 @@ public struct AccountRepository: AccountSyncing {
     public init(baseURL: URL, identity: any UserIdentityStore) {
         client = OndClients.accountService(
             baseURL: baseURL,
-            userId: identity.userId,
+            userId: identity.wireUserId,
             sessionCredential: identity.sessionCredential
         )
     }
@@ -224,7 +224,7 @@ public struct AccountRepository: AccountSyncing {
             }
         }
 
-        guard let adopted = UUID(uuidString: message.userID) else {
+        guard let adopted = UserId(uuidString: message.userID) else {
             throw AccountRepositoryError.malformedResponse(
                 "`user_id` is not a UUID: `\(message.userID)`"
             )

@@ -15,14 +15,14 @@ struct UserIdentityTests {
     /// interceptor depends on. Swapping is not part of that: what a store does
     /// with one is tested where the swap lives.
     private struct FakeIdentityStore: UserIdentityStore {
-        let stored: UUID?
+        let stored: UserId?
         var credential: String?
 
-        func userId() -> UUID? {
+        func userId() -> UserId? {
             stored
         }
 
-        func adopt(_: UUID) -> Bool {
+        func adopt(userId _: UserId) -> Bool {
             false
         }
 
@@ -36,7 +36,10 @@ struct UserIdentityTests {
     /// The interceptor over one store, which is the pair of closures every
     /// client is built with.
     private func interceptor(_ store: FakeIdentityStore) -> IdentityInterceptor {
-        IdentityInterceptor(userId: store.userId, sessionCredential: store.sessionCredential)
+        IdentityInterceptor(
+            userId: store.wireUserId,
+            sessionCredential: store.sessionCredential
+        )
     }
 
     /// One fixture for both hooks: they differ only in the body type, which is
@@ -73,10 +76,10 @@ struct UserIdentityTests {
 
     @Test("Every request carries the stored id, alongside the headers already set")
     func attachesTheIdentityHeader() async throws {
-        let id = UUID()
+        let id = anIdentity()
         let store = FakeIdentityStore(stored: id)
         let interceptor = IdentityInterceptor(
-            userId: store.userId,
+            userId: store.wireUserId,
             sessionCredential: store.sessionCredential
         )
 
@@ -107,7 +110,7 @@ struct UserIdentityTests {
     /// the streaming hook is a separate seam; this pins that it is wired.
     @Test("A stream carries the id too, not just a unary call")
     func attachesTheIdentityHeaderToStreams() async throws {
-        let id = UUID()
+        let id = anIdentity()
         let interceptor = interceptor(FakeIdentityStore(stored: id))
 
         let headers = try await streamHeaders(from: interceptor)
@@ -131,7 +134,7 @@ struct UserIdentityTests {
     /// RPC, including the public catalogue.
     @Test("A signed-in install proves its identity on every request")
     func attachesTheCredentialHeader() async throws {
-        let id = UUID()
+        let id = anIdentity()
         let store = FakeIdentityStore(stored: id, credential: "issued-by-a-sign-in")
 
         let unary = try await headers(from: interceptor(store))
@@ -150,7 +153,7 @@ struct UserIdentityTests {
     /// a value with nothing on the server to check it against.
     @Test("An install that has never signed in sends no credential")
     func sendsNoCredentialWhenThereIsNone() async throws {
-        let headers = try await headers(from: interceptor(FakeIdentityStore(stored: UUID())))
+        let headers = try await headers(from: interceptor(FakeIdentityStore(stored: anIdentity())))
 
         #expect(headers[IdentityInterceptor.credentialHeaderName] == nil)
     }

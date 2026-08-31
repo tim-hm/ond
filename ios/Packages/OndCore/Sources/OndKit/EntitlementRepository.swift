@@ -68,7 +68,7 @@ public struct EntitlementRepository: EntitlementSyncing {
     public init(baseURL: URL, identity: any UserIdentityStore) {
         client = OndClients.entitlementService(
             baseURL: baseURL,
-            userId: identity.userId,
+            userId: identity.wireUserId,
             sessionCredential: identity.sessionCredential
         )
     }

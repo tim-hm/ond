@@ -135,15 +135,15 @@ struct SilentHealthStore: StubbedHealthStore {}
 /// this is the only way a test puts the model in the `userId == nil` state
 /// that a real unreadable Keychain causes.
 struct UnreachableStorage: IdentityStorage {
-    func read() -> UUID? {
+    func read() -> UserId? {
         nil
     }
 
-    func insert(_: UUID) -> UUID? {
+    func insert(_: UserId) -> UserId? {
         nil
     }
 
-    func replace(with _: UUID) -> Bool {
+    func replace(with _: UserId) -> Bool {
         false
     }
 }

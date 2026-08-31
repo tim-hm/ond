@@ -4,7 +4,7 @@ import os
 import Testing
 
 /// The store the phone composes, over storage that never touches a Keychain.
-func mintingStore(holding id: UUID? = nil) -> KeychainUserIdentityStore {
+func mintingStore(holding id: UserId? = nil) -> KeychainUserIdentityStore {
     KeychainUserIdentityStore(storage: FakeStorage(holding: id))
 }
 
@@ -16,7 +16,7 @@ func mintingStore(holding id: UUID? = nil) -> KeychainUserIdentityStore {
 final class FakeAccounts: AccountSyncing {
     /// Apple account → the identity holding it, which is `users.apple_user_id`
     /// read the way a sign-in reads it.
-    private let bindings: OSAllocatedUnfairLock<[String: UUID]>
+    private let bindings: OSAllocatedUnfairLock<[String: UserId]>
     /// Every credential a sign-out revoked, so a test can see that it was the
     /// one the install was actually presenting.
     private let revoked = OSAllocatedUnfairLock<[String]>(initialState: [])
@@ -25,14 +25,14 @@ final class FakeAccounts: AccountSyncing {
     )
     private let identity: any UserIdentityStore
 
-    init(identity: any UserIdentityStore, bindings: [String: UUID] = [:]) {
+    init(identity: any UserIdentityStore, bindings: [String: UserId] = [:]) {
         self.identity = identity
         self.bindings = OSAllocatedUnfairLock(initialState: bindings)
     }
 
     /// Which identity each Apple account is filed under, after whatever has
     /// happened to them.
-    var boundAccounts: [String: UUID] {
+    var boundAccounts: [String: UserId] {
         bindings.withLock { $0 }
     }
 
@@ -74,7 +74,7 @@ final class FakeAccounts: AccountSyncing {
             throw AccountRepositoryError.transport(.stub("no identity to bind"))
         }
 
-        let adopted = try bindings.withLock { held -> UUID in
+        let adopted = try bindings.withLock { held -> UserId in
             // Somebody's row holds this Apple account. It is that person's real
             // history, so the caller is merged into it and *deleted* — taking
             // whatever Apple account the caller was bound to with it, which is
@@ -172,9 +172,9 @@ func accountModel(
 final class TombstoningAccounts: AccountSyncing {
     private let real: FakeAccounts
     private let identity: any UserIdentityStore
-    private let dead: UUID
+    private let dead: UserId
 
-    init(identity: any UserIdentityStore, bindings: [String: UUID], dead: UUID) {
+    init(identity: any UserIdentityStore, bindings: [String: UserId], dead: UserId) {
         real = FakeAccounts(identity: identity, bindings: bindings)
         self.identity = identity
         self.dead = dead

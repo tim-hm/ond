@@ -4,8 +4,8 @@ import Testing
 
 /// One identity, and a second one to swap to. Distinct is the whole
 /// requirement; which two they are never matters.
-private let someone = UUID()
-private let somebodyElse = UUID()
+private let someone = anIdentity()
+private let somebodyElse = anIdentity()
 
 /// The half of the boundary that talks to the server, scripted.
 private actor ScriptedServer: UserTechniqueStoring {
@@ -123,7 +123,7 @@ struct UserTechniqueOfflineTests {
         _ = try await cache.listUserTechniques()
         #expect(await cache.localUserTechniques() != nil)
 
-        _ = identity.adopt(somebodyElse)
+        _ = identity.adopt(userId: somebodyElse)
 
         #expect(
             await cache.localUserTechniques() == nil,

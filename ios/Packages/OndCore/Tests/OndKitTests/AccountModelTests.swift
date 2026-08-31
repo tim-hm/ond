@@ -16,8 +16,8 @@ struct AccountModelTests {
     /// the id that comes back is the one the person's practice is filed under.
     @Test("The identity the server answers with is adopted, and everything is told")
     func adoptsTheReturnedIdentity() async throws {
-        let identity = mintingStore(holding: UUID())
-        let history = UUID()
+        let identity = mintingStore(holding: anIdentity())
+        let history = anIdentity()
         let told = OSAllocatedUnfairLock(initialState: 0)
         let account = try accountModel(
             identity: identity,
@@ -42,7 +42,7 @@ struct AccountModelTests {
     /// copy is still right — hence asserting the hand-over happened.
     @Test("A first sign-in keeps the identity it arrived with")
     func keepsTheCallersIdentityOnAFirstSignIn() async throws {
-        let held = UUID()
+        let held = anIdentity()
         let identity = mintingStore(holding: held)
         let told = OSAllocatedUnfairLock(initialState: 0)
         let account = try accountModel(
@@ -70,8 +70,8 @@ struct AccountModelTests {
     /// deleted, and what it takes with it is the first account's binding.
     @Test("Sign in as one account, sign out, and sign in as another lands on their history")
     func signingOutKeepsTheFirstAccountsHistoryOutOfTheSecond() async throws {
-        let identity = mintingStore(holding: UUID())
-        let theirs = UUID()
+        let identity = mintingStore(holding: anIdentity())
+        let theirs = anIdentity()
         let accounts = FakeAccounts(identity: identity, bindings: ["apple-b": theirs])
         let account = try accountModel(
             identity: identity,
@@ -99,7 +99,7 @@ struct AccountModelTests {
     /// can never sign in as anybody else again.
     @Test("Sign in, sign out, and sign in as a new account binds rather than being refused")
     func signingOutFreesTheInstallForANewAccount() async throws {
-        let identity = mintingStore(holding: UUID())
+        let identity = mintingStore(holding: anIdentity())
         let account = try accountModel(
             identity: identity,
             accounts: FakeAccounts(identity: identity),
@@ -116,7 +116,7 @@ struct AccountModelTests {
 
     @Test("Signing out mints an identity that is nobody's history")
     func signingOutMintsAFreshIdentity() async throws {
-        let identity = mintingStore(holding: UUID())
+        let identity = mintingStore(holding: anIdentity())
         let told = OSAllocatedUnfairLock(initialState: 0)
         let account = try accountModel(
             identity: identity,
@@ -150,7 +150,7 @@ struct AccountModelTests {
     /// only way back — in front of the person.
     @Test("A refusal reveals a binding this install had forgotten, and is recoverable")
     func recordsABindingItHadForgotten() async throws {
-        let held = UUID()
+        let held = anIdentity()
         let identity = mintingStore(holding: held)
         let account = try accountModel(
             identity: identity,
@@ -176,8 +176,8 @@ struct AccountModelTests {
     /// or, after a merging sign-in, the wrong row.
     @Test("The published identifier follows every swap")
     func publishesTheLiveIdentity() async throws {
-        let identity = mintingStore(holding: UUID())
-        let history = UUID()
+        let identity = mintingStore(holding: anIdentity())
+        let history = anIdentity()
         let account = try accountModel(
             identity: identity,
             accounts: FakeAccounts(identity: identity, bindings: ["apple-a": history]),
@@ -203,7 +203,7 @@ struct AccountModelTests {
     /// matters: the server stores and logs the lowercase form.
     @Test("The support reference is a prefix of the identity, never the identity")
     func offersAReferenceRatherThanTheIdentity() throws {
-        let identity = mintingStore(holding: UUID())
+        let identity = mintingStore(holding: anIdentity())
         let account = try accountModel(
             identity: identity,
             accounts: FakeAccounts(identity: identity),
@@ -229,8 +229,8 @@ struct AccountModelTests {
     /// sign in on that, which hands back the account's identity.
     @Test("A sign-in stranded on a merged-away identity recovers under a fresh one")
     func strandedSignInRecovers() async throws {
-        let dead = UUID()
-        let account = UUID()
+        let dead = anIdentity()
+        let account = anIdentity()
         let store = mintingStore(holding: dead)
         let model = try accountModel(
             identity: store,
@@ -255,7 +255,7 @@ struct AccountModelTests {
     /// the stranded-id recovery or cost a healthy anonymous identity.
     @Test("A rejected token does not cost the identity it was presented under")
     func rejectedTokenKeepsTheIdentity() async throws {
-        let mine = UUID()
+        let mine = anIdentity()
         let store = mintingStore(holding: mine)
         let model = try accountModel(
             identity: store,
@@ -272,7 +272,7 @@ struct AccountModelTests {
 
     @Test("Apple authorization preserves the action's purpose")
     func authorizationPurposesStayDistinct() async throws {
-        let identity = mintingStore(holding: UUID())
+        let identity = mintingStore(holding: anIdentity())
         let accounts = FakeAccounts(identity: identity)
         let model = try accountModel(
             identity: identity,

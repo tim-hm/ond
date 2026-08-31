@@ -14,10 +14,10 @@ struct KeychainIdentityItem: Sendable {
         item = KeychainItem(service: service, account: account)
     }
 
-    func read() -> UUID? {
+    func read() -> UserId? {
         guard let stored = item.read() else { return nil }
 
-        guard let id = UUID(uuidString: stored) else {
+        guard let id = UserId(uuidString: stored) else {
             // Something else wrote this item, or it was truncated. Reporting it
             // rather than overwriting: an identity is not ours to discard, and a
             // fresh one would silently orphan whatever is stored against the old.
@@ -32,12 +32,12 @@ struct KeychainIdentityItem: Sendable {
     ///   write nor the re-read could be made — which is the Keychain being
     ///   unreachable, and leaves this install anonymous for now rather than
     ///   inventing an identity it cannot store.
-    func insert(_ id: UUID) -> UUID? {
-        item.insert(id.uuidString).flatMap(UUID.init(uuidString:))
+    func insert(_ id: UserId) -> UserId? {
+        item.insert(id.uuidString).flatMap(UserId.init(uuidString:))
     }
 
     /// - Returns: whether the item now holds `id`.
-    func replace(with id: UUID) -> Bool {
+    func replace(with id: UserId) -> Bool {
         item.replace(with: id.uuidString)
     }
 }

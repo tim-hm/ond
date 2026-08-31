@@ -67,7 +67,7 @@ public struct ProfileRepository: ProfileSyncing {
     public init(baseURL: URL, identity: any UserIdentityStore) {
         client = OndClients.profileService(
             baseURL: baseURL,
-            userId: identity.userId,
+            userId: identity.wireUserId,
             sessionCredential: identity.sessionCredential
         )
     }
