@@ -10,6 +10,15 @@ struct SessionStoreTests {
         URL.temporaryDirectory.appending(path: "ond-session-store-\(UUID().uuidString)")
     }
 
+    /// A directory holding one file this version cannot decode — the state a
+    /// shape change to `SessionRecord` puts a real install into.
+    private func directory(holding contents: Data, named name: String) throws -> URL {
+        let directory = temporaryDirectory()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try contents.write(to: directory.appending(path: name))
+        return directory
+    }
+
     private func record(
         slug: TechniqueSlug = "box-breathing",
         duration: Duration = .milliseconds(128_000),
@@ -137,14 +146,115 @@ struct SessionStoreTests {
     /// mid-breath and there is nothing they could do about it.
     @Test("Corrupt history reads as empty rather than throwing")
     func survivesCorruptHistory() async throws {
-        let directory = temporaryDirectory()
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try Data("not json".utf8).write(to: directory.appending(path: "sessions.json"))
+        let directory = try directory(holding: Data("not json".utf8), named: "sessions.json")
 
         let store = FileSessionStore(directory: directory)
         #expect(await store.recordedSessions().isEmpty)
 
         await store.record(record())
         #expect(await store.recordedSessions().count == 1)
+    }
+
+    /// The next session rewrites the whole file. Unless the bytes it cannot
+    /// decode are copied aside first, that write is what turns history nobody
+    /// could read into history nobody has.
+    @Test("A session recorded over unreadable history keeps the unreadable bytes")
+    func recordingKeepsUnreadableHistory() async throws {
+        let unreadable = Data(#"[{"techniqueSlug":"box-breathing""#.utf8)
+        let directory = try directory(holding: unreadable, named: "sessions.json")
+        let store = FileSessionStore(directory: directory)
+        let written = record()
+
+        await store.record(written)
+
+        #expect(await store.recordedSessions() == [written])
+        let kept = try Data(contentsOf: directory.appending(path: "sessions.json.unreadable"))
+        #expect(kept == unreadable)
+    }
+
+    /// A deletion list that will not decode names no deletions, and a merge
+    /// that believes it hands the person back every session they got rid of.
+    @Test("An unreadable deletion list stops a merge rather than resurrecting a session")
+    func mergeStopsWithoutADeletionList() async throws {
+        let directory = try directory(
+            holding: Data("not json".utf8),
+            named: "deleted-sessions.json"
+        )
+        let store = FileSessionStore(directory: directory)
+
+        let changed = await store.merge([record()])
+
+        #expect(!changed)
+        #expect(await store.recordedSessions().isEmpty)
+    }
+
+    /// The tombstone is what holds the deletion against the next restore. A
+    /// history file that will not decode cannot say the session is in it, so
+    /// the deletion has to be written down anyway.
+    @Test("A deletion is tombstoned even when the history file will not decode")
+    func deletionHoldsAgainstUnreadableHistory() async throws {
+        let directory = try directory(holding: Data("not json".utf8), named: "sessions.json")
+        let store = FileSessionStore(directory: directory)
+        let deleted = record()
+
+        await store.remove(deleted.id)
+
+        #expect(await store.tombstonedSessions() == [deleted.id])
+        #expect(await store.merge([deleted]) == false)
+        #expect(await store.recordedSessions().isEmpty)
+    }
+
+    /// An erasure that left the copy behind would not be one: the copy is the
+    /// same person's sessions in an encoding this version cannot read.
+    @Test("Erasing takes the copy of the unreadable file with it")
+    func erasingTakesTheUnreadableCopy() async throws {
+        let directory = try directory(holding: Data("not json".utf8), named: "sessions.json")
+        let store = FileSessionStore(directory: directory)
+        _ = await store.recordedSessions()
+        let aside = directory.appending(path: "sessions.json.unreadable")
+        #expect(FileManager.default.fileExists(atPath: aside.path(percentEncoded: false)))
+
+        await store.erase()
+
+        #expect(!FileManager.default.fileExists(atPath: aside.path(percentEncoded: false)))
+    }
+
+    /// Writing one tombstone over a list that will not decode would make the
+    /// list decode again, holding only the newest deletion — and the merge it
+    /// unblocks would hand back every deletion the list still owed.
+    @Test("A later deletion does not unblock a merge the unreadable list is stopping")
+    func aDeletionDoesNotRewriteAnUnreadableDeletionList() async throws {
+        let directory = try directory(
+            holding: Data("not json".utf8),
+            named: "deleted-sessions.json"
+        )
+        let store = FileSessionStore(directory: directory)
+        let breathed = record(slug: "box-breathing")
+        await store.record(breathed)
+
+        await store.remove(breathed.id)
+
+        // A session the unreadable list already owed a deletion for.
+        #expect(await store.merge([record(slug: "bellows-breath")]) == false)
+        #expect(await store.recordedSessions().isEmpty)
+    }
+
+    /// The copy aside is what makes the overwrite safe. Where no copy could be
+    /// made, the write is refused instead: the person loses the one session
+    /// they just finished rather than every session they ever did.
+    @Test("A history file no copy could be made of is not written over")
+    func anUncopyableHistoryFileIsNotWrittenOver() async throws {
+        let held = Data("not json".utf8)
+        let directory = try directory(holding: held, named: "sessions.json")
+        let history = directory.appending(path: "sessions.json")
+        let path = history.path(percentEncoded: false)
+        // Write-only, so the bytes can be neither decoded nor copied, while an
+        // atomic write over them would still land.
+        try FileManager.default.setAttributes([.posixPermissions: 0o222], ofItemAtPath: path)
+
+        await FileSessionStore(directory: directory).record(record())
+
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: path)
+        #expect(try Data(contentsOf: history) == held)
     }
 }
