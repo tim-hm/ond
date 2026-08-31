@@ -9,7 +9,7 @@ struct SessionDayHeader: View {
     let day: SessionDay
 
     var body: some View {
-        Text("\(day.title()) · \(day.minutes) min")
+        Text("\(day.title) · \(day.minutes) min")
             .font(.caption)
             .foregroundStyle(Theme.Ink.tertiary)
             .frame(maxWidth: .infinity, alignment: .leading)

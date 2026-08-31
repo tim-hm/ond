@@ -61,10 +61,7 @@ struct ToneSynthesizerTests {
     /// both ends at zero — a waveform cut mid-cycle is an audible click.
     @Test("The tone rises from silence, sounds, and decays back")
     func shapesTheEnvelope() {
-        let data = wav()
-        let samples = stride(from: 44, to: data.count, by: 2).map { offset -> Int16 in
-            Int16(bitPattern: UInt16(data[offset]) | UInt16(data[offset + 1]) << 8)
-        }
+        let samples = samples(of: wav())
 
         let peak = samples.map { abs(Int($0)) }.max() ?? 0
 
@@ -89,5 +86,29 @@ struct ToneSynthesizerTests {
 
         // The buffer runs to the last note's end, not the first note's.
         #expect(data.count == 44 + Int(1.26 * 44100) * 2)
+    }
+
+    /// The shipped cues peak around 27,000 of 32,767, so nothing wraps today.
+    /// This asks the question the amplitude no longer answers: raise it, or add
+    /// a note to a strike, and the peak has to flatten rather than turn over.
+    @Test("A chord past full scale saturates instead of turning over")
+    func clampsAChordPastFullScale() throws {
+        let unison = (0 ..< 6).map { _ in ToneSynthesizer.Note(440, duration: 0.5) }
+        let samples = samples(of: ToneSynthesizer.wav(unison))
+
+        #expect(samples.max() == Int16.max)
+        #expect(samples.min() == Int16.min)
+        // A wrap shows up as a sample of the wrong sign beside a saturated one.
+        // Six unison sines cross zero together, so both neighbours of the peak
+        // stay on the peak's own side of it.
+        let peak = try #require(samples.firstIndex(of: Int16.max))
+        #expect(samples[peak - 1] > 0)
+        #expect(samples[peak + 1] > 0)
+    }
+
+    private func samples(of data: Data) -> [Int16] {
+        stride(from: 44, to: data.count, by: 2).map { offset in
+            Int16(bitPattern: UInt16(data[offset]) | UInt16(data[offset + 1]) << 8)
+        }
     }
 }

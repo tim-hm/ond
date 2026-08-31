@@ -11,21 +11,6 @@ import os
 final class SessionAudioPlayer {
     private static let logger = Logger(category: "audio")
 
-    /// One second, looped. `AVAudioPlayer` repeats from its own buffer without
-    /// the app being woken for it, so the length buys nothing but the 88 KB it
-    /// costs to hold.
-    private static let silenceLoop = ToneSynthesizer.silence(seconds: 1)
-
-    /// Synthesised once for the process rather than per session: the tones never
-    /// vary, and building them is a few hundred thousand `sin` calls that would
-    /// otherwise land on the main thread as the player animates in.
-    private static let cueTones: [PhaseKind: Data] = [
-        .inhale: ToneSynthesizer.wav([ToneSynthesizer.Note(440, duration: 0.55)]),
-        .exhale: ToneSynthesizer.wav([ToneSynthesizer.Note(330, duration: 0.7)]),
-        .holdIn: ToneSynthesizer.wav([ToneSynthesizer.Note(587, duration: 0.22)]),
-        .holdOut: ToneSynthesizer.wav([ToneSynthesizer.Note(262, duration: 0.28)]),
-    ]
-
     /// How loud the stage bell rings under whatever cue shares its instant.
     /// Sounding together is the arrangement, not a collision — but only if the
     /// bell is the quieter of the two and stays out of the voice's register.
@@ -36,35 +21,6 @@ final class SessionAudioPlayer {
     /// tones' amplitude, but broadband speech at parity arrives over the
     /// breathing rather than under it.
     private static let spokenVolume: Float = 0.7
-
-    /// The bell between stages of a multi-stage practice: a cue says what to
-    /// do with this breath, this says the shape of the practice has changed.
-    /// Wim Hof's rounds are the case it exists for — nothing else marks the
-    /// seam, and the phases either side of it can look alike.
-    private static let stageBell = ToneSynthesizer.wav(strike())
-
-    /// The same bell struck twice, for the seam between rounds — the unit
-    /// people count, so the more emphatic mark. Two strikes rather than a
-    /// second timbre: two unrelated bells are two things to learn. The second
-    /// lands while the first still rings, so the pair reads as one gesture.
-    private static let roundBell = ToneSynthesizer.wav(strike() + strike(at: 0.65))
-
-    /// One strike: a fundamental with a fifth and an octave over it, the upper
-    /// partials shorter than the root so it rings down the way a struck thing
-    /// does rather than holding as a chord.
-    private static func strike(at start: Double = 0) -> [ToneSynthesizer.Note] {
-        [
-            ToneSynthesizer.Note(174.6, start: start, duration: 2.4),
-            ToneSynthesizer.Note(261.6, start: start, duration: 1.5),
-            ToneSynthesizer.Note(349.2, start: start, duration: 0.9),
-        ]
-    }
-
-    private static let completionTone = ToneSynthesizer.wav([
-        ToneSynthesizer.Note(440, start: 0, duration: 0.5),
-        ToneSynthesizer.Note(554, start: 0.18, duration: 0.5),
-        ToneSynthesizer.Note(659, start: 0.36, duration: 0.9),
-    ])
 
     private var players: [PhaseKind: AVAudioPlayer] = [:]
     private var stageBell: AVAudioPlayer?
@@ -90,6 +46,18 @@ final class SessionAudioPlayer {
     /// - Parameter voice: whose voice speaks the phases, or nil for the tones.
     init(voice: SessionVoice?) {
         self.voice = voice
+        // Here rather than in `prepare()`, which runs on the frame the count-in
+        // ends: the buffers are lazy, so the first session of a launch would
+        // synthesise all of them on the main actor at exactly that moment. The
+        // count-in is the time this buys.
+        Task.detached(priority: .userInitiated) { [voice] in
+            SessionTones.warm()
+            if let voice {
+                // The manifest is lazy too, and `prepare()` decodes it on the
+                // same frame it builds the clips from it.
+                _ = VoiceClips.lines(for: voice)
+            }
+        }
     }
 
     func prepare() {
@@ -110,19 +78,19 @@ final class SessionAudioPlayer {
             return
         }
 
-        players = Self.cueTones.compactMapValues(player(for:))
-        stageBell = player(for: Self.stageBell)
+        players = SessionTones.cue.compactMapValues(player(for:))
+        stageBell = player(for: SessionTones.stage)
         stageBell?.volume = Self.bellVolume
-        roundBell = player(for: Self.roundBell)
+        roundBell = player(for: SessionTones.round)
         roundBell?.volume = Self.bellVolume
-        completionPlayer = player(for: Self.completionTone)
+        completionPlayer = player(for: SessionTones.completion)
         // The tones are loaded either way: a voice still falls back to them for
         // a phase too brief to say anything into.
         if let voice {
             spoken = clips(for: voice)
         }
 
-        silence = player(for: Self.silenceLoop)
+        silence = player(for: SessionTones.silenceLoop)
         // Endlessly, and started before the first beat: the runtime has to
         // already be held when the person locks the phone, which they may well
         // do during the count-in.
@@ -288,5 +256,64 @@ final class SessionAudioPlayer {
                 .error("cue would not load: \(error.localizedDescription, privacy: .public)")
             return nil
         }
+    }
+}
+
+/// The session's cue tones, synthesised once for the process rather than per
+/// session: the tones never vary, and building them is a few hundred thousand
+/// `sin` calls. Outside `SessionAudioPlayer` because that type is `@MainActor`
+/// and its statics with it, and these have to be reachable from the warm-up
+/// that runs off the main actor.
+enum SessionTones {
+    /// One second, looped. `AVAudioPlayer` repeats from its own buffer without
+    /// the app being woken for it, so the length buys nothing but the 88 KB it
+    /// costs to hold.
+    static let silenceLoop = ToneSynthesizer.silence(seconds: 1)
+
+    static let cue: [PhaseKind: Data] = [
+        .inhale: ToneSynthesizer.wav([ToneSynthesizer.Note(440, duration: 0.55)]),
+        .exhale: ToneSynthesizer.wav([ToneSynthesizer.Note(330, duration: 0.7)]),
+        .holdIn: ToneSynthesizer.wav([ToneSynthesizer.Note(587, duration: 0.22)]),
+        .holdOut: ToneSynthesizer.wav([ToneSynthesizer.Note(262, duration: 0.28)]),
+    ]
+
+    /// The bell between stages of a multi-stage practice: a cue says what to
+    /// do with this breath, this says the shape of the practice has changed.
+    /// Wim Hof's rounds are the case it exists for — nothing else marks the
+    /// seam, and the phases either side of it can look alike.
+    static let stage = ToneSynthesizer.wav(strike())
+
+    /// The same bell struck twice, for the seam between rounds — the unit
+    /// people count, so the more emphatic mark. Two strikes rather than a
+    /// second timbre: two unrelated bells are two things to learn. The second
+    /// lands while the first still rings, so the pair reads as one gesture.
+    static let round = ToneSynthesizer.wav(strike() + strike(at: 0.65))
+
+    static let completion = ToneSynthesizer.wav([
+        ToneSynthesizer.Note(440, start: 0, duration: 0.5),
+        ToneSynthesizer.Note(554, start: 0.18, duration: 0.5),
+        ToneSynthesizer.Note(659, start: 0.36, duration: 0.9),
+    ])
+
+    /// Touches every buffer, so whoever calls this pays for the synthesis
+    /// instead of the first cue that reads one. Every buffer above is named
+    /// here: a tone left out is synthesised on the main actor instead.
+    static func warm() {
+        _ = silenceLoop
+        _ = cue
+        _ = stage
+        _ = round
+        _ = completion
+    }
+
+    /// One strike: a fundamental with a fifth and an octave over it, the upper
+    /// partials shorter than the root so it rings down the way a struck thing
+    /// does rather than holding as a chord.
+    private static func strike(at start: Double = 0) -> [ToneSynthesizer.Note] {
+        [
+            ToneSynthesizer.Note(174.6, start: start, duration: 2.4),
+            ToneSynthesizer.Note(261.6, start: start, duration: 1.5),
+            ToneSynthesizer.Note(349.2, start: start, duration: 0.9),
+        ]
     }
 }

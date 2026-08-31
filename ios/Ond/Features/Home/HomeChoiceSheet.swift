@@ -132,7 +132,10 @@ struct HomeChoiceSheet: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(stop.technique.name), \(stop.dialled.rhythmLine)")
-        .accessibilityAddTraits(isChosen ? [.isSelected] : [])
+        // The element declared over the button replaces it rather than
+        // describing it, so the row stops answering as a button unless the
+        // trait is put back here.
+        .accessibilityAddTraits(isChosen ? [.isButton, .isSelected] : .isButton)
     }
 
     /// The length, in the spec's three numbers. Hidden for an exercise whose

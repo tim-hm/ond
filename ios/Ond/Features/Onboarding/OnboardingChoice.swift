@@ -26,7 +26,12 @@ struct OnboardingChoice: View {
                     .foregroundStyle(isSelected ? selectedText : Theme.Ink.secondary)
             }
             .padding(.horizontal, Theme.Spacing.standard)
-            .frame(height: 42)
+            // The capsule's own height, and a minimum rather than a fixed one:
+            // at accessibility sizes the word grows past 42 points, and a fixed
+            // frame both clips it and reports 42 to the wrapping layout, which
+            // then spaces the rows too close. `tapTarget()` below carries the
+            // hit area, which is deliberately taller than the capsule.
+            .frame(minHeight: 42)
             .background {
                 Capsule()
                     .fill(
@@ -39,7 +44,7 @@ struct OnboardingChoice: View {
                         lineWidth: 1
                     )
             }
-            .contentShape(.capsule)
+            .tapTarget()
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)

@@ -25,8 +25,14 @@ struct SessionDayTests {
     /// Noon on the twelfth — the moment every header here is named against.
     private static let now = moment(12, 12)
 
+    /// Every day the records hold, which is the page asked to cover all of them.
     private func days(_ sessions: [SessionRecord]) -> [SessionDay] {
-        SessionDay.grouped(sessions, calendar: Self.calendar)
+        SessionDay.wholeDays(
+            of: sessions,
+            coveringAtLeast: sessions.count,
+            calendar: Self.calendar,
+            relativeTo: Self.now
+        )
     }
 
     @Test("Nothing breathed groups into no days")
@@ -71,10 +77,10 @@ struct SessionDayTests {
             HomeFixtures.session("box-breathing", at: Self.moment(10, 8)),
         ])
 
-        #expect(grouped[0].title(relativeTo: Self.now, calendar: Self.calendar) == "Today")
-        #expect(grouped[1].title(relativeTo: Self.now, calendar: Self.calendar) == "Yesterday")
+        #expect(grouped[0].title == "Today")
+        #expect(grouped[1].title == "Yesterday")
 
-        let older = grouped[2].title(relativeTo: Self.now, calendar: Self.calendar)
+        let older = grouped[2].title
         #expect(older != "Today")
         #expect(older != "Yesterday")
         #expect(older.contains("10"))
@@ -113,11 +119,38 @@ struct SessionDayTests {
         let page = SessionDay.wholeDays(
             of: records,
             coveringAtLeast: 3,
-            calendar: Self.calendar
+            calendar: Self.calendar,
+            relativeTo: Self.now
         )
 
         #expect(page.count == 2)
         #expect(page.map(\.sessions.count) == [2, 2])
+    }
+
+    /// The page is why the fold streams: it must stop at the day that fills it
+    /// rather than grouping an install's whole history first and slicing after.
+    @Test("A full page never reads past the day that filled it")
+    func aFullPageStopsReading() {
+        var read = 0
+        let records = (0 ..< 20).map { index in
+            HomeFixtures.session("box-breathing", at: Self.moment(12 - index / 2, 9))
+        }
+        let counted = records.lazy.map { record -> SessionRecord in
+            read += 1
+            return record
+        }
+
+        let page = SessionDay.wholeDays(
+            of: counted,
+            coveringAtLeast: 2,
+            calendar: Self.calendar,
+            relativeTo: Self.now
+        )
+
+        #expect(page.count == 1)
+        // The two of the twelfth, and the first of the eleventh — the record
+        // that proves the day is over.
+        #expect(read == 3)
     }
 
     @Test("Asking for more rows than there are yields every day")
@@ -130,7 +163,8 @@ struct SessionDayTests {
         let page = SessionDay.wholeDays(
             of: records,
             coveringAtLeast: 50,
-            calendar: Self.calendar
+            calendar: Self.calendar,
+            relativeTo: Self.now
         )
 
         #expect(page.count == 2)

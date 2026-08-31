@@ -9,13 +9,14 @@ import Testing
 /// against `Surface/Ground` throughout, the ground `figureGround()` restores.
 @Suite("The accents that carry a figure")
 struct FigureInkTests {
-    /// A hold is `Breath/Hold` at full strength, on every surface that marks
-    /// one — the figure's hold stroke, the session guide's held tint. It has
-    /// the least room of the figure's marks in the light appearance, 4.47:1,
-    /// and the breath figure makes it half the phases.
-    @Test("the hold's indigo carries a hold stroke at full strength")
-    func holdInkIsPerceivableOnItsGround() throws {
-        try expectPerceivable(.breathHold, at: 1, "the hold stroke")
+    /// Every phase of a breath at full strength: the figure's strokes, the
+    /// session guide's tints, the chart's bars. Derived from the prefix, so a
+    /// fourth phase colour is measured the day it lands. None of the three
+    /// clears AA on this ground — 4.06, 4.47 and 3.39 in light — which is why
+    /// `Accent/BrandText` carries the small type beside `Breath/Inhale`.
+    @Test("every breath colour carries a mark at full strength", arguments: breaths)
+    func breathInkIsPerceivableOnItsGround(_ breath: ColorToken) throws {
+        try expectPerceivable(breath, at: 1, "the \(breath.rawValue) mark")
     }
 
     /// The playful register draws its whole guide in one accent: flower and candle are
@@ -62,3 +63,7 @@ struct FigureInkTests {
         }
     }
 }
+
+/// The three phases of a breath, derived rather than listed, the way
+/// `ThemeColorTests` derives its inks and accents.
+private let breaths = ColorToken.allCases.filter { $0.rawValue.hasPrefix("Breath/") }
