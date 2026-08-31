@@ -21,17 +21,31 @@ struct SessionOrb: View {
     let hold: Double
     /// How far through the whole session, 0...1 — the arc's sweep.
     let progress: Double
-    /// The square this draws in.
+    /// The square this draws in, the core's light included.
     let extent: CGFloat
 
-    /// How much of the frame the core fills, at the bottom of a breath and at
-    /// the top of one.
+    /// How much of the orb's own circle the core fills, at the bottom of a
+    /// breath and at the top of one.
     private static let restExtent = 0.40
     private static let fullExtent = 0.92
 
-    /// The shared core's own 60 points of glow, against a core that fills
-    /// nearly the whole 300-point frame rather than a third of it.
+    /// The shared core's own light. §3's reach, kept as the ratio it was drawn
+    /// at — 60 points on that drawing's 276-point core — so the light scales
+    /// with the core rather than swamping a smaller one.
     private static let coreGlow = BreathGlyph.CoreGlow(alpha: 0.5, reach: 60.0 / 276)
+
+    /// The circle the core and its light are drawn on, as a fraction of the
+    /// frame. Read off the glow's own spread, so a breath at its fullest sheds
+    /// its last light exactly on the extent ring however the two are retuned.
+    /// The spec's §6 draws the core on the whole frame, which throws that
+    /// light 48 points past the ring and over the words.
+    private static let figureExtent = 1 / (fullExtent * coreGlow.spread)
+
+    /// `extent`'s figure, for the sweeping arc, which is wound outside this
+    /// view and has the same core to clear.
+    static func figure(in extent: CGFloat) -> CGFloat {
+        extent * figureExtent
+    }
 
     /// The hairline the arc rides, and the mark a stacked inhale leaves
     /// behind. Held rather than mixed in `body`, which runs at display refresh.
@@ -40,9 +54,9 @@ struct SessionOrb: View {
     private static let overshootDash = StrokeStyle(lineWidth: 1, dash: [4, 6])
 
     /// A sided breath's tail: how far it reaches out of the centre, as a
-    /// fraction of the frame — 74 points on the 300-point extent, so it gives
-    /// room back with the orb when large type shrinks it. Its fall away from
-    /// the centre is built once, for the same reason the strokes are.
+    /// fraction of the orb's circle, so it gives room back with the orb when
+    /// large type shrinks it. Its fall away from the centre is built once, for
+    /// the same reason the strokes are.
     private static let tailReach = 74.0 / 300
     private static let tailWidth: CGFloat = 2
     private static let tailFill = LinearGradient(
@@ -50,6 +64,10 @@ struct SessionOrb: View {
         startPoint: .leading,
         endPoint: .trailing
     )
+
+    private var figure: CGFloat {
+        Self.figure(in: extent)
+    }
 
     var body: some View {
         ZStack {
@@ -74,7 +92,7 @@ struct SessionOrb: View {
     /// The breath: the shared core recipe at this surface's own geometry,
     /// drawn at the top of the breath and scaled back to where the lungs are.
     private var core: some View {
-        BreathGlyph.Core(diameter: extent * Self.fullExtent, glow: Self.coreGlow, hold: hold)
+        BreathGlyph.Core(diameter: figure * Self.fullExtent, glow: Self.coreGlow, hold: hold)
             .scaleEffect(coreScale)
     }
 
@@ -87,8 +105,10 @@ struct SessionOrb: View {
     }
 
     /// The travel's outer edge, held still while the core grows toward it, so
-    /// how much further there is to go is read rather than guessed. The core
-    /// stops at 92% of it: §6 draws the pair with that much air left.
+    /// how much further there is to go is read rather than guessed. On the
+    /// frame's own edge, where the core's light reaches it at the top of a
+    /// breath: the disc stops short of that, and the air between the two is
+    /// what §6 draws the pair with.
     private var extentRing: some View {
         Circle()
             .stroke(Self.extentStroke, lineWidth: 0.5)
@@ -99,7 +119,7 @@ struct SessionOrb: View {
     /// Left is the practitioner's own left, which is the side of the screen
     /// they see it on — not the sign `Passage.Side` carries for a figure.
     private func tail(towards side: Passage.Side) -> some View {
-        let length = extent * Self.tailReach
+        let length = figure * Self.tailReach
         let outward: CGFloat = side == .left ? -1 : 1
 
         return Capsule()
@@ -118,6 +138,6 @@ struct SessionOrb: View {
 
         let level = SessionTimeline.Beat.level(ofFullness: beat.startFullness)
 
-        return extent * (Self.restExtent + (Self.fullExtent - Self.restExtent) * level)
+        return figure * (Self.restExtent + (Self.fullExtent - Self.restExtent) * level)
     }
 }

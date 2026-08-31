@@ -41,6 +41,31 @@ struct MoodRecorderTests {
         #expect(Mood.neutral.valence == 0)
     }
 
+    /// A grant is decided once per install, so asking again can only get the
+    /// same answer — and the ask reaches the health daemon at the start of a
+    /// session, which is the moment least able to spare it.
+    @Test("A settled grant is asked about once, not once a session")
+    func aSettledGrantIsAskedAboutOnce() async {
+        let store = PromptingHealthStore(mayPrompt: false)
+        let recorder = MoodRecorder(store: store)
+
+        #expect(await recorder.writeMayPrompt() == false)
+        #expect(await recorder.writeMayPrompt() == false)
+        #expect(await store.asks == 1)
+    }
+
+    /// The opposite case, and the reason the answer above is the only one kept:
+    /// an undecided grant is about to be decided by the very write that follows.
+    @Test("An undecided grant is asked about every time")
+    func anUndecidedGrantIsAskedAboutEveryTime() async {
+        let store = PromptingHealthStore(mayPrompt: true)
+        let recorder = MoodRecorder(store: store)
+
+        #expect(await recorder.writeMayPrompt() == true)
+        #expect(await recorder.writeMayPrompt() == true)
+        #expect(await store.asks == 2)
+    }
+
     /// The numerals the scale draws. Pinned to the order the cases are in,
     /// because the two ends label the row and a point numbered out of turn
     /// would put a name under the wrong end of it.

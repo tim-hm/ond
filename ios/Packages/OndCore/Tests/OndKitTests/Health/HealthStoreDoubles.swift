@@ -34,3 +34,20 @@ actor SpyHealthStore: StubbedHealthStore {
         calls.append(.wroteMood(mood, at: date))
     }
 }
+
+/// Health with one settled answer about the mood write's grant, counting how
+/// often it was asked — the recorder is meant to stop asking once the answer
+/// can no longer change.
+actor PromptingHealthStore: StubbedHealthStore {
+    private(set) var asks = 0
+    private let mayPrompt: Bool
+
+    init(mayPrompt: Bool) {
+        self.mayPrompt = mayPrompt
+    }
+
+    func writeMoodMayPrompt() async -> Bool {
+        asks += 1
+        return mayPrompt
+    }
+}

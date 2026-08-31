@@ -3,7 +3,7 @@ import Foundation
 
 /// A `HealthStore` whose every member already answers nothing, so a double
 /// only writes down the part it is about — before this, three doubles each
-/// spelled out all eight members. Every default is the "nothing to say"
+/// spelled out every member. Every default is the "nothing to say"
 /// answer rather than a plausible one: a double that forgets to override the
 /// member under test should produce an obviously empty result.
 protocol StubbedHealthStore: HealthStore {}
@@ -32,4 +32,8 @@ extension StubbedHealthStore {
     func writeMindfulSession(from _: Date, to _: Date) async {}
 
     func writeMood(_: Mood, at _: Date) async {}
+
+    func writeMoodMayPrompt() async -> Bool {
+        false
+    }
 }

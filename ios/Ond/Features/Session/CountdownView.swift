@@ -111,18 +111,13 @@ struct CountdownView: View {
     /// one tap is the whole of it, and a tap is cheaper than a screen. Ignoring
     /// it is how it is skipped, which is why there is nothing here to decline.
     private var checkIn: some View {
-        VStack(spacing: Theme.Spacing.close) {
+        VStack(spacing: Theme.Spacing.standard) {
             Text(MoodCheckModel.questionBefore)
                 .font(.subheadline)
                 .multilineTextAlignment(.center)
 
             MoodScale(selection: mood, onSelect: onMood)
                 .disabled(mood != nil)
-
-            // It stands before the answer and stays after it. Stating what the
-            // check is for is cheaper than correcting a reading.
-            Text(MoodCheckModel.caption)
-                .font(.footnote)
         }
         .frame(maxWidth: 320)
     }

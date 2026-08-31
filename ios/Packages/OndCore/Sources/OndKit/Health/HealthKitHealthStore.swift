@@ -14,7 +14,9 @@
 
         /// Lazy because both composition roots build this during app launch:
         /// creating an `HKHealthStore` opens the connection to the health
-        /// daemon, and nothing touches Health until a session ends — if ever.
+        /// daemon, and nothing touches Health until a session starts — if ever.
+        /// The first touch is `writeMoodMayPrompt()`, asked once a launch by
+        /// a session that offers the mood check.
         private lazy var store = HKHealthStore()
 
         /// Which sample types this process has already asked to share. The
@@ -198,6 +200,16 @@
                 ),
                 describedAs: "the state of mind"
             )
+        }
+
+        /// Undecided is the only state that shows a sheet: a granted or a
+        /// refused write goes through without one. `notDetermined` is also the
+        /// answer where Health is unavailable, so that case is answered first.
+        public func writeMoodMayPrompt() async -> Bool {
+            guard HKHealthStore.isHealthDataAvailable() else { return false }
+
+            return store.authorizationStatus(for: HKObjectType.stateOfMindType())
+                == .notDetermined
         }
 
         /// Asks for `sample`'s grant if this process has not yet, then saves

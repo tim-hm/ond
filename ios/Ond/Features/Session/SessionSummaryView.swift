@@ -55,15 +55,22 @@ struct SessionSummaryView: View {
     }
 
     private var content: some View {
-        VStack(spacing: Theme.Spacing.loose) {
+        VStack(spacing: Theme.Spacing.section) {
             Spacer()
 
-            slots
-            figures
+            // One block, spaced as one: what the session was. The mood check
+            // asks a different question, so it stands a section away — and
+            // `PulseCurve` draws nothing without a watch, which inside this
+            // group costs a line's gap rather than a section's.
+            VStack(spacing: Theme.Spacing.loose) {
+                slots
+                figures
 
-            // Above the mood row, so the two answers to "did that do anything"
-            // sit together: what the sensor saw, then what the person says.
-            PulseCurve()
+                // Above the mood row, so the two answers to "did that do
+                // anything" sit together: what the sensor saw, then what the
+                // person says.
+                PulseCurve()
+            }
 
             moodNote
 
@@ -136,7 +143,7 @@ struct SessionSummaryView: View {
     /// was skipped — a single reading is still the person's own record.
     @ViewBuilder private var moodNote: some View {
         if settings.asksHowYouFeel {
-            VStack(spacing: Theme.Spacing.close) {
+            VStack(spacing: Theme.Spacing.standard) {
                 if let note = mood.note {
                     Text(note)
                         .font(.body)
@@ -149,10 +156,6 @@ struct SessionSummaryView: View {
                         Task { await mood.answerAfter(tapped) { await moodRecorder.note($0) } }
                     }
                 }
-
-                Text(MoodCheckModel.caption)
-                    .font(.footnote)
-                    .foregroundStyle(Theme.Ink.secondary)
             }
             .multilineTextAlignment(.center)
             .animation(.easeIn(duration: 0.3), value: mood.after)

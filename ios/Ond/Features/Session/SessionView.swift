@@ -129,6 +129,13 @@ struct SessionView: View {
         // counts down when it is finally clear to, with the same cancellation
         // it would have had.
         .task(id: mayCountDown) { await runCountdown() }
+        // Asked only where somebody is asked how they feel at all: the answer
+        // costs a round trip to the health daemon, and the check is the only
+        // thing it decides.
+        .task {
+            guard settings.asksHowYouFeel else { return }
+            await mood.expectPrompt(moodRecorder.writeMayPrompt())
+        }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
             model.dismiss()
@@ -209,20 +216,14 @@ struct SessionView: View {
         voiceOverEnabled && !hasConfirmedCountdown
     }
 
-    /// True for exactly as long as an answered check-in is being written.
-    /// The first write of an install opens Health's own sheet, and holding the
-    /// count across that window is what stops a session starting behind it.
-    private var isAnsweringBefore: Bool {
-        mood.before != nil && !mood.isAsked
-    }
-
     private var mayCountDown: Bool {
-        gate == nil && !isAnsweringBefore && !waitsForAccessibleStart
+        gate == nil && !mood.holdsCountdown && !waitsForAccessibleStart
     }
 
     /// Takes the optional check-in without leaving the countdown. Nothing is
-    /// released here: dropping `mayCountDown` cancels the running count, and
-    /// that run gives the wrist back on its way out.
+    /// released here: where the write can raise a sheet, dropping
+    /// `mayCountDown` cancels the running count and that run gives the wrist
+    /// back on its way out. Where it cannot, the count is never touched.
     private func answerCheckIn(_ answer: Mood) {
         Task { await mood.answerBefore(answer) { await moodRecorder.note($0) } }
     }
@@ -240,7 +241,8 @@ struct SessionView: View {
     /// Counts three seconds down and then starts the session. The guard makes a
     /// task fired over a running breath a no-op rather than a second countdown
     /// — and holds the count off entirely on a screen still waiting to be
-    /// asked, still showing its warning, or writing a check-in.
+    /// asked, still showing its warning, or writing the one check-in that can
+    /// raise Health's own sheet.
     private func runCountdown() async {
         guard mayCountDown, model.status == .ready else { return }
 
@@ -262,13 +264,13 @@ struct SessionView: View {
             let lead = count == 3 ? "\(register.settlingLine). \(register.countdownLine) " : ""
             AccessibilityNotification.Announcement("\(lead)\(count)").post()
             try? await Task.sleep(for: .seconds(1))
-            if Task.isCancelled || isAnsweringBefore {
+            if Task.isCancelled || mood.holdsCountdown {
                 abandon(run)
                 return
             }
         }
 
-        guard !isAnsweringBefore else {
+        guard !mood.holdsCountdown else {
             abandon(run)
             return
         }
