@@ -3,11 +3,7 @@
 
 use api::proto::ond::v1 as pb;
 
-use crate::harness::{TestDatabase, call_grpc_web};
-
-const LIST_TECHNIQUES: &str = "/ond.v1.TechniqueService/ListTechniques";
-const LIST_FOUNDATIONS: &str = "/ond.v1.TechniqueService/ListFoundations";
-const LIST_ROUTES: &str = "/ond.v1.TechniqueService/ListRoutes";
+use crate::harness::{LIST_FOUNDATIONS, LIST_ROUTES, LIST_TECHNIQUES, TestDatabase, call_grpc_web};
 
 /// The bootstrap's acceptance criterion, minus the simulator: seeded rows in
 /// Postgres reach a client as decoded protobuf, through the same router and the

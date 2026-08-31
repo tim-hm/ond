@@ -1,6 +1,21 @@
 //! Anonymous and Apple-bound account erasure behavior.
 
-use super::*;
+use std::time::Duration;
+
+use api::identity::USER_ID_HEADER;
+use api::proto::ond::v1 as pb;
+
+use super::fixtures::{
+    NEW_DEVICE, OLD_DEVICE, apple_account_of, bolt_seconds_of, delete_account, exists,
+    given_app_store_binding, given_bolt_score, given_quota, given_resting_rate, given_session,
+    holder_of_transaction, quota_of, resting_rates_of, sessions_of, try_delete_account,
+    try_delete_with_identity_token, uuid,
+};
+use crate::harness::{
+    APPLE_ACCOUNT, GrpcWebResponse, LIST_TECHNIQUES, OTHER_APPLE_ACCOUNT, ScriptedIdentityVerifier,
+    TestDatabase, begin_apple_authorization, call_grpc_web_with, given_user, live_credentials,
+    sign_in, subscribe, token_with_nonce,
+};
 
 /// The promise `web/privacy.html` makes, asserted table by table: nothing
 /// survives erasure. Each child table is checked by name rather than trusting
@@ -339,7 +354,7 @@ async fn a_request_on_an_erased_identity_recreates_it_empty() {
     // is all it takes.
     let listed: GrpcWebResponse<pb::ListTechniquesResponse> = call_grpc_web_with(
         db.app_with_identity(verifier),
-        "/ond.v1.TechniqueService/ListTechniques",
+        LIST_TECHNIQUES,
         &pb::ListTechniquesRequest {},
         &[(USER_ID_HEADER, OLD_DEVICE)],
     )

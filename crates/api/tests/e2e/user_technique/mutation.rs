@@ -1,6 +1,11 @@
 //! Whole-technique replacement and idempotent deletion.
 
-use super::*;
+use api::identity::USER_ID_HEADER;
+use api::proto::ond::v1 as pb;
+use tonic::Code;
+
+use super::fixtures::{USER, create, draft, list, update};
+use crate::harness::{DELETE_USER_TECHNIQUE, TestDatabase, call_grpc_web_with};
 
 /// Editing replaces the whole exercise, including a shape change — a phase
 /// removed from the middle renumbers everything after it, which is the case a
@@ -54,7 +59,7 @@ async fn deleting_is_idempotent() {
     for _ in 0..2 {
         let deleted = call_grpc_web_with::<_, pb::DeleteUserTechniqueResponse>(
             db.app(),
-            DELETE,
+            DELETE_USER_TECHNIQUE,
             &pb::DeleteUserTechniqueRequest {
                 id: created.id.clone(),
             },

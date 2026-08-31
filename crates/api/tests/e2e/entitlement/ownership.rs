@@ -1,6 +1,11 @@
 //! Transaction ownership, transfer, recovery, and input bounds.
 
-use super::*;
+use api::proto::ond::v1 as pb;
+
+use super::fixtures::{
+    OTHER_USER, ScriptedVerifier, USER, given_signed_in, plus, read, submit, try_submit,
+};
+use crate::harness::TestDatabase;
 
 /// A `jwsRepresentation` is a string anybody can copy off their own device and
 /// submit under any UUID they mint — nothing inside it names who may use it —

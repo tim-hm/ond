@@ -6,7 +6,6 @@
 
 use std::sync::Arc;
 
-use api::assistant::{ModelChunk, ModelClient, ModelError, ModelRequest, ModelStream};
 use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
 use api::throttle::FORWARDED_FOR;
@@ -15,32 +14,13 @@ use axum::http::{Request, StatusCode};
 use tower::ServiceExt;
 
 use crate::harness::{
-    TestDatabase, call_grpc_web, call_grpc_web_stream_with, call_grpc_web_with, counter_total,
-    given_user, scrape, subscribe,
+    CHAT, HalfAnswer, LIST_TECHNIQUES, TestDatabase, UPDATE_PROFILE, call_grpc_web,
+    call_grpc_web_stream_with, call_grpc_web_with, counter_total, given_user, scrape, subscribe,
 };
 
 const ALICE: &str = "11111111-1111-4111-8111-111111111111";
 const BOB: &str = "22222222-2222-4222-8222-222222222222";
 const CAROL: &str = "33333333-3333-4333-8333-333333333333";
-const LIST_TECHNIQUES: &str = "/ond.v1.TechniqueService/ListTechniques";
-const UPDATE_PROFILE: &str = "/ond.v1.ProfileService/UpdateProfile";
-const CHAT: &str = "/ond.v1.AssistantService/Chat";
-
-struct HalfAnswer;
-
-#[tonic::async_trait]
-impl ModelClient for HalfAnswer {
-    async fn complete(&self, _request: &ModelRequest) -> Result<String, ModelError> {
-        Err(ModelError::Failed("not used by this test".to_owned()))
-    }
-
-    async fn stream(&self, _request: &ModelRequest) -> Result<ModelStream, ModelError> {
-        Ok(Box::pin(tokio_stream::iter([
-            Ok(ModelChunk::Text("one chunk".to_owned())),
-            Err(ModelError::Failed("stream failed".to_owned())),
-        ])))
-    }
-}
 
 /// Native gRPC metrics sit around every place a call can end: handler success
 /// and refusal, the auth and throttle middleware, and a stream that fails after
@@ -169,10 +149,9 @@ async fn a_provider_outage_is_visible_even_though_every_call_succeeds() {
 
     let exposition = scrape(&database).await;
 
+    let succeeded = format!(r#"ond_grpc_requests_total{{method="{CHAT}",status="0""#);
     assert!(
-        exposition.contains(
-            r#"ond_grpc_requests_total{method="/ond.v1.AssistantService/Chat",status="0""#
-        ),
+        exposition.contains(&succeeded),
         "the RPC must still read as successful — {exposition}"
     );
     assert!(

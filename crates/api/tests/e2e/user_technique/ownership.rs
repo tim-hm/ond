@@ -1,6 +1,13 @@
 //! Caller isolation and per-person technique ceilings.
 
-use super::*;
+use api::identity::USER_ID_HEADER;
+use api::proto::ond::v1 as pb;
+use tonic::Code;
+
+use super::fixtures::{OTHER_USER, USER, create, draft, list, request, update};
+use crate::harness::{
+    DELETE_USER_TECHNIQUE, LIST_USER_TECHNIQUES, TestDatabase, call_grpc_web, call_grpc_web_with,
+};
 
 /// One person's exercises are not another's, on every RPC that names an id.
 ///
@@ -28,7 +35,7 @@ async fn one_persons_exercises_are_invisible_to_another() {
 
     let deleted = call_grpc_web_with::<_, pb::DeleteUserTechniqueResponse>(
         db.app(),
-        DELETE,
+        DELETE_USER_TECHNIQUE,
         &pb::DeleteUserTechniqueRequest { id: mine.id },
         &[(USER_ID_HEADER, OTHER_USER)],
     )
@@ -51,8 +58,12 @@ async fn one_persons_exercises_are_invisible_to_another() {
 async fn an_unidentified_caller_has_no_exercises_to_read() {
     let db = TestDatabase::create("user_technique_anonymous").await;
 
-    let response =
-        call_grpc_web::<_, pb::ListUserTechniquesResponse>(db.app(), LIST, &request()).await;
+    let response = call_grpc_web::<_, pb::ListUserTechniquesResponse>(
+        db.app(),
+        LIST_USER_TECHNIQUES,
+        &request(),
+    )
+    .await;
 
     assert_eq!(response.status, Code::Unauthenticated as i32);
 }

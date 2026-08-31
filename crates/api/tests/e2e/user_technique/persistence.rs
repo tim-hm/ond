@@ -1,6 +1,10 @@
 //! Authored-technique storage, synchronization, and ordering.
 
-use super::*;
+use api::proto::ond::v1 as pb;
+use tonic::Code;
+
+use super::fixtures::{USER, create, draft, list, sequence, shape, update};
+use crate::harness::TestDatabase;
 
 /// Something composed on one device is listed, whole and playable, by another
 /// device sending the same id. "Playable" is the load-bearing word: the

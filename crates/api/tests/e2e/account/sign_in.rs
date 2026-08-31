@@ -1,6 +1,10 @@
 //! First, returning, and refused Sign in with Apple bindings.
 
-use super::*;
+use super::fixtures::{NEW_DEVICE, OLD_DEVICE, apple_account_of, exists};
+use crate::harness::{
+    APPLE_ACCOUNT, OTHER_APPLE_ACCOUNT, ScriptedIdentityVerifier, TestDatabase, sign_in,
+    try_sign_in,
+};
 
 /// The first sign-in on an Apple account nobody holds: the binding lands on
 /// the caller's own row and the caller keeps its id. Signing in again is

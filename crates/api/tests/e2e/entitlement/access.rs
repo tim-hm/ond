@@ -1,6 +1,16 @@
 //! Verification refusals and the access an entitlement grants.
 
-use super::*;
+use api::entitlement::Tier;
+use api::proto::ond::v1 as pb;
+
+use super::fixtures::{
+    OTHER_USER, ScriptedVerifier, USER, credential_of, given_signed_in, headers, plus, read,
+    recommend, submit,
+};
+use crate::harness::{
+    SUBMIT_APP_STORE_TRANSACTION, ScriptedModel, TestDatabase, allowance, call_grpc_web_with,
+    subscribe,
+};
 
 /// A token the verifier refuses buys nothing and says so as `INVALID_ARGUMENT`,
 /// not as a quietly free entitlement. The distinction is what lets the client
@@ -13,7 +23,7 @@ async fn an_unverifiable_transaction_is_refused() {
 
     let response = call_grpc_web_with::<_, pb::SubmitAppStoreTransactionResponse>(
         db.app_with_verifier(verifier.clone()),
-        SUBMIT,
+        SUBMIT_APP_STORE_TRANSACTION,
         &pb::SubmitAppStoreTransactionRequest {
             signed_transaction: "forged".to_owned(),
         },

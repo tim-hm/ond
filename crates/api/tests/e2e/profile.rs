@@ -4,11 +4,10 @@
 use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
 
-use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web, call_grpc_web_with};
-
-const GET_PROFILE: &str = "/ond.v1.ProfileService/GetProfile";
-const UPDATE_PROFILE: &str = "/ond.v1.ProfileService/UpdateProfile";
-const LIST_TECHNIQUES: &str = "/ond.v1.TechniqueService/ListTechniques";
+use crate::harness::{
+    GET_PROFILE, GrpcWebResponse, LIST_TECHNIQUES, TestDatabase, UPDATE_PROFILE, call_grpc_web,
+    call_grpc_web_with,
+};
 
 /// A stable, valid identity. Fixed rather than random so a failing test leaves a
 /// row someone can go and look at.

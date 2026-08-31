@@ -1,6 +1,16 @@
 //! Apple authorization challenges and identity-token resource bounds.
 
-use super::*;
+use api::proto::ond::v1 as pb;
+use chrono::{DateTime, TimeDelta, Utc};
+
+use super::fixtures::{
+    NEW_DEVICE, OLD_DEVICE, apple_account_of, exists, try_delete_with_identity_token, uuid,
+};
+use crate::harness::{
+    APPLE_ACCOUNT, GrpcWebResponse, ScriptedIdentityVerifier, TestDatabase,
+    begin_apple_authorization, call_grpc_web_with, headers, live_credentials, sign_in,
+    try_sign_in_with_nonce,
+};
 
 #[tokio::test]
 async fn an_apple_authorization_requires_a_purpose() {

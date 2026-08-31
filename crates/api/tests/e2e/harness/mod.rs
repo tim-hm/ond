@@ -11,7 +11,7 @@ use self::app::build_app_with_throttle;
 pub use self::app::{build_app, build_app_with};
 pub use self::database::TestDatabase;
 pub use self::doubles::{
-    SCRIPTED_NONCE_SEPARATOR, ScriptedIdentityVerifier, ScriptedModel, ScriptedReply,
+    HalfAnswer, SCRIPTED_NONCE_SEPARATOR, ScriptedIdentityVerifier, ScriptedModel, ScriptedReply,
 };
 pub use self::exposition::{counter_total, scrape};
 pub use self::fixtures::*;

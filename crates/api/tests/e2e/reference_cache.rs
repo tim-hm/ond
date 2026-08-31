@@ -10,10 +10,10 @@ use axum::Router;
 use tonic::Code;
 
 use crate::harness::{
-    GET_RECOMMENDATION, GrpcWebResponse, ScriptedModel, TestDatabase, call_grpc_web_with,
+    GET_RECOMMENDATION, GrpcWebResponse, LIST_USER_TECHNIQUES, ScriptedModel, TestDatabase,
+    call_grpc_web_with,
 };
 
-const LIST_USER_TECHNIQUES: &str = "/ond.v1.UserTechniqueService/ListUserTechniques";
 const USER: &str = "9d4e3f2a-0000-4000-8000-000000000001";
 
 /// Once curated reference data has been derived, a later assistant request

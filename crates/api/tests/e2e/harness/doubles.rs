@@ -151,6 +151,25 @@ impl ModelClient for ScriptedModel {
     }
 }
 
+/// A model that starts answering and then breaks — the one shape
+/// [`ScriptedModel`] cannot express, because a scripted reply either fails the
+/// call or answers it and this case does both.
+pub struct HalfAnswer;
+
+#[tonic::async_trait]
+impl ModelClient for HalfAnswer {
+    async fn complete(&self, _request: &ModelRequest) -> Result<String, ModelError> {
+        Err(ModelError::Failed("down".to_owned()))
+    }
+
+    async fn stream(&self, _request: &ModelRequest) -> Result<ModelStream, ModelError> {
+        Ok(Box::pin(tokio_stream::iter(vec![
+            Ok(ModelChunk::Text("First the mechanism.".to_owned())),
+            Err(ModelError::Failed("the stream broke mid-answer".to_owned())),
+        ])))
+    }
+}
+
 /// A Sign in with Apple verifier that knows a fixed set of tokens and refuses
 /// everything else. Keyed on the token string, so a test can submit "the same
 /// credential" twice and mean it. In the harness because every router this

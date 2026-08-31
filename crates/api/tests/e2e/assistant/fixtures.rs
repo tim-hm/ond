@@ -6,40 +6,21 @@
 
 use std::sync::Arc;
 
-use api::assistant::{ModelChunk, ModelClient, ModelError, ModelRequest, ModelStream};
+use api::assistant::ModelClient;
 use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
 
-use crate::harness::{self, TestDatabase, call_grpc_web_stream_with, call_grpc_web_with};
-
-pub(super) const CHAT: &str = "/ond.v1.AssistantService/Chat";
+use crate::harness::{
+    self, CHAT, TestDatabase, UPDATE_PROFILE, call_grpc_web_stream_with, call_grpc_web_with,
+};
 
 pub(super) const USER: &str = "5c4d3e2f-0000-4000-8000-000000000001";
 pub(super) const OTHER_USER: &str = "5c4d3e2f-0000-4000-8000-000000000002";
 
-/// A model that starts answering and then breaks — the one shape
-/// [`ScriptedModel`] cannot express, because a scripted reply either fails the
-/// call or answers it and this case does both.
-pub(super) struct HalfAnswer;
-
-#[tonic::async_trait]
-impl ModelClient for HalfAnswer {
-    async fn complete(&self, _request: &ModelRequest) -> Result<String, ModelError> {
-        Err(ModelError::Failed("down".to_owned()))
-    }
-
-    async fn stream(&self, _request: &ModelRequest) -> Result<ModelStream, ModelError> {
-        Ok(Box::pin(tokio_stream::iter(vec![
-            Ok(ModelChunk::Text("First the mechanism.".to_owned())),
-            Err(ModelError::Failed("the stream broke mid-answer".to_owned())),
-        ])))
-    }
-}
-
 /// Asks for a recommendation as a subscriber.
 ///
 /// The subscription is arranged here so no test in this suite has to say it:
-/// what may reach the model is `entitlement.rs`'s question, and this suite is
+/// what may reach the model is `entitlement/`'s question, and this suite is
 /// about what the model says once it is reached.
 pub(super) async fn recommend(
     db: &TestDatabase,
@@ -134,7 +115,7 @@ pub(super) async fn set_profile(
 ) {
     let response: crate::harness::GrpcWebResponse<pb::UpdateProfileResponse> = call_grpc_web_with(
         db.app(),
-        "/ond.v1.ProfileService/UpdateProfile",
+        UPDATE_PROFILE,
         &pb::UpdateProfileRequest {
             profile: Some(pb::Profile {
                 goals: goals.iter().map(|goal| *goal as i32).collect(),
