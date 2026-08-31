@@ -54,6 +54,39 @@ public enum Breath: Sendable, Hashable, Codable {
     }
 }
 
+/// Written out because a synthesised `Codable` keys the cache on case names
+/// and the `through:` label, which a rename changes with no compile error.
+/// `kind` and `passage` are the pair the wire and the export already carry.
+/// Adopting this shape drops the phase caches earlier builds wrote, once.
+/// `StoredIdentifierShapeTests` pins it.
+public extension Breath {
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case passage
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let kind = try container.decode(PhaseKind.self, forKey: .kind)
+
+        switch kind {
+        case .holdIn: self = .holdIn
+        case .holdOut: self = .holdOut
+        case .inhale, .exhale:
+            // A moving breath with no passage is a value this type cannot hold,
+            // so it fails the decode rather than resolving to a hold.
+            let passage = try container.decode(Passage.self, forKey: .passage)
+            self = Breath(kind: kind, through: passage)
+        }
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(kind, forKey: .kind)
+        try container.encodeIfPresent(passage, forKey: .passage)
+    }
+}
+
 /// Written out because the associated passage stops the compiler synthesising
 /// it. This type is the set of things the app can say, so the tests that ask
 /// whether everything sayable has been said need to enumerate it.

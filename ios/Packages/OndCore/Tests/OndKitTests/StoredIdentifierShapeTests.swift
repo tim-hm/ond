@@ -51,6 +51,37 @@ struct StoredIdentifierShapeTests {
         #expect(try !Self.encoded(record).contains("occasionSlug"))
     }
 
+    /// The catalogue is cached on disk, so every phase's breath is stored. Its
+    /// keys are `PhaseKind`'s raw values and a passage, never the compiler's own
+    /// case names: renaming `Breath.inhale` or its `through:` label would
+    /// otherwise rewrite the cache with no compile error, and every device would
+    /// silently fall back to the bundled seed.
+    @Test func a_stored_breath_keeps_its_kind_and_passage_keys() throws {
+        let moving = #"{"kind":"inhale","passage":"leftNostril"}"#
+        let held = #"{"kind":"holdOut"}"#
+
+        #expect(
+            try Self.decoder.decode(Breath.self, from: Data(moving.utf8))
+                == .inhale(through: .leftNostril)
+        )
+        #expect(try Self.decoder.decode(Breath.self, from: Data(held.utf8)) == .holdOut)
+        #expect(try Self.encoded(Breath.inhale(through: .leftNostril)) == moving)
+        #expect(try Self.encoded(Breath.holdOut) == held)
+
+        let phase = Phase(.holdIn, duration: .milliseconds(4000))
+        #expect(try Self.encoded(phase).contains(#""breath":{"kind":"holdIn"}"#))
+    }
+
+    /// A moving breath with no passage is a value `Breath` cannot hold, so a
+    /// stored phase carrying one fails rather than reading back as a hold.
+    @Test func a_stored_exhale_without_a_passage_fails_to_decode() throws {
+        let stored = #"{"kind":"exhale"}"#
+
+        #expect(throws: DecodingError.self) {
+            try Self.decoder.decode(Breath.self, from: Data(stored.utf8))
+        }
+    }
+
     /// A stored schedule list is what the reminder dial and every local
     /// notification are rebuilt from on launch.
     @Test func a_stored_schedule_still_decodes_and_re_encodes_flat() throws {

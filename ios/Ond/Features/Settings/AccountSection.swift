@@ -87,8 +87,8 @@ struct AccountSection: View {
         } footer: {
             // Only ever a failure a button caused: the speculative challenge
             // prefetch logs instead, so nothing appears here unasked.
-            if let failure = account.failure {
-                Text(failure)
+            if let reason = account.progress.reason {
+                Text(reason)
                     .foregroundStyle(Theme.Accent.caution)
             }
         }

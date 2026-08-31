@@ -241,7 +241,7 @@ struct AccountDeletionTests {
         #expect(install.identity.userId() != nil)
         #expect(install.identity.userId() != before, "one request on the old id resurrects it")
         #expect(install.account.state == .localOnly)
-        #expect(install.account.failure == nil)
+        #expect(install.account.progress == .idle)
         #expect(install.told.withLock { $0 } == 1, "the watch and the journey both hold a copy")
 
         #expect(
@@ -294,7 +294,7 @@ struct AccountDeletionTests {
         )
         #expect(install.schedules.schedules.count == 1)
         #expect(install.identity.userId() == before)
-        #expect(install.account.failure != nil)
+        #expect(install.account.progress.reason != nil)
         #expect(install.told.withLock { $0 } == 0)
     }
 
@@ -336,7 +336,7 @@ struct AccountDeletionTests {
         await install.account.deleteAccount(identityToken: nil)
 
         #expect(install.account.state == .signedIn)
-        #expect(install.account.failure != nil)
+        #expect(install.account.progress.reason != nil)
     }
 
     /// A refusal teaches nothing to an install that presented no identity. An
@@ -357,7 +357,7 @@ struct AccountDeletionTests {
         await install.account.deleteAccount(identityToken: nil)
 
         #expect(install.account.state == .localOnly)
-        #expect(install.account.failure != nil)
+        #expect(install.account.progress.reason != nil)
     }
 
     /// The credential an Apple-bound erasure has to carry reaches the server. A

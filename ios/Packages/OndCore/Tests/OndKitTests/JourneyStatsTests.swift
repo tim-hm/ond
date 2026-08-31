@@ -3,7 +3,7 @@ import Foundation
 import Testing
 
 /// The local half of a definition the server also implements in SQL. Every case
-/// here has a twin in `crates/api/tests/e2e/journey.rs`, and they have to agree:
+/// here has a twin in `crates/api/tests/e2e/journey/sessions.rs`, and they have to agree:
 /// a drift would show a person one streak on their phone and another on a
 /// leaderboard drawn from the same sessions.
 @Suite("Journey statistics")

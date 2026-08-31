@@ -7,7 +7,7 @@ import Testing
 /// whose guards stand between a malformed response and a *crash*: `AuthoringLimits`
 /// builds `ClosedRange`s from counts the contract leaves unconstrained, and an
 /// inverted bound traps, so a zero has to fail as a decode. The server pins its
-/// half (e2e `user_technique.rs`), which is exactly what leaves this half unheld.
+/// half (e2e `user_technique/validation.rs`), which is exactly what leaves this half unheld.
 @Suite("Reading the authoring limits off the wire")
 struct UserTechniqueDecodingTests {
     private static func phaseLimit(

@@ -62,7 +62,9 @@ final class OndAppUITests: XCTestCase {
         }
     }
 
-    func testSettingsGroupsHealthChoicesAndGatesPaidOptIns() throws {
+    /// Settings on the free tier, with both paid health choices off — the state
+    /// each of the two Settings tests below starts from.
+    private func openSettingsOnTheFreeTier() {
         app.terminate()
         app.launchArguments = [
             "--ui-testing",
@@ -79,13 +81,41 @@ final class OndAppUITests: XCTestCase {
         XCTAssertTrue(settings.waitForExistence(timeout: 5))
         settings.tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+    }
 
-        func reveal(_ element: XCUIElement) {
-            for _ in 0 ..< 8 where !element.isHittable {
-                app.swipeUp()
-            }
-            XCTAssertTrue(element.isHittable, "\(element) should appear in Settings")
+    /// Scrolls Settings until `element` is both hittable and clear of the
+    /// floating tab bar. iOS 26 draws the list under that bar, so a row can
+    /// report itself hittable while a tap on its right edge reaches a tab
+    /// button instead — which is where `tapSwitchControl` aims.
+    private func reveal(_ element: XCUIElement) {
+        let tabBar = app.tabBars.firstMatch
+        for _ in 0 ..< 8 where !element.isHittable || element.frame.intersects(tabBar.frame) {
+            app.swipeUp()
         }
+        XCTAssertTrue(element.isHittable, "\(element) should appear in Settings")
+    }
+
+    private func tapSwitchControl(_ toggle: XCUIElement) {
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+    }
+
+    private func assertPaywallOpensAndCloses() {
+        XCTAssertTrue(
+            app.staticTexts["Everything that works offline stays free. Forever."]
+                .waitForExistence(timeout: 5)
+        )
+        app.buttons["Not now"].tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+    }
+
+    private func assertPaidToggleOpensPaywall(_ toggle: XCUIElement) {
+        tapSwitchControl(toggle)
+        assertPaywallOpensAndCloses()
+        XCTAssertEqual(toggle.value as? String, "0")
+    }
+
+    func testSettingsGroupsHealthChoices() throws {
+        openSettingsOnTheFreeTier()
 
         func assertHealthChoice(_ identifier: String, title: String, description: String) {
             let choice = app.switches[identifier]
@@ -94,33 +124,18 @@ final class OndAppUITests: XCTestCase {
             XCTAssertTrue(choice.label.contains(description))
         }
 
-        func tapSwitchControl(_ toggle: XCUIElement) {
-            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
-        }
-
-        func assertPaidToggleOpensPaywall(_ toggle: XCUIElement) {
-            tapSwitchControl(toggle)
-            XCTAssertTrue(
-                app.staticTexts["Everything that works offline stays free. Forever."]
-                    .waitForExistence(timeout: 5)
-            )
-            app.buttons["Not now"].tap()
-            XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
-            XCTAssertEqual(toggle.value as? String, "0")
-        }
-
         XCTAssertTrue(app.staticTexts["General"].exists)
         XCTAssertTrue(app.staticTexts["Appearance"].exists)
 
         reveal(app.staticTexts["Practice"])
-        let hapticStrength = app.descendants(matching: .any).matching(
-            NSPredicate(format: "label CONTAINS %@", "iPhone haptics aren't supported")
+        let screenOffNote = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label CONTAINS %@", "iPhone haptics stop when the screen is off")
         ).firstMatch
-        XCTAssertTrue(hapticStrength.exists)
+        XCTAssertTrue(screenOffNote.exists)
         XCTAssertTrue(
-            hapticStrength.label.contains(
-                "iPhone haptics aren't supported when the screen is off — you'll hear the "
-                    + "session but not feel it."
+            screenOffNote.label.contains(
+                "iPhone haptics stop when the screen is off. You will hear the session but "
+                    + "not feel it."
             )
         )
         reveal(app.staticTexts["Health"])
@@ -128,7 +143,8 @@ final class OndAppUITests: XCTestCase {
         assertHealthChoice(
             "settings-health-check-ins",
             title: "Ask how you feel before and after",
-            description: "Saves your responses as State of Mind in Apple Health. önd never sees them."
+            description: "Saves your responses as State of Mind in Apple Health. önd does not "
+                + "read them."
         )
         assertHealthChoice(
             "settings-health-live-heart-rate",
@@ -136,20 +152,13 @@ final class OndAppUITests: XCTestCase {
             description: "Shows your heart rate live during practice. Apple Watch keeps a workout "
                 + "open without storing or sharing readings."
         )
-
-        let liveHeartRate = app.switches["settings-health-live-heart-rate"]
-        assertPaidToggleOpensPaywall(liveHeartRate)
-
         assertHealthChoice(
             "settings-health-watch-trends",
             title: "Read my heart data",
             description: "Your coach uses sleeping breathing, resting heart rate and "
                 + "heart-rate variability when needed, and Home draws your heart rate "
-                + "around each session you practise. Nothing read is stored or sent."
+                + "around each session you practise. What it reads is not stored or sent."
         )
-
-        let watchTrends = app.switches["settings-health-watch-trends"]
-        assertPaidToggleOpensPaywall(watchTrends)
 
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
             .press(
@@ -158,7 +167,7 @@ final class OndAppUITests: XCTestCase {
                     withNormalizedOffset: CGVector(dx: 0.5, dy: 0.62)
                 )
             )
-        reveal(watchTrends)
+        reveal(app.switches["settings-health-watch-trends"])
 
         try app.performAccessibilityAudit { issue in
             // iOS 26 scales the compact snapshots of custom Picker and Toggle
@@ -172,6 +181,7 @@ final class OndAppUITests: XCTestCase {
             let compactPickerValues = [
                 "Haptics & sound",
                 "Faye — United Kingdom",
+                "Match the system",
             ]
             if issue.auditType.contains(.textClipped),
                let element = issue.element,
@@ -239,15 +249,30 @@ final class OndAppUITests: XCTestCase {
         reveal(subscription)
         XCTAssertTrue(app.staticTexts["Subscription"].exists)
         XCTAssertEqual(subscription.label, "Subscription, Free")
-        subscription.tap()
-        XCTAssertTrue(
-            app.staticTexts["Everything that works offline stays free. Forever."]
-                .waitForExistence(timeout: 5)
-        )
-        app.buttons["Not now"].tap()
-        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
 
         reveal(app.staticTexts["About"])
+    }
+
+    /// Each paid choice is a door to the paywall rather than a switch: refusing
+    /// the offer has to leave it exactly as it was.
+    func testPaidOptInsOpenThePaywallAndStayOff() {
+        openSettingsOnTheFreeTier()
+
+        reveal(app.staticTexts["Health"])
+        reveal(app.switches["settings-health-check-ins"])
+
+        let liveHeartRate = app.switches["settings-health-live-heart-rate"]
+        reveal(liveHeartRate)
+        assertPaidToggleOpensPaywall(liveHeartRate)
+
+        let watchTrends = app.switches["settings-health-watch-trends"]
+        reveal(watchTrends)
+        assertPaidToggleOpensPaywall(watchTrends)
+
+        let subscription = app.buttons["settings-account-subscription"]
+        reveal(subscription)
+        subscription.tap()
+        assertPaywallOpensAndCloses()
     }
 
     func testProgressOwnsPracticeReflectionAndMeetsTheAccessibilityAudit() throws {

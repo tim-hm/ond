@@ -153,11 +153,6 @@ public struct AssistantRepository: AssistantReading {
         })
     }
 
-    /// `bridged` wraps one Connect server stream as an `AsyncThrowingStream`,
-    /// written once so the subtle parts cannot drift between RPCs: the request
-    /// is sent exactly once, and a terminal `.complete` with a non-OK code
-    /// becomes a thrown error rather than a stream that simply stops. The
-    /// request is built *inside* the reader task — its provider is async.
     private static func streamFailure(
         _ outcome: TransportOutcome,
         _ diagnostic: String
@@ -165,6 +160,11 @@ public struct AssistantRepository: AssistantReading {
         .transport(TransportFault(outcome: outcome, diagnostic: diagnostic))
     }
 
+    /// Wraps one Connect server stream as an `AsyncThrowingStream`, written once
+    /// so the subtle parts cannot drift between RPCs: the request is sent exactly
+    /// once, and a terminal `.complete` with a non-OK code becomes a thrown error
+    /// rather than a stream that simply stops. The request is built *inside* the
+    /// reader task — its provider is async.
     static func bridged<Request, Response>(
         _ stream: any ServerOnlyAsyncStreamInterface<Request, Response>,
         request: @escaping @Sendable () async -> Request,

@@ -37,14 +37,42 @@ public final class AccountModel {
         userId.map { String($0.uuidString.prefix(Self.supportReferenceLength)).lowercased() }
     }
 
-    /// What went wrong, for the one screen that asked. Cleared by the next
-    /// attempt, since a stale reason beside a fresh button is worse than none.
-    public private(set) var failure: String?
+    /// How far the current account action has got.
+    ///
+    /// One enum rather than a flag beside a reason: those two can say "working"
+    /// and "failed" at the same time, and nothing but the order of each call
+    /// path's assignments kept them apart.
+    public enum Progress: Sendable, Equatable {
+        case idle
+        /// An account call is on the wire. Sign-in reaches Apple's key endpoint
+        /// through the server on a cold key cache, so this is long enough to
+        /// need saying.
+        case working
+        /// What went wrong, for the one screen that asked. The next attempt
+        /// replaces it, since a stale reason beside a fresh button is worse
+        /// than none.
+        case failed(String)
 
-    /// Whether a sign-in is on the wire. The RPC reaches Apple's key endpoint
-    /// through the server on a cold key cache, so this is long enough to need
-    /// saying.
-    public private(set) var isWorking = false
+        /// The reason a failed attempt gave, or nil. A projection of the case
+        /// above, so it cannot disagree with it the way a separate stored
+        /// property could.
+        public var reason: String? {
+            if case let .failed(reason) = self {
+                reason
+            } else {
+                nil
+            }
+        }
+    }
+
+    public private(set) var progress: Progress = .idle
+
+    /// Whether an account call is on the wire, so a button refuses to start a
+    /// second one. A projection on `SubscriptionStore.isBusy`'s pattern, which
+    /// keeps a view from matching the cases itself.
+    public var isWorking: Bool {
+        progress == .working
+    }
 
     private static let signedInKey = "account.signedIn"
 
@@ -99,9 +127,14 @@ public final class AccountModel {
     /// happens before anything else is awaited, so no request can be stamped
     /// with the merged-away id after the server has deleted it.
     public func signIn(identityToken: String) async {
-        failure = nil
-        isWorking = true
-        defer { isWorking = false }
+        progress = .working
+        // Every path that ends in a result records it; this returns the rest to
+        // idle, so a later early return cannot leave a screen working forever.
+        defer {
+            if progress == .working {
+                progress = .idle
+            }
+        }
 
         do {
             let adopted = try await accounts.signIn(identityToken: identityToken)
@@ -122,11 +155,13 @@ public final class AccountModel {
             // what puts the sign-out in front of the person, which is the only
             // route from here to signing in as the account they offered.
             state = .signedIn
-            failure = "This device is already signed in to a different Apple ID. "
-                + "Sign out first, then sign in again."
+            progress = .failed(
+                "This device is already signed in to a different Apple ID. "
+                    + "Sign out first, then sign in again."
+            )
         } catch {
             Self.logger.notice("sign-in failed: \(error.diagnostic, privacy: .public)")
-            failure = error.localizedDescription
+            progress = .failed(error.localizedDescription)
         }
     }
 
@@ -173,7 +208,12 @@ public final class AccountModel {
     /// a stranger's row. The server is told first so the credential is revoked,
     /// but best effort — a person with no signal must still be able to sign out.
     public func signOut() async {
-        failure = nil
+        progress = .working
+        defer {
+            if progress == .working {
+                progress = .idle
+            }
+        }
 
         do {
             try await accounts.signOut()
@@ -196,9 +236,12 @@ public final class AccountModel {
     /// stores and tells the watch last. The App Store subscription survives.
     /// - Parameter identityToken: a fresh token when signed in, nil local-only.
     public func deleteAccount(identityToken: String?) async {
-        failure = nil
-        isWorking = true
-        defer { isWorking = false }
+        progress = .working
+        defer {
+            if progress == .working {
+                progress = .idle
+            }
+        }
 
         do {
             try await accounts.delete(identityToken: identityToken)
@@ -216,7 +259,7 @@ public final class AccountModel {
                 state = .signedIn
             }
 
-            failure = error.localizedDescription
+            progress = .failed(error.localizedDescription)
             return
         }
 
@@ -241,7 +284,7 @@ public final class AccountModel {
     ///   person's, which is what makes it safe to log as `.public`.
     public func reportSignInFailure(_ message: String) {
         Self.logger.notice("sign-in failed before the server: \(message, privacy: .public)")
-        failure = message
+        progress = .failed(message)
     }
 
     /// Records a failure from work the app started on its own, without showing

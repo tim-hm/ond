@@ -23,7 +23,7 @@ public enum OndClients {
     /// How long the assistant's stream may go silent between chunks before the
     /// connection is abandoned. URLSession's request timer resets on every
     /// chunk, so it bounds the gap, not the answer — a total deadline cannot.
-    /// Forty sits deliberately above the 30 seconds `bedrock.rs` allows between
+    /// Forty sits deliberately above the 30 seconds `assistant/model/bedrock/` allows between
     /// reads, so a stalled generation fails as the server's error.
     private static let streamingIdleTimeout: TimeInterval = 40
 
