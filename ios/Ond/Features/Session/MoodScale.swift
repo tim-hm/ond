@@ -27,7 +27,7 @@ struct MoodScale: View {
     private static let selectionInset: CGFloat = 3
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.tight) {
+        VStack(spacing: Theme.Spacing.close) {
             points
 
             // The stacked layout says every word already, so a pair of ends

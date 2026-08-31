@@ -6,7 +6,7 @@ import SwiftUI
 /// dark value, because watchOS resolves the Any slot; a colour is not done until
 /// it has all three. Mapping a domain value onto an accent is `OndStyle`'s job.
 public enum Theme {
-    /// A four-step scale. Constraining spacing to four values is what keeps a
+    /// A five-step scale. Constraining spacing to five values is what keeps a
     /// minimal interface looking deliberate rather than merely sparse.
     public enum Spacing {
         public static let tight: CGFloat = 4
@@ -17,6 +17,10 @@ public enum Theme {
         /// spec's own number, not a spacing step.
         public static let page: CGFloat = 20
         public static let loose: CGFloat = 24
+        /// The gap between two blocks that ask different questions — the
+        /// summary's record and its mood check. `loose` separates lines
+        /// inside one block, so it cannot also say where a block ends.
+        public static let section: CGFloat = 40
     }
 
     /// Sizes a control has to hit, as opposed to space it may take.
