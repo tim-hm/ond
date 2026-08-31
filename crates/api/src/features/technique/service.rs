@@ -8,8 +8,8 @@ use std::collections::HashMap;
 use sqlx::PgPool;
 
 use super::convert::{
-    evidence_grade_to_proto, goal_to_proto, manner_to_proto, passage_to_proto, phase_kind_to_proto,
-    reading_content_to_proto, register_to_proto, surface_to_proto,
+    evidence_grade_to_proto, goal_to_proto, phase_to_proto, reading_content_to_proto,
+    register_to_proto, surface_to_proto,
 };
 use super::errors::TechniqueError;
 use super::repository::{self, PhaseRow, StageRow};
@@ -287,28 +287,8 @@ fn stage_to_proto(stage: PlayableStage) -> Result<pb::Stage, TechniqueError> {
         phases: stage
             .phases
             .into_iter()
-            .map(|phase| {
-                Ok(pb::Phase {
-                    kind: phase_kind_to_proto(phase.kind) as i32,
-                    duration_ms: wire::positive("phase duration", phase.duration_ms)?,
-                    min_duration_ms: wire::positive("phase minimum", phase.min_duration_ms)?,
-                    max_duration_ms: wire::positive("phase maximum", phase.max_duration_ms)?,
-                    passage: passage_to_proto(phase.passage) as i32,
-                    manner: manner_to_proto(phase.manner) as i32,
-                    // `counted` rather than `positive`: an authored zero says
-                    // this rhythm turns without a gap, which is what a
-                    // continuous exercise means. The 0–600 ms bound is the
-                    // column's, and presence is what carries the distinction
-                    // a bare zero could not.
-                    turn_gap_ms: phase
-                        .turn_gap_ms
-                        .map(|gap| wire::counted("phase turn gap", gap))
-                        .transpose()?,
-                    haptic_pattern: phase.haptic_pattern,
-                    voice_script: phase.voice_script,
-                })
-            })
-            .collect::<Result<Vec<_>, TechniqueError>>()?,
+            .map(phase_to_proto)
+            .collect::<Result<Vec<_>, wire::Unrepresentable>>()?,
         cycles: wire::positive("stage cycles", stage.cycles)?,
         open_ended: stage.open_ended,
     })

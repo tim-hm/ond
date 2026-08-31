@@ -15,9 +15,9 @@ use super::types::{
     MAX_SUMMARY_CHARS, MAX_TECHNIQUES, PhaseLimits,
 };
 use crate::features::technique::convert::{
-    evidence_grade_to_proto, goal_to_proto, manner_to_proto, passage_to_proto, phase_kind_to_proto,
+    evidence_grade_to_proto, goal_to_proto, phase_kind_to_proto, phase_to_proto,
 };
-use crate::features::technique::types::{Passage, PhaseKind, TechniqueGoal};
+use crate::features::technique::types::{Passage, PhaseKind, PlayablePhase, TechniqueGoal};
 use crate::proto::ond::v1 as pb;
 use crate::wire;
 
@@ -49,7 +49,12 @@ pub(super) fn authored_to_proto(
                     .phases
                     .iter()
                     .map(|phase| {
-                        phase_to_proto(phase.kind, phase.passage, phase.duration_ms, limits)
+                        authored_phase_to_proto(
+                            phase.kind,
+                            phase.passage,
+                            phase.duration_ms,
+                            limits,
+                        )
                     })
                     .collect::<Result<Vec<_>, UserTechniqueError>>()?,
                 cycles: wire::positive("stage cycles", stage.cycles)?,
@@ -124,7 +129,7 @@ pub(super) fn technique_to_proto(
 /// narrowed after the technique was authored. Refusing would cost the person
 /// their whole list, and clamping would change their exercise silently. The
 /// next edit is checked against the current range.
-fn phase_to_proto(
+fn authored_phase_to_proto(
     kind: PhaseKind,
     passage: Option<Passage>,
     duration_ms: i32,
@@ -136,27 +141,23 @@ fn phase_to_proto(
             (limit.min_duration_ms, limit.max_duration_ms)
         });
 
-    Ok(pb::Phase {
-        kind: phase_kind_to_proto(kind) as i32,
-        duration_ms: wire::positive("phase duration", duration_ms)?,
-        min_duration_ms: wire::positive("phase minimum", min.min(duration_ms))?,
-        max_duration_ms: wire::positive("phase maximum", max.max(duration_ms))?,
-        passage: passage_to_proto(passage) as i32,
-        // An authored exercise never names one: `DraftPhase` has no field for a
-        // manner, because a manner is curated copy asserting how a shaped breath
-        // works, and the composer does not invite an author to assert
-        // physiology. Mapped rather than written as the zero value, so this
-        // module keeps a single domain-to-wire translation for the field.
-        manner: manner_to_proto(None) as i32,
-        // Nor a cadence, for the same reason: the gap between two breaths, the
-        // tap and the spoken line are one authored deliverable per exercise,
-        // and the composer does not invite an author to design one. Absent
-        // leaves the client deriving all three, which is what it does for the
-        // curated catalogue too.
+    phase_to_proto(PlayablePhase {
+        kind,
+        passage,
+        duration_ms,
+        min_duration_ms: min.min(duration_ms),
+        max_duration_ms: max.max(duration_ms),
+        // An authored exercise names neither a manner nor a cadence. Both are
+        // curated copy: a manner asserts how a shaped breath works, and the gap
+        // between two breaths, the tap and the spoken line are one authored
+        // deliverable per exercise. The composer invites neither. Absent leaves
+        // the client deriving them, which is what it does for the catalogue too.
+        manner: None,
         turn_gap_ms: None,
         haptic_pattern: None,
         voice_script: None,
     })
+    .map_err(Into::into)
 }
 
 /// The composer's ceilings, as the client has to render them.
@@ -203,7 +204,7 @@ pub(super) fn assemble_stages(
         phases_by_stage
             .entry((phase.technique_id, phase.stage_ordinal))
             .or_default()
-            .push(phase_to_proto(
+            .push(authored_phase_to_proto(
                 phase.kind,
                 phase.passage,
                 phase.duration_ms,
@@ -255,8 +256,9 @@ mod tests {
     /// whole list. The range widens to contain what they authored instead.
     #[test]
     fn a_stored_phase_narrower_than_its_range_still_serves() {
-        let phase = phase_to_proto(PhaseKind::Inhale, Some(Passage::Nose), 12_000, &limits())
-            .expect("a duration outside the seeded range is widened, not refused");
+        let phase =
+            authored_phase_to_proto(PhaseKind::Inhale, Some(Passage::Nose), 12_000, &limits())
+                .expect("a duration outside the seeded range is widened, not refused");
 
         assert_eq!(phase.duration_ms, 12_000);
         assert!(phase.min_duration_ms <= phase.duration_ms);
@@ -273,7 +275,12 @@ mod tests {
         for duration in [-4000, 0] {
             assert!(
                 matches!(
-                    phase_to_proto(PhaseKind::Inhale, Some(Passage::Nose), duration, &limits()),
+                    authored_phase_to_proto(
+                        PhaseKind::Inhale,
+                        Some(Passage::Nose),
+                        duration,
+                        &limits()
+                    ),
                     Err(UserTechniqueError::Inconsistent(_))
                 ),
                 "a stored {duration}ms phase is corrupt and must fail the call"

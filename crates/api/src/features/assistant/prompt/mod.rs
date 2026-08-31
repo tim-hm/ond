@@ -18,7 +18,9 @@ use self::prefix::{TEMPLATE, pattern_clause, recency_phrase};
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::features::assistant::types::HealthContext;
+    use crate::features::assistant::types::{
+        HealthContext, HrvSdnn, RestingHeartRate, SleepingBreaths,
+    };
     use crate::features::journey::bolt::types::BoltSnapshot;
     use crate::features::journey::resting_rate::types::RestingRateSnapshot;
     use crate::features::journey::sessions::types::{
@@ -748,9 +750,18 @@ mod tests {
     #[test]
     fn a_health_context_is_a_third_data_block() {
         let health = HealthContext::clamped(
-            (Some(62), Some(4)),
-            (Some(45), Some(-6)),
-            (Some(14), Some(-1)),
+            RestingHeartRate {
+                mean_bpm: Some(62),
+                trend_bpm: Some(4),
+            },
+            HrvSdnn {
+                mean_ms: Some(45),
+                trend_ms: Some(-6),
+            },
+            SleepingBreaths {
+                mean_per_minute: Some(14),
+                trend: Some(-1),
+            },
         )
         .expect("a plausible context");
 
@@ -801,15 +812,29 @@ mod tests {
     /// stops; a delta of zero is "in line", not "0 above".
     #[test]
     fn a_health_line_degrades_with_its_evidence() {
-        let trendless = HealthContext::clamped((Some(58), None), (None, None), (None, None))
-            .expect("one mean keeps the context");
+        let trendless = HealthContext::clamped(
+            RestingHeartRate {
+                mean_bpm: Some(58),
+                trend_bpm: None,
+            },
+            HrvSdnn::default(),
+            SleepingBreaths::default(),
+        )
+        .expect("one mean keeps the context");
         assert_eq!(
             health_lines(&trendless),
             "resting heart rate: about 58 bpm\n"
         );
 
-        let level = HealthContext::clamped((None, None), (Some(45), Some(0)), (None, None))
-            .expect("one mean keeps the context");
+        let level = HealthContext::clamped(
+            RestingHeartRate::default(),
+            HrvSdnn {
+                mean_ms: Some(45),
+                trend_ms: Some(0),
+            },
+            SleepingBreaths::default(),
+        )
+        .expect("one mean keeps the context");
         assert_eq!(
             health_lines(&level),
             "heart-rate variability (SDNN): about 45 ms, in line with their recent baseline\n"
@@ -821,8 +846,15 @@ mod tests {
     /// survive in one while the other is right.
     #[test]
     fn a_trend_of_one_breath_reads_as_one_breath() {
-        let single = HealthContext::clamped((None, None), (None, None), (Some(13), Some(-1)))
-            .expect("breathing alone keeps the context");
+        let single = HealthContext::clamped(
+            RestingHeartRate::default(),
+            HrvSdnn::default(),
+            SleepingBreaths {
+                mean_per_minute: Some(13),
+                trend: Some(-1),
+            },
+        )
+        .expect("breathing alone keeps the context");
         assert_eq!(
             health_lines(&single),
             "sleeping breathing rate: about 13 breaths per minute, around 1 breath per minute below \

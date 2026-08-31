@@ -57,25 +57,54 @@ pub async fn insert_sessions(
     user_id: UserId,
     sessions: &[SessionRow],
 ) -> Result<usize, JourneyError> {
-    let ids: Vec<Uuid> = sessions.iter().map(|s| s.client_session_id).collect();
-    let slugs: Vec<String> = sessions
-        .iter()
-        .map(|s| s.technique_slug.as_str().to_owned())
-        .collect();
-    let started_at: Vec<DateTime<Utc>> = sessions.iter().map(|s| s.started_at).collect();
-    let durations: Vec<i32> = sessions.iter().map(|s| s.duration_ms).collect();
-    let cycles: Vec<i32> = sessions.iter().map(|s| s.cycles_completed).collect();
-    let breaths: Vec<i32> = sessions.iter().map(|s| s.breath_count).collect();
-    let completed: Vec<bool> = sessions.iter().map(|s| s.completed).collect();
-    let occasions: Vec<Option<String>> = sessions
-        .iter()
-        .map(|s| {
-            s.occasion_slug
+    let mut ids: Vec<Uuid> = Vec::with_capacity(sessions.len());
+    let mut slugs: Vec<String> = Vec::with_capacity(sessions.len());
+    let mut started_at: Vec<DateTime<Utc>> = Vec::with_capacity(sessions.len());
+    let mut durations: Vec<i32> = Vec::with_capacity(sessions.len());
+    let mut cycles: Vec<i32> = Vec::with_capacity(sessions.len());
+    let mut breaths: Vec<i32> = Vec::with_capacity(sessions.len());
+    let mut completed: Vec<bool> = Vec::with_capacity(sessions.len());
+    let mut occasions: Vec<Option<String>> = Vec::with_capacity(sessions.len());
+    let mut surfaces: Vec<Option<DeliverySurface>> = Vec::with_capacity(sessions.len());
+
+    // One pass, so no column can be filtered, reordered or deduplicated alone.
+    // Position is the only thing holding a row together here, and `UNNEST` pads
+    // a short array with nulls rather than failing: a column that moved on its
+    // own would record a session against the next session's technique, and the
+    // request would still succeed.
+    for session in sessions {
+        ids.push(session.client_session_id);
+        slugs.push(session.technique_slug.as_str().to_owned());
+        started_at.push(session.started_at);
+        durations.push(session.duration_ms);
+        cycles.push(session.cycles_completed);
+        breaths.push(session.breath_count);
+        completed.push(session.completed);
+        occasions.push(
+            session
+                .occasion_slug
                 .as_ref()
-                .map(|slug| slug.as_str().to_owned())
-        })
-        .collect();
-    let surfaces: Vec<Option<DeliverySurface>> = sessions.iter().map(|s| s.surface).collect();
+                .map(|slug| slug.as_str().to_owned()),
+        );
+        surfaces.push(session.surface);
+    }
+
+    debug_assert!(
+        [
+            ids.len(),
+            slugs.len(),
+            started_at.len(),
+            durations.len(),
+            cycles.len(),
+            breaths.len(),
+            completed.len(),
+            occasions.len(),
+            surfaces.len(),
+        ]
+        .iter()
+        .all(|column| *column == sessions.len()),
+        "every unnested column carries one entry per session"
+    );
 
     let inserted = sqlx::query_scalar!(
         "INSERT INTO sessions (

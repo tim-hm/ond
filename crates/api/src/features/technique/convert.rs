@@ -5,10 +5,11 @@
 //! values alike; each calling feature words that refusal itself.
 
 use super::types::{
-    CopyRegister, DeliverySurface, EvidenceGrade, Manner, Passage, PhaseKind, ReadingContent,
-    ReadingListStyle, TechniqueGoal,
+    CopyRegister, DeliverySurface, EvidenceGrade, Manner, Passage, PhaseKind, PlayablePhase,
+    ReadingContent, ReadingListStyle, TechniqueGoal,
 };
 use crate::proto::ond::v1 as pb;
+use crate::wire;
 
 /// A domain goal as the protobuf vocabulary shared by catalogue, profile, and
 /// authored exercises.
@@ -121,6 +122,32 @@ pub(crate) const fn manner_to_proto(manner: Option<Manner>) -> pb::Manner {
         Some(Manner::Hum) => pb::Manner::Hum,
         None => pb::Manner::Unspecified,
     }
+}
+
+/// The one place a phase becomes its wire message. The curated catalogue and
+/// an exercise somebody authored both serve through it, so a field added to
+/// `Phase` cannot be filled on one path and left as a zero on the other. Every
+/// count narrows here; the schema's `CHECK`s make a failed narrowing corrupt
+/// data rather than a client's fault.
+pub(crate) fn phase_to_proto(phase: PlayablePhase) -> Result<pb::Phase, wire::Unrepresentable> {
+    Ok(pb::Phase {
+        kind: phase_kind_to_proto(phase.kind) as i32,
+        duration_ms: wire::positive("phase duration", phase.duration_ms)?,
+        min_duration_ms: wire::positive("phase minimum", phase.min_duration_ms)?,
+        max_duration_ms: wire::positive("phase maximum", phase.max_duration_ms)?,
+        passage: passage_to_proto(phase.passage) as i32,
+        manner: manner_to_proto(phase.manner) as i32,
+        // `counted` rather than `positive`: an authored zero says this rhythm
+        // turns without a gap, which is what a continuous exercise means. The
+        // 0–600 ms bound is the column's, and presence is what carries the
+        // distinction a bare zero could not.
+        turn_gap_ms: phase
+            .turn_gap_ms
+            .map(|gap| wire::counted("phase turn gap", gap))
+            .transpose()?,
+        haptic_pattern: phase.haptic_pattern,
+        voice_script: phase.voice_script,
+    })
 }
 
 /// A protobuf passage when it names an air path.
