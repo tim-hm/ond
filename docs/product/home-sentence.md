@@ -1,6 +1,6 @@
 # The Home sentence
 
-Home holds three things: the breath at rest, one line of plain language, and the button. This document is the copy matrix behind that line — the cases, the exact strings, and the order the cases are tested in. The implementation is [`HomeStateLine.swift`](../../ios/Packages/OndCore/Sources/OndKit/HomeStateLine.swift), and every string below is pinned by [`HomeStateLineTests.swift`](../../ios/Packages/OndCore/Tests/OndKitTests/HomeStateLineTests.swift).
+Home holds three things: the breath at rest, one line of plain language, and the button. This document is the copy matrix behind that line — the cases, the exact strings, and the order the cases are tested in. The implementation is [`HomeStateLine.swift`](../../ios/Packages/OndCore/Sources/OndKit/Home/HomeStateLine.swift), and every string below is pinned by [`HomeStateLineTests.swift`](../../ios/Packages/OndCore/Tests/OndKitTests/Home/HomeStateLineTests.swift).
 
 The line has one job: say what this week holds, and give the reader nothing to brace for. It is the emotional centre of the screen, which is why it is written here rather than improvised at the call site.
 

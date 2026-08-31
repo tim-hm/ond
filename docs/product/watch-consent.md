@@ -2,7 +2,7 @@
 
 The watch is a full session surface, not a remote: somebody can breathe on it before the phone app has ever been opened. The safety terms are a wall on the phone, so a wrist that skipped them would be a session nobody agreed to. This document is the decision behind the wrist's own consent — what it asks, why it is shorter, when it is skipped, and what happens when the phone's agreement goes away.
 
-The words are [`SafetyConsent.swift`](../../ios/Packages/OndCore/Sources/OndKit/SafetyConsent.swift); the record and the rule are both [`SafetyConsentStore.swift`](../../ios/Packages/OndCore/Sources/OndKit/SafetyConsentStore.swift), whose `needsConsent(whenAnotherDeviceAgreedTo:)` is the decision; the screen is [`WristConsentView.swift`](../../ios/OndWatch/Features/Onboarding/WristConsentView.swift). Every rule below is pinned by [`WristConsentTests.swift`](../../ios/Packages/OndCore/Tests/OndKitTests/WristConsentTests.swift).
+The words are [`SafetyConsent.swift`](../../ios/Packages/OndCore/Sources/OndKit/Profile/SafetyConsent.swift); the record and the rule are both [`SafetyConsentStore.swift`](../../ios/Packages/OndCore/Sources/OndKit/Profile/SafetyConsentStore.swift), whose `needsConsent(whenAnotherDeviceAgreedTo:)` is the decision; the screen is [`WristConsentView.swift`](../../ios/OndWatch/Features/Onboarding/WristConsentView.swift). Every rule below is pinned by [`WristConsentTests.swift`](../../ios/Packages/OndCore/Tests/OndKitTests/Watch/WristConsentTests.swift).
 
 ## What the wrist asks
 

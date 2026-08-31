@@ -20,11 +20,13 @@ crates/api/src/features/technique/
 # Swift
 ios/Ond/Features/Techniques/
   TechniqueListView.swift
-ios/Packages/OndCore/Sources/OndKit/
+ios/Packages/OndCore/Sources/OndKit/Technique/
   TechniqueListModel.swift
 ```
 
 A developer can understand — or delete — a feature by looking in one place.
+
+`OndKit` groups by the same axis. It holds the domain for every feature in one target, so it is subdivided rather than flat: `Session/`, `Technique/`, `Watch/`, `Journey/`, `Health/`, `Account/`, `Profile/`, `Subscription/`, `Assistant/`, `Home/`, `Notifications/`, `Reference/` for the served catalogue layer, `Transport/` for the RPC boundary, and `Storage/` for the file and Keychain stores. `Tests/OndKitTests/` mirrors those names. A type that belongs to no feature stays at the root rather than joining one it does not serve.
 
 Swift splits one layer further than Rust: the view stays in the app feature directory, but its observable model lives in `OndKit`. The app target has no test bundle — package tests are the only tests that run on the host — so a model in the app target would be structurally untestable.
 
@@ -102,7 +104,7 @@ Two invariants hold here, and the target graph enforces both:
 
 ### The widget extension
 
-`OndActivity` is a third target over the same three products, and it is a target rather than more app code for a reason that is not ours: a Live Activity is drawn out of process. The app requests and updates it (`OndKit/SessionActivity.swift`); the extension renders it, and can reach nothing else in the app at all.
+`OndActivity` is a third target over the same three products, and it is a target rather than more app code for a reason that is not ours: a Live Activity is drawn out of process. The app requests and updates it (`OndKit/Session/SessionActivity.swift`); the extension renders it, and can reach nothing else in the app at all.
 
 That gives the pair exactly one seam — the payload — and it lives in `OndKit` as `SessionPresence` so both halves name one type instead of keeping two copies of a struct in step. The lock-screen controls are the one deliberate exception to that rule: `OndActivity/Intents/` is compiled into _both_ targets, because a `LiveActivityIntent` has to be resolvable from the app's own App Intents metadata even though the button that sends it is drawn in the extension. `SessionControlIntents.swift`'s doc comment carries the detail.
 
