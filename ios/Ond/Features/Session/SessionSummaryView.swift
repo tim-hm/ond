@@ -156,10 +156,6 @@ struct SessionSummaryView: View {
                         Task { await mood.answerAfter(tapped) { await moodRecorder.note($0) } }
                     }
                 }
-
-                Text(MoodCheckModel.caption)
-                    .font(.footnote)
-                    .foregroundStyle(Theme.Ink.secondary)
             }
             .multilineTextAlignment(.center)
             .animation(.easeIn(duration: 0.3), value: mood.after)

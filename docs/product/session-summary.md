@@ -102,9 +102,7 @@ Every point keeps that word behind its numeral. It is what VoiceOver reads, so a
 
 An odd count is the point of five: the middle is `Okay`, so somebody can report that nothing changed without picking a side. The five map onto Health's own -1...1 pleasantness axis in equal steps, which is the whole of what a State of Mind sample carries.
 
-Both carry the same caption, `MoodCheckModel.caption`: `Context, not a score.` It stands before the answer and stays after it, because a pair of moods across a session is the one thing on this screen that invites reading a difference, and saying what the answer is for is cheaper than correcting a reading later.
-
-The caption cannot say the answer is _used_ for anything. A mood is written to Apple Health on the phone it was tapped on and reaches nothing else — no field on the wire, no column, and not the coach. `HealthSettingsSection.swift` states that as a promise: `önd never sees them.` A caption that offered the answer to a coach would contradict the screen that asked for it.
+**Neither half carries a caption.** The two screens once stood `Context, not a score.` under the scale. It said something true — a mood is written to Apple Health on the phone it was tapped on and reaches nothing else, which `HealthSettingsSection.swift` states as a promise — but it said it in the moment before a breath and in the moment after one, which are the two moments on which the app has least right to explain itself. The promise stays where somebody can go and read it.
 
 **What the pair says back.** `Not good before · Good now` when both halves were answered, the later word alone when the way in was skipped. The rule is `MoodCheckModel.note`, and it states the two words without grading the distance between them.
 

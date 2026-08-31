@@ -30,14 +30,9 @@ public final class MoodCheckModel {
         isAsked && before == nil
     }
 
-    /// What the check is for, said on both halves before either is answered.
-    /// It cannot promise the answer is used for anything: a mood reaches
-    /// Apple Health and stops there, and Settings promises önd never sees it.
-    public static let caption = "Context, not a score."
-
-    /// The two questions, kept together for the caption's reason. The same
-    /// scale draws under both, so the only thing telling the halves apart is
-    /// the word at the end of the sentence.
+    /// The two questions, kept together because the same scale draws under
+    /// both: the only thing telling the halves apart is the word at the end
+    /// of the sentence.
     public static let questionBefore = "How do you feel right now?"
     public static let questionAfter = "How do you feel now?"
 
