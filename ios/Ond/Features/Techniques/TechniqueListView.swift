@@ -171,6 +171,8 @@ struct TechniqueListView: View {
         case let .loaded(techniques):
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                    ScreenSubtitle("Choose by the rhythm, not the moment.")
+
                     Section {
                         VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
                             catalogueSection(of: matching(techniques))

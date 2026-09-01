@@ -99,13 +99,7 @@ struct MomentListView: View {
 
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
-                // Moments and Exercises are when and what. The line says which
-                // axis this screen is, because the tab name alone cannot.
-                Text("Choose by what is happening right now.")
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.Ink.secondary)
-                    .padding(.horizontal, Theme.Spacing.page)
-                    .padding(.bottom, Theme.Spacing.standard)
+                ScreenSubtitle("Choose by what is happening right now.")
 
                 Section {
                     VStack(alignment: .leading, spacing: Theme.Spacing.close) {
