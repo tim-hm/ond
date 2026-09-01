@@ -2,11 +2,10 @@ import OndUI
 import SwiftUI
 
 /// The welcome's first guided breath: a real Coherent 5.5 cadence before the
-/// flow asks anything. Deliberately simpler than a session — two rings and a
-/// core, no halo, no hold mark and no phase word — but phase-led like one. It
-/// says nothing because the headline above it already does. The clock begins
-/// when this view appears, so returning to Welcome starts another complete
-/// inhale rather than landing mid-way through a process-wide ambient loop.
+/// flow asks anything. Two rings and a core, and no words — the headline above
+/// it already says them. The clock begins when this view appears, so returning
+/// to Welcome starts another complete inhale rather than landing mid-way
+/// through a process-wide ambient loop.
 struct AmbientOrb: View {
     /// What colour to breathe in. The brand accent, because nothing on the
     /// welcome screen belongs to a technique yet.

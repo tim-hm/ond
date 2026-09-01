@@ -5,10 +5,8 @@ public extension Theme {
     /// The display face — Newsreader Light, bundled here so every process ships
     /// the same serif. Display only: the wordmark, a screen's one headline, the
     /// phase word — never a control label or body copy. The 16pt text cut
-    /// (opsz 16, wght 300), which is drawn for the 22 to 49pt these roles use;
-    /// the 72pt cut it replaced was a poster face and read grey at them. Its
-    /// x-height is 0.86 of that cut's, so every display size grew by a sixth
-    /// when it landed — the sizes here are already compensated.
+    /// (opsz 16, wght 300), drawn for the 22 to 49pt these roles use. Its
+    /// x-height is 0.86 of the 72pt cut's, so every display size is compensated.
     enum Typeface {
         /// The PostScript name registration makes resolvable.
         /// `TypefaceTests` pins it against the TTF on disk, because a font
@@ -42,7 +40,6 @@ public extension Theme {
         /// every accessor without re-registering.
         private static let registration: Void = {
             let fonts = Bundle.module.url(forResource: "Fonts", withExtension: nil)
-
 
             guard
                 let url = fonts?.appending(path: "Newsreader16pt-Light.ttf"),
