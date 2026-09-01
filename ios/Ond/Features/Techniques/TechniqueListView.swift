@@ -219,23 +219,15 @@ struct TechniqueListView: View {
         }
     }
 
-    /// One section plate. `Surface.raised` rather than the ground it sits on:
-    /// the two are 1.14:1 apart, which is exactly what `Shadow.list` is drawn
-    /// to carry. Filled with the ground instead, the plate matched the screen
-    /// and the pinned filter bar at 1.0:1, and the rows had no edge at all.
+    /// One section plate. It drew its own surface and filled it with the
+    /// ground it sits on, which matched the screen and the pinned filter bar
+    /// at 1.0:1 and left the rows no edge. `plate()` is the shared recipe.
     private func groupedRows(
         @ViewBuilder content: () -> some View
     ) -> some View {
         VStack(spacing: 0, content: content)
             .padding(.horizontal, Theme.Spacing.standard)
-            .background {
-                RoundedRectangle(cornerRadius: Theme.Radius.card)
-                    .fill(Theme.Surface.raised.shadow(Theme.Shadow.list))
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: Theme.Radius.card)
-                    .stroke(Theme.Surface.line, lineWidth: 0.5)
-            }
+            .plate()
     }
 
     private var rowDivider: some View {

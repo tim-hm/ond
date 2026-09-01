@@ -17,14 +17,7 @@ struct PlusBenefits: View {
                 row(benefit)
             }
         }
-        .background {
-            RoundedRectangle(cornerRadius: Theme.Radius.card)
-                .fill(Theme.Surface.raised.shadow(Theme.Shadow.list))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: Theme.Radius.card)
-                .stroke(Theme.Surface.line, lineWidth: 0.5)
-        }
+        .plate()
     }
 
     private func row(_ benefit: Benefit) -> some View {

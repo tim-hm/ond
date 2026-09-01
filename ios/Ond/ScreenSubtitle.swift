@@ -7,7 +7,7 @@ import SwiftUI
 /// its own page margin because the stacks that hold it pad their children
 /// rather than themselves.
 struct ScreenSubtitle: View {
-    let text: String
+    private let text: String
 
     init(_ text: String) {
         self.text = text
