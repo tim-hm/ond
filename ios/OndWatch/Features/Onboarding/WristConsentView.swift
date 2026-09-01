@@ -34,7 +34,7 @@ struct WristConsentView: View {
                 .accessibilityHidden(true)
 
             Text(terms.title)
-                .displaySerif(size: 22)
+                .displaySerif(size: 26)
                 .foregroundStyle(Theme.Ink.primary)
 
             Text(terms.intro)

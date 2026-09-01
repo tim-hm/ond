@@ -81,7 +81,7 @@ struct RootMenuView: View {
             // Lowercase, and never uppercased: the name is önd, and ÖND is a
             // different word wearing its hat.
             Text("önd")
-                .displaySerif(size: 22)
+                .displaySerif(size: 26)
                 .foregroundStyle(Theme.Ink.primary)
 
             Spacer(minLength: Theme.Spacing.tight)

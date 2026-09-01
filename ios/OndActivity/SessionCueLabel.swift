@@ -15,7 +15,7 @@ struct SessionCueLabel: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
             HStack(spacing: Theme.Spacing.close) {
                 Text(presence.instruction)
-                    .displaySerif(size: 28)
+                    .displaySerif(size: 32)
                 // A retention has no end the plan can name, so the only honest
                 // number is how long it has run. The system counts it up
                 // locally, with no update from the app.

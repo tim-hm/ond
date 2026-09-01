@@ -32,12 +32,12 @@ struct WelcomeStepView: View {
                 // Lowercase, and never uppercased: the name is önd, and ÖND is
                 // a different word wearing its hat.
                 Text("önd breathe")
-                    .font(Theme.Typeface.wordmark(size: 22))
+                    .font(Theme.Typeface.wordmark(size: 26))
                     .tracking(wordmarkTracking)
                     .foregroundStyle(Theme.Ink.secondary)
 
                 Text("Guided breathing, grounded in evidence.")
-                    .displaySerif(size: 34)
+                    .displaySerif(size: 39)
                     .foregroundStyle(Theme.Ink.primary)
                     // `centredInScroller` measures this stack at its ideal
                     // width, where the headline is one line. Without this it

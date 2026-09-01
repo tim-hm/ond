@@ -19,7 +19,7 @@ struct SafetyConsentStepView: View {
                     .accessibilityHidden(true)
 
                 Text(terms.title)
-                    .displaySerif(size: 36)
+                    .displaySerif(size: 42)
                     .foregroundStyle(Theme.Ink.primary)
 
                 Text(terms.intro)
