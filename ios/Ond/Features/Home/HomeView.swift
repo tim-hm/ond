@@ -236,19 +236,7 @@ struct HomeView: View {
     /// The wordmark and the one way to everything that is not practice.
     private var masthead: some View {
         HStack(spacing: Theme.Spacing.close) {
-            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.close) {
-                // Lowercase, and never uppercased: the name is önd, and ÖND is
-                // a different word wearing its hat.
-                Text("önd")
-                    .displaySerif(size: 30)
-                    .foregroundStyle(Theme.Ink.primary)
-
-                Text("breathe")
-                    .displaySerif(size: 17)
-                    .foregroundStyle(Theme.Ink.secondary)
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(.isHeader)
+            Wordmark(size: 30)
 
             Spacer(minLength: Theme.Spacing.close)
 
