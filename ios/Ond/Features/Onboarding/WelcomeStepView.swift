@@ -22,7 +22,12 @@ struct WelcomeStepView: View {
     @ScaledMetric(relativeTo: .title2) private var wordmarkTracking: CGFloat = 3
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.loose) {
+        // Three bands rather than a cluster: the name and the claim hold the
+        // top, the breath takes the middle, and the detail sits at the foot.
+        // `Spacer(minLength:)` rather than fixed gaps — the scroller stretches
+        // this to the screen's height, and at accessibility sizes the bands
+        // meet their minimum and the screen scrolls instead of crushing.
+        VStack(spacing: 0) {
             VStack(spacing: Theme.Spacing.standard) {
                 // Lowercase, and never uppercased: the name is önd, and ÖND is
                 // a different word wearing its hat.
@@ -38,19 +43,23 @@ struct WelcomeStepView: View {
                     // width, where the headline is one line. Without this it
                     // keeps that line and truncates at any screen width.
                     .fixedSize(horizontal: false, vertical: true)
-
-                Text("Fall asleep faster, steady yourself before something "
-                    + "hard, and come down from a hard day, with exercises "
-                    + "drawn from what the research supports.")
-                    .font(.body)
-                    .foregroundStyle(Theme.Ink.secondary)
             }
-            .multilineTextAlignment(.center)
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
 
+            Spacer(minLength: Theme.Spacing.loose)
+
             AmbientOrb(accent: Theme.Accent.brand)
+
+            Spacer(minLength: Theme.Spacing.loose)
+
+            Text("Fall asleep faster, steady yourself before something hard, "
+                + "and come down from a hard day, with exercises drawn from "
+                + "what the research supports.")
+                .font(.body)
+                .foregroundStyle(Theme.Ink.secondary)
         }
+        .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
         // The one entrance in the app: everything rises to meet the orb, which
         // is already breathing when it arrives.
