@@ -236,7 +236,7 @@ struct HomeView: View {
     /// The wordmark and the one way to everything that is not practice.
     private var masthead: some View {
         HStack(spacing: Theme.Spacing.close) {
-            Wordmark(size: 30)
+            Wordmark()
 
             Spacer(minLength: Theme.Spacing.close)
 
@@ -318,10 +318,9 @@ struct HomeView: View {
                     // starts cannot be the line that gets cut.
                     .fixedSize(horizontal: false, vertical: true)
 
-                // The compact chevron, not the right-pointing one: this line
-                // raises a sheet, and it is drawn in the shape of that sheet's
-                // own grabber. The line already announces itself as a way in,
-                // so the glyph only says the same thing to the eye.
+                // Drawn in the shape of the grabber on the sheet it opens.
+                // The line already announces itself as a way in, so the glyph
+                // only says the same thing to the eye.
                 Image(systemName: "chevron.compact.up")
                     .font(.footnote.weight(.semibold))
                     .accessibilityHidden(true)
