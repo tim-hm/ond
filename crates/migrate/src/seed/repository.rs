@@ -234,8 +234,8 @@ async fn replace_stages(
                 r"INSERT INTO technique_phases
                      (technique_id, stage_ordinal, ordinal, kind, passage, manner,
                       duration_ms, min_duration_ms, max_duration_ms,
-                      turn_gap_ms, haptic_pattern, voice_script)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+                      turn_gap_ms, haptic_pattern)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
             )
             .bind(id)
             .bind(ordinal)
@@ -248,7 +248,6 @@ async fn replace_stages(
             .bind(phase.max_duration_ms)
             .bind(phase.turn_gap_ms)
             .bind(phase.haptic_pattern)
-            .bind(phase.voice_script)
             .execute(&mut **tx)
             .await
             .with_context(|| {

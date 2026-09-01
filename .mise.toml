@@ -200,39 +200,6 @@ dir = "{{config_root}}"
 # retuned ring ships in last season's blue.
 run = "cargo run --quiet -p toolkit -- icons"
 
-[tasks."generate:voice"]
-description = "Speak the session's cues into the clips OndKit ships"
-# Outside the `generate` chain: it needs an ElevenLabs key and macOS-only
-# `afconvert`, and a chain that fails in a headless environment teaches people
-# to skip the chain. Nothing enforces running it by hand — a reworded cue
-# fails VoiceCoverageTests inside the gate, with no key and no network; this
-# is how you satisfy that check. The clips are committed (docs/voice.md).
-run = "cargo run --quiet -p toolkit -- voice"
-
-[tasks."voice:setup"]
-description = "Store the ElevenLabs voice-rendering key in the login Keychain"
-# `-w` is deliberately the final argument: the security client then prompts
-# without putting the credential in this file, the process list, or shell
-# history. `-U` rotates an existing item in place.
-raw = true
-run = '''
-if [ "$(uname -s)" != Darwin ]; then
-  echo 'voice:setup: the credential lives in the macOS Keychain, so this task requires macOS' >&2
-  exit 1
-fi
-
-/usr/bin/security add-generic-password \
-  -U \
-  -s com.ond.voice.elevenlabs \
-  -a api-key \
-  -l 'önd ElevenLabs voice rendering' \
-  -w
-'''
-
-[tasks."voice:list"]
-description = "List the ElevenLabs voices this account can render with"
-run = "cargo run --quiet -p toolkit -- voice list"
-
 [tasks."generate:sqlx"]
 description = "Refresh the committed .sqlx offline query cache"
 depends = ["dev:db"]

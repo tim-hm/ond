@@ -49,12 +49,7 @@ let package = Package(
         .target(
             name: "OndKit",
             dependencies: ["OndAPI"],
-            // Voice/ copied whole rather than named file by file: it is four
-            // folders of eleven clips that `mise run generate:voice` writes and
-            // nothing edits by hand, so listing them here would be forty-five
-            // lines restating a directory listing — and a line somebody forgets
-            // on the next voice is a clip that silently does not ship.
-            resources: [.copy("Resources/catalogue.json"), .copy("Resources/Voice")]
+            resources: [.copy("Resources/catalogue.json")]
         ),
         // No dependencies, ever: the design system stays free of domain types, and
         // goal-to-accent mapping belongs to OndStyle. The catalogue must be declared

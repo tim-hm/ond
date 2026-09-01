@@ -10,9 +10,9 @@ final class SessionCues: SessionCueing {
     private let haptics: HapticController?
     private let audio: SessionAudioPlayer?
 
-    init(mode: SessionCueMode, strength: HapticStrength, sound: SessionSound) {
+    init(mode: SessionCueMode, strength: HapticStrength) {
         haptics = mode.playsHaptics ? HapticController(strength: strength) : nil
-        audio = mode.playsAudio ? SessionAudioPlayer(voice: sound.voice) : nil
+        audio = mode.playsAudio ? SessionAudioPlayer() : nil
     }
 
     /// Sound is the whole of the answer: background runtime is granted for
@@ -29,10 +29,10 @@ final class SessionCues: SessionCueing {
         audio?.prepare()
     }
 
-    /// Both sides have something in flight to hand back. The sentence is the
-    /// obvious one; the swell is the one that was missed for a while, because a
-    /// breath is a single continuous haptic event as long as its phase, so a
-    /// pause mid-inhale left the phone playing the rest of that inhale out.
+    /// Both sides have something in flight to hand back. The swell is the one
+    /// that was missed for a while, because a breath is a single continuous
+    /// haptic event as long as its phase, so a pause mid-inhale left the phone
+    /// playing the rest of that inhale out.
     func pause() {
         haptics?.pause()
         audio?.pause()
@@ -47,11 +47,6 @@ final class SessionCues: SessionCueing {
     func play(_ beat: SessionTimeline.Beat) {
         haptics?.play(beat)
         audio?.play(beat)
-    }
-
-    /// Speech alone leads the boundary; the tap belongs on it.
-    func speakAhead(_ beat: SessionTimeline.Beat) {
-        audio?.speakAhead(beat)
     }
 
     func playCompletion() {

@@ -90,7 +90,6 @@ The principle above carries over unchanged. `os.Logger` does not: four of its pr
 | `settings`           | Per-technique session overrides stored on the device                     |
 | `subscription`       | StoreKit purchases and restores, and the entitlement the server stores   |
 | `user-technique`     | The exercises somebody composed — loading them, saving one, deleting one |
-| `voice-clips`        | Shipped cue audio discovered in the app bundle                           |
 | `watch-link`         | The handoff, from both ends                                              |
 
 **Levels answer the same question — _was this expected?_** — against a second constraint the backend does not have: `notice` and above are written to the on-disk log store, which is what a sysdiagnose collects and which has a fixed size budget.

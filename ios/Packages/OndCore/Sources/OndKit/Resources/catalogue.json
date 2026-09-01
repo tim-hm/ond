@@ -44,8 +44,7 @@
               "minDurationMs": 3000,
               "maxDurationMs": 8000,
               "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             },
             {
               "kind": "HOLD_IN",
@@ -55,8 +54,7 @@
               "minDurationMs": 2000,
               "maxDurationMs": 8000,
               "turnGapMs": 150,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             },
             {
               "kind": "EXHALE",
@@ -66,8 +64,7 @@
               "minDurationMs": 3000,
               "maxDurationMs": 8000,
               "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             },
             {
               "kind": "HOLD_OUT",
@@ -77,8 +74,7 @@
               "minDurationMs": 2000,
               "maxDurationMs": 8000,
               "turnGapMs": 120,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             }
           ],
           "cycles": 19,
@@ -132,8 +128,7 @@
               "minDurationMs": 4000,
               "maxDurationMs": 7000,
               "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             },
             {
               "kind": "EXHALE",
@@ -143,8 +138,7 @@
               "minDurationMs": 4000,
               "maxDurationMs": 7000,
               "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             }
           ],
           "cycles": 27,
@@ -198,8 +192,7 @@
               "minDurationMs": 3000,
               "maxDurationMs": 6000,
               "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             },
             {
               "kind": "HOLD_IN",
@@ -209,8 +202,7 @@
               "minDurationMs": 4000,
               "maxDurationMs": 10000,
               "turnGapMs": 250,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             },
             {
               "kind": "EXHALE",
@@ -220,8 +212,7 @@
               "minDurationMs": 6000,
               "maxDurationMs": 12000,
               "turnGapMs": 200,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             }
           ],
           "cycles": 8,
@@ -275,8 +266,7 @@
               "minDurationMs": 3000,
               "maxDurationMs": 5000,
               "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             },
             {
               "kind": "EXHALE",
@@ -286,8 +276,7 @@
               "minDurationMs": 6000,
               "maxDurationMs": 8000,
               "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             }
           ],
           "cycles": 30,
@@ -341,8 +330,7 @@
               "minDurationMs": 1000,
               "maxDurationMs": 2500,
               "turnGapMs": 250,
-              "hapticPattern": null,
-              "voiceScript": "sigh-in"
+              "hapticPattern": null
             },
             {
               "kind": "INHALE",
@@ -352,8 +340,7 @@
               "minDurationMs": 500,
               "maxDurationMs": 1200,
               "turnGapMs": 0,
-              "hapticPattern": "sip",
-              "voiceScript": "sigh-and-in"
+              "hapticPattern": "sip"
             },
             {
               "kind": "EXHALE",
@@ -363,8 +350,7 @@
               "minDurationMs": 4000,
               "maxDurationMs": 8000,
               "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": "sigh-and-out"
+              "hapticPattern": null
             }
           ],
           "cycles": 3,
@@ -418,8 +404,7 @@
               "minDurationMs": 1500,
               "maxDurationMs": 3000,
               "turnGapMs": 250,
-              "hapticPattern": null,
-              "voiceScript": "sigh-in"
+              "hapticPattern": null
             },
             {
               "kind": "INHALE",
@@ -429,8 +414,7 @@
               "minDurationMs": 500,
               "maxDurationMs": 1500,
               "turnGapMs": 0,
-              "hapticPattern": "sip",
-              "voiceScript": "sigh-and-in"
+              "hapticPattern": "sip"
             },
             {
               "kind": "EXHALE",
@@ -440,8 +424,7 @@
               "minDurationMs": 5000,
               "maxDurationMs": 10000,
               "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": "sigh-and-out"
+              "hapticPattern": null
             }
           ],
           "cycles": 30,
@@ -495,8 +478,7 @@
               "minDurationMs": 2000,
               "maxDurationMs": 4000,
               "turnGapMs": 200,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             },
             {
               "kind": "EXHALE",
@@ -506,8 +488,7 @@
               "minDurationMs": 4000,
               "maxDurationMs": 8000,
               "turnGapMs": null,
-              "hapticPattern": "press",
-              "voiceScript": null
+              "hapticPattern": "press"
             }
           ],
           "cycles": 30,
@@ -561,8 +542,7 @@
               "minDurationMs": 3000,
               "maxDurationMs": 6000,
               "turnGapMs": 150,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             },
             {
               "kind": "EXHALE",
@@ -572,8 +552,7 @@
               "minDurationMs": 6000,
               "maxDurationMs": 15000,
               "turnGapMs": 200,
-              "hapticPattern": "press",
-              "voiceScript": null
+              "hapticPattern": "press"
             }
           ],
           "cycles": 25,
@@ -630,8 +609,7 @@
               "minDurationMs": 3000,
               "maxDurationMs": 6000,
               "turnGapMs": 200,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             },
             {
               "kind": "EXHALE",
@@ -641,8 +619,7 @@
               "minDurationMs": 4000,
               "maxDurationMs": 8000,
               "turnGapMs": 200,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             }
           ],
           "cycles": 30,
@@ -696,8 +673,7 @@
               "minDurationMs": 700,
               "maxDurationMs": 1500,
               "turnGapMs": 0,
-              "hapticPattern": "drum",
-              "voiceScript": "silent"
+              "hapticPattern": "drum"
             },
             {
               "kind": "EXHALE",
@@ -707,8 +683,7 @@
               "minDurationMs": 700,
               "maxDurationMs": 1500,
               "turnGapMs": 0,
-              "hapticPattern": "drum",
-              "voiceScript": "silent"
+              "hapticPattern": "drum"
             }
           ],
           "cycles": 20,
@@ -762,8 +737,7 @@
               "minDurationMs": 1000,
               "maxDurationMs": 2500,
               "turnGapMs": 0,
-              "hapticPattern": "drum",
-              "voiceScript": "silent"
+              "hapticPattern": "drum"
             },
             {
               "kind": "EXHALE",
@@ -773,8 +747,7 @@
               "minDurationMs": 1000,
               "maxDurationMs": 2500,
               "turnGapMs": 0,
-              "hapticPattern": "drum",
-              "voiceScript": "silent"
+              "hapticPattern": "drum"
             }
           ],
           "cycles": 30,
@@ -790,8 +763,7 @@
               "minDurationMs": 3000,
               "maxDurationMs": 6000,
               "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             },
             {
               "kind": "EXHALE",
@@ -801,8 +773,7 @@
               "minDurationMs": 2000,
               "maxDurationMs": 6000,
               "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             }
           ],
           "cycles": 1,
@@ -818,8 +789,7 @@
               "minDurationMs": 30000,
               "maxDurationMs": 120000,
               "turnGapMs": 0,
-              "hapticPattern": "long-hold",
-              "voiceScript": null
+              "hapticPattern": "long-hold"
             }
           ],
           "cycles": 1,
@@ -835,8 +805,7 @@
               "minDurationMs": 2000,
               "maxDurationMs": 5000,
               "turnGapMs": 0,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             },
             {
               "kind": "HOLD_IN",
@@ -846,8 +815,7 @@
               "minDurationMs": 10000,
               "maxDurationMs": 20000,
               "turnGapMs": 150,
-              "hapticPattern": "long-hold",
-              "voiceScript": null
+              "hapticPattern": "long-hold"
             },
             {
               "kind": "EXHALE",
@@ -857,8 +825,7 @@
               "minDurationMs": 2000,
               "maxDurationMs": 6000,
               "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             }
           ],
           "cycles": 1,
@@ -912,8 +879,7 @@
               "minDurationMs": 4000,
               "maxDurationMs": 10000,
               "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             },
             {
               "kind": "HOLD_IN",
@@ -923,8 +889,7 @@
               "minDurationMs": 4000,
               "maxDurationMs": 10000,
               "turnGapMs": 150,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             },
             {
               "kind": "EXHALE",
@@ -934,8 +899,7 @@
               "minDurationMs": 4000,
               "maxDurationMs": 10000,
               "turnGapMs": null,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             },
             {
               "kind": "HOLD_OUT",
@@ -945,8 +909,7 @@
               "minDurationMs": 4000,
               "maxDurationMs": 10000,
               "turnGapMs": 120,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             }
           ],
           "cycles": 13,
@@ -1003,8 +966,7 @@
               "minDurationMs": 3000,
               "maxDurationMs": 6000,
               "turnGapMs": 300,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             },
             {
               "kind": "EXHALE",
@@ -1014,8 +976,7 @@
               "minDurationMs": 4000,
               "maxDurationMs": 8000,
               "turnGapMs": 0,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             },
             {
               "kind": "INHALE",
@@ -1025,8 +986,7 @@
               "minDurationMs": 3000,
               "maxDurationMs": 6000,
               "turnGapMs": 300,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             },
             {
               "kind": "EXHALE",
@@ -1036,8 +996,7 @@
               "minDurationMs": 4000,
               "maxDurationMs": 8000,
               "turnGapMs": 0,
-              "hapticPattern": null,
-              "voiceScript": null
+              "hapticPattern": null
             }
           ],
           "cycles": 15,

@@ -209,7 +209,6 @@ public enum CatalogueExport {
         /// The authored cadence, absent wherever the client derives it.
         let turnGapMs: Int?
         let hapticPattern: String?
-        let voiceScript: String?
     }
 
     fileprivate struct ExportedFoundation: Decodable {
@@ -363,8 +362,7 @@ private extension Phase {
             range: .milliseconds(exported.minDurationMs) ... .milliseconds(exported.maxDurationMs),
             manner: exported.manner.map(Manner.init(exported:)),
             turnGap: turnGap,
-            hapticPattern: exported.hapticPattern?.nilIfEmpty,
-            voiceScript: exported.voiceScript?.nilIfEmpty
+            hapticPattern: exported.hapticPattern?.nilIfEmpty
         )
     }
 }

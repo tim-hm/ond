@@ -196,7 +196,6 @@ pub struct PlayablePhase {
     /// `passage`'s terms; the assistant never reads any of the three.
     pub turn_gap_ms: Option<i32>,
     pub haptic_pattern: Option<String>,
-    pub voice_script: Option<String>,
 }
 
 #[cfg(test)]
@@ -227,7 +226,6 @@ impl Technique {
                         max_duration_ms: 8000,
                         turn_gap_ms: None,
                         haptic_pattern: None,
-                        voice_script: None,
                     },
                     PlayablePhase {
                         kind: PhaseKind::Exhale,
@@ -238,7 +236,6 @@ impl Technique {
                         max_duration_ms: 8000,
                         turn_gap_ms: None,
                         haptic_pattern: None,
-                        voice_script: None,
                     },
                 ],
             }],

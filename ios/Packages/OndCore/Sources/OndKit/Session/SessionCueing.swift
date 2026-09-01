@@ -26,19 +26,7 @@ public protocol SessionCueing {
 
     func play(_ beat: SessionTimeline.Beat)
 
-    /// Starts this beat's spoken line early, inside the turn gap that closes
-    /// the beat before it, so the word lands on the boundary rather than
-    /// after it. Only speech leads: a tap is the mark itself and stays on it.
-    /// `play(_:)` follows at the boundary and must not repeat the line.
-    func speakAhead(_ beat: SessionTimeline.Beat)
-
     /// The session reached its end, as opposed to being ended.
     func playCompletion()
     func stop()
-}
-
-public extension SessionCueing {
-    /// A channel with nothing to say leads with nothing. Defaulted so the
-    /// wrist and the test doubles do not each carry an empty method.
-    func speakAhead(_: SessionTimeline.Beat) {}
 }

@@ -60,10 +60,6 @@ public struct SessionTimeline: Sendable, Equatable {
         /// reads to speak the ending: the short word again, so the end is
         /// heard and not only felt.
         public let isFinalCycle: Bool
-        /// The clip that teaches this exercise's form, on the one phase with
-        /// room for it — the longest of the stage's pattern. Nil on every
-        /// other beat, and on a session laid out from bare stages.
-        public let formCue: String?
         /// Zero-based index of the phase within the cycle's pattern.
         public let phase: Int
         /// Whether the person ends this beat rather than the clock. Its
@@ -86,10 +82,6 @@ public struct SessionTimeline: Sendable, Equatable {
         /// surface that says something about a beat is handed a `Beat` and
         /// nothing else.
         public let manner: Manner?
-        /// The line this beat's table authored for it, named as the clip the
-        /// voice render wrote, or nil to pick the cue from the beat itself.
-        /// Nil for every seeded phase: no script is written yet.
-        public let voiceScript: String?
         /// The tap this beat's table authored for it, already resolved.
         /// Resolved where the plan is laid out rather than at each cue, so an
         /// id this build does not know is reported per stage, not per beat.
@@ -257,10 +249,9 @@ public struct SessionTimeline: Sendable, Equatable {
     public init(
         stages: [Stage],
         rounds: Int,
-        register: CopyRegister = .plain,
-        formCue: String? = nil
+        register: CopyRegister = .plain
     ) {
-        let layout = Layout(stages: stages, rounds: rounds, register: register, formCue: formCue)
+        let layout = Layout(stages: stages, rounds: rounds, register: register)
         beats = layout.beats
         self.rounds = layout.rounds
         self.register = register
@@ -274,8 +265,7 @@ public struct SessionTimeline: Sendable, Equatable {
         self.init(
             stages: technique.stages,
             rounds: rounds ?? technique.recommendedRounds,
-            register: register,
-            formCue: technique.formCue
+            register: register
         )
     }
 

@@ -2,7 +2,7 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// Session guidance, breath, sound, and phone haptic preferences.
+/// Session guidance, breath, cue, and phone haptic preferences.
 struct PracticeSettingsSection: View {
     let settings: SessionSettings
     let stacksPickers: Bool
@@ -14,7 +14,6 @@ struct PracticeSettingsSection: View {
     /// fault rather than as a consequence of another choice.
     private static let breathForced =
         "Reduce Motion is on, so the ring sweeps and the core holds still."
-    private static let soundOff = "Your cues play no sound, so there is nothing to choose."
     private static let hapticsOff = "Your cues play no haptics, so there is nothing to set."
 
     var body: some View {
@@ -59,19 +58,6 @@ struct PracticeSettingsSection: View {
                     Text(mode.title).tag(mode)
                 }
             }
-
-            settingsPicker(
-                "Sound",
-                description: settings.cueMode.playsAudio ? nil : Self.soundOff,
-                selection: $settings.sound,
-                stacks: stacksPickers
-            ) {
-                ForEach(SessionSound.allCases) { sound in
-                    Text(sound.title).tag(sound)
-                }
-            }
-            // Audio strength is meaningful only for a cue mode that plays it.
-            .disabled(!settings.cueMode.playsAudio)
 
             settingsPicker(
                 "Haptic strength",

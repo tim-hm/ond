@@ -195,19 +195,19 @@ mod tests {
             json["techniques"][0]["stages"][0]["phases"][0]["manner"],
             serde_json::Value::Null
         );
-        // The three cadence keys on the same terms, and null for the same
-        // reason: box breathing's inhale authors none of them, and a reader
-        // taking an absent key for an authored zero would drop the derived
-        // turn from every phase.
-        for key in ["turnGapMs", "hapticPattern", "voiceScript"] {
+        // Both cadence keys on the same terms, and null for the same reason:
+        // box breathing's inhale authors neither, and a reader taking an
+        // absent key for an authored zero would drop the derived turn from
+        // every phase.
+        for key in ["turnGapMs", "hapticPattern"] {
             assert_eq!(
                 json["techniques"][0]["stages"][0]["phases"][0].get(key),
                 Some(&serde_json::Value::Null)
             );
         }
-        // And the same three where a table authored them, so the keys are
+        // And the same two where a table authored them, so the keys are
         // checked carrying a value and not only carrying null. The sigh's sip
-        // authors all three, and its gap is an authored zero.
+        // authors both, and its gap is an authored zero.
         assert_eq!(
             json["techniques"][0]["stages"][0]["phases"][1]["turnGapMs"],
             150
@@ -216,7 +216,6 @@ mod tests {
         let sip = &json["techniques"][sigh]["stages"][0]["phases"][1];
         assert_eq!(sip["turnGapMs"], 0);
         assert_eq!(sip["hapticPattern"], "sip");
-        assert_eq!(sip["voiceScript"], "sigh-and-in");
         // And one that is shaped, so the label is checked and not only the
         // absence of one — a serialiser that emitted every manner as null would
         // satisfy the line above.

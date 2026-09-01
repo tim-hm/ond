@@ -155,7 +155,6 @@ fn authored_phase_to_proto(
         manner: None,
         turn_gap_ms: None,
         haptic_pattern: None,
-        voice_script: None,
     })
     .map_err(Into::into)
 }

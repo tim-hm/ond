@@ -14,12 +14,10 @@ extension SessionTimeline {
     }
 
     /// What every stage of one layout shares: the words a beat is said in,
-    /// the clip that teaches the exercise's form, and the shape of the plan
-    /// around the stage — which is what says whether a stage's last cycle
-    /// ends the session.
+    /// and the shape of the plan around the stage — which is what says whether
+    /// a stage's last cycle ends the session.
     private struct Plan {
         let register: CopyRegister
-        let formCue: String?
         let rounds: Int
         let stages: Int
 
@@ -35,15 +33,10 @@ extension SessionTimeline {
         let totalDuration: Duration
         let hintsAnyBeat: Bool
 
-        init(stages: [Stage], rounds: Int, register: CopyRegister, formCue: String?) {
+        init(stages: [Stage], rounds: Int, register: CopyRegister) {
             let rounds = max(rounds, 1)
             var cursor = Cursor(level: Self.openingLevel(of: stages))
-            let plan = Plan(
-                register: register,
-                formCue: formCue,
-                rounds: rounds,
-                stages: stages.count
-            )
+            let plan = Plan(register: register, rounds: rounds, stages: stages.count)
 
             for round in 0 ..< rounds {
                 for (stageIndex, stage) in stages.enumerated() {
@@ -73,7 +66,6 @@ extension SessionTimeline {
             let (isFastRhythm, breathesFast) = (stage.isFastRhythm, stage.breathesFast)
             let cueRoles = stage.cueRoles
             let hapticPatterns = stage.phases.map { HapticPattern.resolved($0.hapticPattern) }
-            let teaches = stage.longestPhase
             let cycles = max(stage.cycles, 1)
             let closesTheSession = plan.closesTheSession(round: round, stage: stageIndex)
 
@@ -98,13 +90,11 @@ extension SessionTimeline {
                             cycle: cycle,
                             stageCycle: stageCycle,
                             isFinalCycle: closesTheSession && cycle == cycles - 1,
-                            formCue: phaseIndex == teaches ? plan.formCue : nil,
                             phase: phaseIndex,
                             isOpenEnded: stage.openEnded,
                             isFastRhythm: isFastRhythm,
                             breathesFast: breathesFast,
                             manner: phase.manner,
-                            voiceScript: phase.voiceScript,
                             hapticPattern: hapticPatterns[phaseIndex],
                             register: plan.register,
                             start: cursor.start,

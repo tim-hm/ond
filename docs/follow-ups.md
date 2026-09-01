@@ -26,10 +26,6 @@ Each entry says what is open, why it was left, and what closes it.
 
 **A long hold's reminders stop at the length it aims for.** The Wim Hof retention is ended by hand, and the plan only knows the length the hold aims for, so the reminders stop there. The design does not say what should happen past the aim. _Closes when design says whether a retention keeps reminding._
 
-**Bellows Breath can never speak its form cue.** The design says it speaks once, at cycle four. Cycle four speaks the short word, so the first form cue falls at cycle eight, and there the clip does not fit a one-second phase against the slowest voice. The exercise is silent throughout. _Closes when design accepts the silence or shortens the line._
-
-**The design's Voice column is prose, not data.** Most printed lines name no clip that exists. Box breathing's hold-out is printed as `Rest` and the shipped clip says `Hold`; 4-7-8, pursed-lip and cooling print sentences nothing speaks. Only the sigh trio and the two silent rows are authorable today, and those are seeded. _Closes when design says which printed lines are meant to become clips._
-
 ## Code
 
 **The watch counts holds with its own copy of the phone's logic.** Both derive the same count from the same clock, and only the phone's is tested. A change to one will not reach the other. _Closes when the derivation is shared._
@@ -43,8 +39,6 @@ Each entry says what is open, why it was left, and what closes it.
 **`CoachComposer` has no honest preview mode.** The free tier shows the real composer, disabled. A dishonest argument was removed rather than a preview mode added, because the composer belongs to another lane. _Closes when the composer states its own disabled case._
 
 **The app target has no unit tests, and cannot have them.** `ios/Ond/` declares only a UI-testing bundle, so nothing in it can be reached by a Swift test, and `mise run check` never compiles that Swift at all. A screen reader regression in the history row went unnoticed for exactly this reason. Rules worth pinning have to move into `OndKit` one at a time. _Closes when the app target can be tested, or when the pattern of moving rules out is written down as the rule._
-
-**The reserved `silent` cue is known only to Swift.** A phase whose `voice_script` is `silent` says nothing at any cycle. The database column checks length alone, and no Rust constant names the word, so a future seed could write `silent` meaning a clip and nothing would object. _Closes when the seed and the schema name the reservation too._
 
 **A discreet wrist session cannot carry a register.** Neither `WristSessionHandoff` nor `DiscreetSessionModel` holds one, so that summary always uses the plain words. Nothing in the seed forbids a moment that is both playful and discreet, and one would speak playfully and then end plainly. _Closes when the register reaches the wrist's discreet path._
 

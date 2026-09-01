@@ -68,7 +68,6 @@ pub struct PhaseRow {
     /// and refuses an empty key; `None` is every seeded phase.
     pub turn_gap_ms: Option<i32>,
     pub haptic_pattern: Option<String>,
-    pub voice_script: Option<String>,
 }
 
 pub struct FoundationTopicRow {
@@ -167,8 +166,7 @@ pub async fn list_all_phases(pool: &PgPool) -> Result<Vec<PhaseRow>, TechniqueEr
             min_duration_ms,
             max_duration_ms,
             turn_gap_ms,
-            haptic_pattern,
-            voice_script
+            haptic_pattern
          FROM technique_phases
          ORDER BY technique_id, stage_ordinal, ordinal"#
     )

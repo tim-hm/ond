@@ -258,8 +258,7 @@ extension Phase {
             // `nilIfEmpty` as well as the presence test: an empty key is the
             // second spelling of absence the column's `CHECK` refuses, and
             // this app should not start holding one either.
-            hapticPattern: proto.hasHapticPattern ? proto.hapticPattern.nilIfEmpty : nil,
-            voiceScript: proto.hasVoiceScript ? proto.voiceScript.nilIfEmpty : nil
+            hapticPattern: proto.hasHapticPattern ? proto.hapticPattern.nilIfEmpty : nil
         )
     }
 }

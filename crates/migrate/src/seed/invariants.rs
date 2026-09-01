@@ -54,27 +54,6 @@ fn every_seeded_haptic_pattern_is_one_the_client_resolves() {
     }
 }
 
-/// The `voice_script` column's own check, out of the database's reach for
-/// the same reason the gap bound is. An empty script is the one the client
-/// refuses outright; `SILENT_SCRIPT` is how a phase says nothing.
-#[test]
-fn every_seeded_voice_script_fits_its_column() {
-    for technique in TECHNIQUES {
-        for stage in technique.stages {
-            for phase in stage.phases {
-                let Some(script) = phase.voice_script else {
-                    continue;
-                };
-                assert!(
-                    (1..=64).contains(&script.chars().count()),
-                    "`{}` authors the line `{script}`",
-                    technique.slug
-                );
-            }
-        }
-    }
-}
-
 /// The invariant the `passage` column's `CHECK` states, asserted over the
 /// export because that is the copy the drawings and the marketing site read:
 /// a breath always says where the air goes, and a hold never does, because

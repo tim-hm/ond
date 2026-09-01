@@ -2,25 +2,19 @@ import AVFoundation
 import OndKit
 import os
 
-/// The audible half of a cue. Pitch carries the direction — inhale above
-/// exhale, holds outside both — so the tones stay distinct at breathing
-/// volume. The phone has no `WKExtendedRuntimeSession`; `UIBackgroundModes:
-/// audio` grants runtime only while something plays, and a sub-second tone
-/// buys none. The silence loop is why `playsInBackground` answers for this type.
+/// The audible half of a cue: tones, and the bells that mark a seam. Pitch
+/// carries the direction — inhale above exhale, holds outside both. The phone
+/// has no `WKExtendedRuntimeSession`, and `UIBackgroundModes: audio` grants
+/// runtime only while something plays, which a sub-second tone does not. The
+/// silence loop is why `playsInBackground` answers for this type.
 @MainActor
 final class SessionAudioPlayer {
     private static let logger = Logger(category: "audio")
 
     /// How loud the stage bell rings under whatever cue shares its instant.
     /// Sounding together is the arrangement, not a collision — but only if the
-    /// bell is the quieter of the two and stays out of the voice's register.
+    /// bell is the quieter of the two.
     private static let bellVolume: Float = 0.55
-
-    /// How loud a spoken cue plays beside the tones, which sit at 1. Matched
-    /// by ear rather than by peak: the render normalises every clip to the
-    /// tones' amplitude, but broadband speech at parity arrives over the
-    /// breathing rather than under it.
-    private static let spokenVolume: Float = 0.7
 
     private var players: [PhaseKind: AVAudioPlayer] = [:]
     private var stageBell: AVAudioPlayer?
@@ -28,41 +22,19 @@ final class SessionAudioPlayer {
     private var completionPlayer: AVAudioPlayer?
     private var silence: AVAudioPlayer?
 
-    /// The clips of the chosen voice, keyed by the stem they were rendered
-    /// under, or empty where the person is breathing to tones.
-    private var spoken: [String: AVAudioPlayer] = [:]
-
-    /// The clip currently talking, so the next phase can cut it off rather than
-    /// layer over it. A tone never needed this — it is a fifth of a second and
-    /// gone — but a sentence runs to two and a half.
-    private weak var talking: AVAudioPlayer?
-
-    /// The beat whose line was started early, in the gap before its boundary.
-    /// Cleared as that boundary arrives, so the line is not said twice.
-    private var spokenAhead: SessionTimeline.Beat.ID?
-
-    private let voice: SessionVoice?
-
-    /// - Parameter voice: whose voice speaks the phases, or nil for the tones.
-    init(voice: SessionVoice?) {
-        self.voice = voice
+    init() {
         // Here rather than in `prepare()`, which runs on the frame the count-in
         // ends: the buffers are lazy, so the first session of a launch would
         // synthesise all of them on the main actor at exactly that moment. The
         // count-in is the time this buys.
-        Task.detached(priority: .userInitiated) { [voice] in
+        Task.detached(priority: .userInitiated) {
             SessionTones.warm()
-            if let voice {
-                // The manifest is lazy too, and `prepare()` decodes it on the
-                // same frame it builds the clips from it.
-                _ = VoiceClips.lines(for: voice)
-            }
         }
     }
 
     func prepare() {
         do {
-            // `.playback` so a session keeps its voice with the ring switch off
+            // `.playback` so a session keeps its cues with the ring switch off
             // — a phone silenced for a meeting is exactly when someone reaches
             // for this. `.mixWithOthers` because breathing to your own music is
             // a reasonable thing to want, and interrupting it is not our call.
@@ -84,11 +56,6 @@ final class SessionAudioPlayer {
         roundBell = player(for: SessionTones.round)
         roundBell?.volume = Self.bellVolume
         completionPlayer = player(for: SessionTones.completion)
-        // The tones are loaded either way: a voice still falls back to them for
-        // a phase too brief to say anything into.
-        if let voice {
-            spoken = clips(for: voice)
-        }
 
         silence = player(for: SessionTones.silenceLoop)
         // Endlessly, and started before the first beat: the runtime has to
@@ -103,29 +70,17 @@ final class SessionAudioPlayer {
     /// rewinds it, and this player is never anywhere worth returning to.
     func pause() {
         silence?.pause()
-        // The sentence goes quiet with the session. A tone was a fifth of a
-        // second and had stopped before a finger left the screen; "breathe out
-        // through your left nostril" runs to three, and carrying on instructing
-        // somebody who has just paused is the cue talking over them.
-        talking?.pause()
-        // Not resumed with the others. A sentence resuming mid-phase is still
-        // the current instruction; the tail of a bell struck before a pause is
-        // nothing anybody is waiting for.
+        // Not resumed with the others: the tail of a bell struck before a pause
+        // is nothing anybody is waiting for.
         stageBell?.pause()
         roundBell?.pause()
     }
 
-    /// The clip resumes mid-sentence, which is right: the clock resumes
-    /// mid-phase, so the instruction it was giving is still the current one.
     func resume() {
         silence?.play()
-        talking?.play()
     }
 
-    /// Speaks the phase, or sounds it, depending on what the schedule leaves
-    /// and what there is room for. The choice is `Beat.clipStem`'s, made
-    /// against the beat as it will be breathed — a dial moves these — and
-    /// against the slowest voice, so it does not change with the voice.
+    /// Sounds the phase, and rings the seam under it where there is one.
     func play(_ beat: SessionTimeline.Beat) {
         // Rung under the cue rather than instead of it: the seam and the breath
         // are two different things to say, and the breath still needs saying.
@@ -135,44 +90,11 @@ final class SessionAudioPlayer {
             bell?.play()
         }
 
-        // Already speaking, started in the gap this boundary closed.
-        if spokenAhead == beat.id {
-            spokenAhead = nil
-            return
-        }
-        if let stem = beat.clipStem, speak(stem) {
-            return
-        }
-
         guard let player = players[beat.kind] else { return }
         // Rewound rather than restarted: a cue still ringing when the next phase
         // arrives should be replaced by it, not queued behind it.
         player.currentTime = 0
         player.play()
-    }
-
-    /// Starts this beat's line inside the gap before it, so its word lands on
-    /// the boundary. Nothing to say leaves the boundary to `play(_:)`, which
-    /// sounds the tone there as it always did.
-    func speakAhead(_ beat: SessionTimeline.Beat) {
-        guard spokenAhead != beat.id, let stem = beat.clipStem, speak(stem) else { return }
-        spokenAhead = beat.id
-    }
-
-    /// Plays `stem` if this voice has it, cutting off whatever was talking.
-    /// `pause()`, not `stop()`, which undoes `prepareToPlay`: nothing re-warms
-    /// these, so stopping put a decode back inside every cue after cycle one.
-    /// A sentence still talking at the next phase describes a breath nobody
-    /// is taking, so the cut is deliberate.
-    private func speak(_ stem: String) -> Bool {
-        // `spoken` is empty for a session breathing to tones, so this is the
-        // whole condition — no separate check for whether there is a voice.
-        guard let player = spoken[stem] else { return false }
-        talking?.pause()
-        player.currentTime = 0
-        player.play()
-        talking = player
-        return true
     }
 
     func playCompletion() {
@@ -185,12 +107,6 @@ final class SessionAudioPlayer {
             player.stop()
         }
         players.removeAll()
-        for player in spoken.values {
-            player.stop()
-        }
-        spoken.removeAll()
-        talking = nil
-        spokenAhead = nil
         stageBell?.stop()
         stageBell = nil
         roundBell?.stop()
@@ -216,28 +132,6 @@ final class SessionAudioPlayer {
                     "audio session would not deactivate: \(error.localizedDescription, privacy: .public)"
                 )
         }
-    }
-
-    /// Loads every clip this voice ships, warmed the way the tones are.
-    private func clips(for voice: SessionVoice) -> [String: AVAudioPlayer] {
-        var loaded: [String: AVAudioPlayer] = [:]
-        for stem in VoiceClips.lines(for: voice).keys {
-            guard let url = VoiceClips.url(for: voice, stem: stem) else {
-                Self.logger.error("no clip for \(stem, privacy: .public) in this build")
-                continue
-            }
-            let clip = player(for: url)
-            clip?.volume = Self.spokenVolume
-            loaded[stem] = clip
-        }
-        return loaded
-    }
-
-    /// From the bundle by URL rather than through `Data`: the clips are AAC and
-    /// `AVAudioPlayer` decodes a file itself, so reading them into memory first
-    /// would buy nothing but the copy.
-    private func player(for url: URL) -> AVAudioPlayer? {
-        warmed { try AVAudioPlayer(contentsOf: url) }
     }
 
     private func player(for tone: Data) -> AVAudioPlayer? {
