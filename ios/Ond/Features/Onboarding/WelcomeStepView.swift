@@ -36,6 +36,10 @@ struct WelcomeStepView: View {
                 Text("Guided breathing, grounded in evidence.")
                     .displaySerif(size: 34)
                     .foregroundStyle(Theme.Ink.primary)
+                    // `centredInScroller` measures this stack at its ideal
+                    // width, where the headline is one line. Without this it
+                    // keeps that line and truncates at any screen width.
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Text("Fall asleep faster, steady yourself before something hard, "
                     + "and come down from a hard day, with exercises drawn from "
