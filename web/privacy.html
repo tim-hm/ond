@@ -15,27 +15,33 @@
       <header class="doc-head">
         <a class="wordmark" href="/">önd</a>
         <h1>Privacy</h1>
-        <p class="doc-meta">Last updated 12 August 2026</p>
+        <p class="doc-meta">Last updated 1 September 2026</p>
       </header>
 
       <section>
         <h2>The short version</h2>
+        <p>önd is designed to collect as little as possible:</p>
+        <ul>
+          <li>önd has no ads or analytics, and you do not have to create an account.</li>
+          <li>Our server recognises your phone by a random ID. The ID is not based on you or your device.</li>
+          <li>We store your onboarding answers and practice data so the app can keep your history and streaks. Sign in with Apple lets you recover them on a new phone.</li>
+          <li>We do not sell your data.</li>
+        </ul>
         <p>
-          önd has no ads, no analytics, and nothing you are required to sign up for. Your phone is identified to our server by a random ID it generates for itself, and nothing in that ID is derived
-          from you or your device. We store what you tell us during onboarding and what you breathe, so your history and streaks survive a new phone. We sell nothing to anybody.
+          If you ask the coach a question, we send some of what you have told us to Amazon Bedrock so a language model can answer. That information is not used to train a model, and it is not kept.
+          See
+          <a href="#coach">The coach and the language model</a> for the exact details.
         </p>
         <p>
-          Two things are worth reading past the summary for. If you ask the coach a question, some of what you told us is sent to Amazon Bedrock so a language model can answer; it is not used to train
-          anything and it is not kept. And önd can record your sessions in Apple Health along with how you say you feel, and — only if you switch it on — read four figures back out: three to give the
-          coach some context, and your heart rate around each session for your phone to draw beside your practice. What the coach receives is in
-          <a href="#coach">The coach and the language model</a>, and what Health is used for is in <a href="#health">Health</a>.
+          önd can record your sessions and mood responses in Apple Health. If you opt in, it can also read four Health measures: three give the coach some context, and one lets your phone draw your
+          heart rate around each session. See <a href="#health">Health</a> for what önd reads and writes.
         </p>
       </section>
 
       <section>
         <h2>Who we are</h2>
         <p>
-          önd is made and operated independently by Tim Holmes-Mitra, of Bath, United Kingdom, who is the data controller for the purposes of the UK GDPR. Reach us at
+          önd is made and operated independently by Tim Holmes-Mitra of Bath, United Kingdom. He is the data controller under the UK GDPR. You can reach us at
           <a href="mailto:support@ondbreathe.app">support@ondbreathe.app</a>.
         </p>
       </section>
@@ -43,100 +49,96 @@
       <section>
         <h2>Your identity, and the optional sign-in</h2>
         <p>
-          When you first open önd, the app generates a random identifier and keeps it in your device's Keychain. That identifier is how our server recognises your data on the next request. It is not
-          derived from your hardware, your Apple ID, your phone number, or anything else about you — it is a random number, and it is the entire basis of the claim your device makes.
+          When you first open önd, the app creates a random identifier and stores it in your device's Keychain. Our server uses this identifier to recognise your data on later requests. It is not
+          based on your hardware, Apple ID, phone number, or anything else about you.
         </p>
         <p>
-          We never ask for an email address or a password. There is one thing you can sign in to, and it is optional: Sign in with Apple, offered as a row in Settings and never as a gate. Its only
-          purpose is to let you get your history back on a new phone. If you use it, we store one extra thing — the opaque account identifier Apple gives us, which is stable for önd and meaningless to
-          anyone else. We ask Apple for no name and no email address, so Apple sends us neither.
+          We never ask for an email address or password. Sign in with Apple is optional and appears in Settings, never as a gate. Its only purpose is to recover your history on a new phone. If you use
+          it, we store the account identifier Apple creates for önd. That identifier is stable for önd and meaningless to anyone else. We do not ask Apple for your name or email address, so Apple
+          sends us neither.
         </p>
         <p>
-          Signing in on a second device folds that device's history into your account and retires the random identifier it started with. Signing out returns the device to a fresh random identifier and
-          leaves the practice already on it alone; what is filed under your Apple account stays there for next time. Deleting your account removes the Apple identifier with everything else.
+          Signing in on a second device adds that device's history to your account and retires its original random identifier. Signing out gives the device a new random identifier but leaves its local
+          practice history in place. The history linked to your Apple account remains available for next time. Deleting your account removes the Apple identifier with everything else.
         </p>
         <p>
-          Most people never sign in, which is where the app starts. The practical consequence is worth stating plainly: because we hold no way to identify you as a person, we cannot recover your
-          history if you lose the device and the identifier with it, and we cannot confirm over email that a record is yours without that identifier. Once you sign in, that changes: the identifier
-          alone is no longer enough to reach your account, and a device that presents it without the credential Sign in with Apple issued is refused.
+          The app starts without a sign-in, and most people never add one. Without a sign-in, we cannot recover your history if you lose both the device and its identifier. We also cannot confirm by
+          email that a record is yours without that identifier. After you sign in, the identifier alone is no longer enough to reach your account. A device must also present a credential issued by önd
+          after Sign in with Apple.
         </p>
       </section>
 
       <section>
         <h2>What we store</h2>
-        <p>Everything below is held against that random identifier and nothing else.</p>
+        <p>Everything below is stored against your random identifier and nothing else.</p>
         <dl class="points">
           <div>
             <dt>The answers you give us</dt>
             <dd>
-              Setting up asks four things, and every one of them can be left blank: a first name for the app to greet you by, what you want out of breathing, how much experience you have with it, and
-              how often you want reminders. Settings holds those and four more you are never asked for — a decade-wide birth-year band, your gender, a display name for the leaderboards, and a short
-              free-text note about what brought you here — each blank until you fill it in, and blank again whenever you clear it. Your first name is shown to nobody but you; the display name is the
-              one other people see.
+              Onboarding asks four optional questions: your first name, what you want from breathing, your experience, and how often you want reminders. Settings includes four more optional fields: a
+              decade-wide birth-year band, your gender, a leaderboard display name, and a short note about what brought you here. Each field stays blank until you fill it in and becomes blank again if
+              you clear it. Only you see your first name. Other people can see your display name if you join a leaderboard.
             </dd>
           </div>
           <div>
             <dt>What you breathe</dt>
             <dd>
-              For each completed session: which technique, when it started, how long it ran, how many cycles and breaths, and whether it finished or you ended it early. Nothing treats an early end as
-              a failure. If you use the breath-hold measurement, we store the number of seconds and when you measured it; if you count your resting rate, we store the number of breaths a minute and
-              when you counted it.
+              For each session you keep, we store the exercise, start time, duration, number of cycles and breaths, and whether you completed it or ended it early. An early end is never treated as a
+              failure. If you measure your comfortable pause, we store its length in seconds and the date. If you count your resting breathing rate, we store the breaths per minute and the date.
             </dd>
           </div>
           <div>
             <dt>Your subscription, if you have one</dt>
             <dd>
-              The App Store transaction identifier for your subscription and the date it runs until, so the server knows what you have paid for. Payment itself happens entirely through Apple — we
-              never see your card, your billing address, or your Apple ID.
+              We store the App Store transaction identifier for your subscription and its expiry date. This tells the server what you have paid for. Apple handles the payment, so we never see your
+              card, billing address, or Apple ID.
             </dd>
           </div>
           <div>
             <dt>A credential for the device you signed in on</dt>
             <dd>
-              If you sign in with Apple, we issue that device a random credential and store only a one-way hash of it, so that possession of your identifier alone is no longer enough to reach your
-              account. It says nothing about you, it is never shown to you, and it remains valid on that device until a successful sign-out removes that device's credential or deleting your account
-              removes every credential attached to it.
+              If you sign in with Apple, we issue the device a random credential and store only a one-way hash of it. Your identifier alone is then no longer enough to reach your account. The
+              credential says nothing about you and is never shown to you. It remains valid on that device until you sign out successfully or delete your account.
             </dd>
           </div>
           <div>
             <dt>Exercises you write yourself</dt>
             <dd>
-              If you compose your own breathing exercise, we store the name you gave it, anything you wrote about what it is for, the goal you chose, and its stages and timings, so it survives a new
-              phone too. It is yours alone: nobody else can read it, it never appears on a leaderboard, and the coach is told only that you practised "another exercise" — never what you called it or
-              what you wrote about it.
+              If you make a breathing exercise, we store its name, your description, the goal, its stages, and its timings. This lets the exercise move to a new phone. Nobody else can read it, and it
+              never appears on a leaderboard. The coach learns only that you practised "another exercise." It never receives the name or description you wrote.
             </dd>
           </div>
           <div>
             <dt>A daily counter, if you use the coach</dt>
-            <dd>One number per day: how many language-model calls you have made. It exists to cap what the model costs us.</dd>
+            <dd>We store one number per day: how many language-model calls you have made. This lets us limit the cost of the model.</dd>
           </div>
           <div>
             <dt>What our server logs</dt>
             <dd>
-              One line for each request your app makes: which operation it was, whether it succeeded, how long it took, and your random identifier. Coach calls add the size of the request and the
-              reply, counted in tokens — never any of the words. These are operational logs, kept to tell us why something broke. They are capped by size and pushed out by newer ones rather than
-              deleted on a schedule, and deleting your account does not reach them.
+              We log one line for each request your app makes. It records the operation, whether it succeeded, how long it took, and your random identifier. For coach calls, it also records the
+              request and reply sizes in tokens, but never the words. We use these logs to investigate faults. The logs have a size limit, so newer entries replace older ones. They are not deleted on
+              a fixed schedule, and deleting your account does not remove them.
             </dd>
           </div>
         </dl>
         <p>
-          Reminders are off until you set one up. The app asks iOS for notification permission at the moment you add your first schedule, and never before. The schedules themselves stay on your device
-          — we never see them.
+          Reminders are off until you create one. The app asks iOS for notification permission when you add your first schedule, never before. Your schedules stay on your device, and we never see
+          them.
         </p>
       </section>
 
       <section id="coach">
         <h2>The coach and the language model</h2>
         <p>
-          The coach answers using a large language model. We do not run that model ourselves — calls go from our server straight to Amazon Bedrock, Amazon Web Services' own model service, with no
-          broker or reseller in between. The credentials for those calls stay on our server and never ship inside the app.
+          The coach uses a large language model to answer. We do not run that model ourselves. Calls go directly from our server to Amazon Bedrock, Amazon Web Services' model service, with no broker
+          or reseller. The credentials for those calls stay on our server and are never included in the app.
         </p>
         <p>To answer usefully, the request sent to Bedrock includes some of what you have told us:</p>
         <ul>
           <li>Your goals and your stated experience level</li>
-          <li>Your birth-year band and gender, if you gave them, because published breath-hold reference ranges differ by both</li>
+          <li>Your birth-year band and gender, if you gave them, because published comfortable pause reference ranges differ by both</li>
           <li>Your free-text note, in your own words, if you wrote one</li>
-          <li>Recent practice context, your breath-hold scores and your resting rates, if you have recorded any</li>
+          <li>Your recent practice, comfortable pauses, and resting breathing rates, if you have recorded any</li>
           <li>
             A coarse heart summary, if you turned that setting on — see
             <a href="#health">Health</a>
@@ -145,154 +147,146 @@
           <li>The question or technique you asked about</li>
         </ul>
         <p>
-          Your display name is never sent. Neither is your identifier, so there is nothing at the other end to attach one conversation to another with. Treat the free-text note as the field to be
-          thoughtful about — it is the one place you can type anything at all, and it is included verbatim.
+          Your display name and random identifier are never sent. Without the identifier, the model service cannot link one conversation to another. Take care with the free-text note because it is the
+          one place where you can enter anything. We include that note word for word.
         </p>
         <p>
-          We store none of it. Prompts, replies, and explanations are never written to our database and never written to a log — the daily counter described above, and a log line recording that a call
-          happened and how large it was, are the whole of what survives a coach conversation on our side. Nor is it stored at the other end. Amazon handles coach requests on our instructions and under
-          our contract with them: your words are not used to train or improve any model, they are not retained once the answer has come back, and the company that built the model never receives them.
+          We do not store prompts, replies, or explanations in our database or logs. Only the daily counter described above and a log line with the size of the call remain on our side. Amazon handles
+          coach requests under our instructions and contract. Your words are not used to train or improve a model, and Amazon does not retain them after the answer returns. The company that built the
+          model does not receive them.
         </p>
-        <p>The coach gives general wellness guidance about breathing. It is not a doctor, it does not diagnose, and nothing it says is medical advice.</p>
+        <p>The coach gives general wellness guidance about breathing. It is not a doctor. It cannot diagnose, and nothing it says is medical advice.</p>
       </section>
 
       <section id="health">
         <h2>Health</h2>
         <p>
-          önd both writes to Apple Health and, if you ask it to, reads four figures back out. Nothing read or written is ever stored on our server, and the reading half is off until you switch it on.
+          önd writes two kinds of information to Apple Health. If you ask it to, it also reads four Health measures. Nothing read from or written to Health is stored on our server. Reading is off
+          until you switch it on.
         </p>
         <dl class="points">
           <div>
             <dt>What we write to Health</dt>
             <dd>
-              Each session you keep is recorded on your device as Mindful Minutes — when it started and how long it ran, and nothing else. Your iPhone and your Apple Watch each write the sessions they
-              ran. iOS asks your permission the first time there are minutes to credit; declining costs you nothing but the entry.
+              Each session you keep can be recorded on your device as Mindful Minutes. The entry contains its start time and duration, and nothing else. Your iPhone and Apple Watch each write the
+              sessions they ran. iOS asks for permission the first time there are minutes to record. If you decline, only the Health entry is lost.
             </dd>
           </div>
           <div>
             <dt>How you say you feel</dt>
             <dd>
-              A session on your iPhone asks how you feel before it starts and again at the end. Each answer you give is written to Health as a State of Mind entry — a point on Apple's own pleasantness
-              scale and the moment you tapped it — and nowhere else: it is not stored in the app and it never reaches our server. Skipping writes nothing, and
-              <strong>Settings &rarr; Ask how you feel before and after</strong> stops the asking altogether. iOS asks your permission separately from Mindful Minutes, the first time you answer.
+              An iPhone session can ask how you feel before it starts and again at the end. Each answer is written to Health as a State of Mind entry. The entry contains a point on Apple's
+              pleasantness scale and the time you tapped it. önd does not store the answer, and it never reaches our server. Skipping the question writes nothing. You can stop the questions under
+              <strong>Settings &rarr; Ask how you feel before and after</strong>. iOS asks for this permission separately from Mindful Minutes when you first answer.
             </dd>
           </div>
           <div>
             <dt>What we read, only if you turn it on</dt>
             <dd>
-              <strong>Settings &rarr; Read my heart data</strong> is off until you switch it on, and switching it on is what asks Health for read access — to four figures, your breathing rate, your
-              resting heart rate, your heart-rate variability and your heart rate, and to nothing else. Nothing is read before you do, and turning it back off means the very next coach request carries
-              nothing. The same switch also sits on <strong>Coach &rarr; Check-ins</strong>, beside where the figures are shown back to you.
+              <strong>Settings &rarr; Read my heart data</strong> is off until you switch it on. That action asks Health for access to four measures: sleeping breathing rate, resting heart rate, heart
+              rate variability (HRV), and heart rate around your sessions. önd reads nothing else. Turning the setting off means the next coach request contains no Health summary. The same setting
+              appears under <strong>Coach &rarr; Check-ins</strong>, beside the figures it reads.
             </dd>
           </div>
           <div>
             <dt>Your heart rate around a session</dt>
             <dd>
-              With the same switch on, Home draws one mark per recent session: your average heart rate across it, read from Health at the moment the card is drawn. It is folded to one number per
-              session and the readings are discarded — nothing is written down, nothing is kept between drawings, and none of it is attached to a coach request or sent anywhere. Your watch has to have
-              been on your wrist for a session to have a mark; the ones without stay blank rather than being guessed at.
+              With the same setting on, Home draws one mark for each recent session. The mark is your average heart rate during that session, read from Health when the card appears. The individual
+              readings are reduced to one number and then discarded. Nothing is kept between drawings or added to a coach request. A session has a mark only if your Watch recorded enough heart data;
+              otherwise, it stays blank.
             </dd>
           </div>
           <div>
             <dt>What actually leaves your phone</dt>
             <dd>
-              Not your readings. Your phone reduces the last eight weeks to whole numbers — a seven-day average, and where there is enough history a single number for how it has moved — and only those
-              travel, attached to the coach request you just made. No dates, no individual readings, and nothing at all when the setting is off. Those same whole numbers are what
-              <strong>Coach &rarr; Check-ins</strong> shows you; reading them there sends nothing anywhere.
+              Your individual Health readings never leave your phone. The phone reduces the last eight weeks to whole-number summaries: a seven-day average and, when there is enough history, one
+              number showing how it has changed. Only those summaries are attached to the coach request you make. They include no dates or individual readings, and nothing is sent when the setting is
+              off.
+              <strong>Coach &rarr; Check-ins</strong> shows you the same summaries. Opening that screen sends nothing.
             </dd>
           </div>
         </dl>
         <p>
-          We store none of it, anywhere. The heart summary exists on our server for the length of one coach request, goes into that request to Bedrock, and is dropped with it: it is never written to
-          our database and never written to a log. Health data is the one category the server is deliberately built to be incapable of keeping.
+          We do not store Health data. A Health summary exists on our server only for the length of one coach request. It is sent to Bedrock with that request and then dropped. It is never written to
+          our database or logs.
         </p>
         <p>
-          Because this is health data, we rely on your explicit consent for it, which is exactly what that switch is — and you can withdraw it by switching it off. That does not revoke Health's own
-          permission, which is Apple's to hold: revoke it in the Health app if you want to.
+          We rely on your explicit consent to process this Health data. Switching the setting on gives that consent, and switching it off withdraws it. Turning the setting off does not remove Apple's
+          permission. You can remove that separately in the Health app.
         </p>
       </section>
 
       <section>
         <h2>Leaderboards are opt-in</h2>
+        <p>You appear on a leaderboard only if you choose a display name. Without one, the service leaves you out of every board. This rule is enforced when each leaderboard is built.</p>
         <p>
-          You appear on a leaderboard only if you choose a display name. Until you set one there is no name to show, and the query that builds every board skips your row entirely. That is a structural
-          rule in the code rather than a setting we honour.
-        </p>
-        <p>
-          If you do set one, other people see that name and the figure the board ranks — minutes breathed, streak length, best breath-hold, or slowest resting rate. They never see your other answers,
-          your note, or your session history. Clearing your display name takes you back off the boards.
+          If you set a display name, other people see that name and the value being ranked: practice minutes, your current streak, your best comfortable pause, or your slowest resting breathing rate.
+          They never see your other answers, note, or session history. Clear your display name to leave the boards again.
         </p>
       </section>
 
       <section>
         <h2>What we never do</h2>
         <ul>
-          <li>No advertising, and no ad identifiers</li>
+          <li>We do not show advertising or use ad identifiers.</li>
           <li>
-            No third-party analytics, attribution, or crash-reporting SDK — the only outside code in the app is the two open-source libraries it uses to talk to our own server, one for the network
-            calls and one for the message format
+            We do not include third-party analytics, attribution, or crash-reporting software. The app's only outside code is two open-source libraries used to talk to our server: one for network
+            calls and one for the message format.
           </li>
-          <li>No selling, renting, or sharing your data with anyone for their own purposes</li>
-          <li>No tracking you across other apps or websites</li>
-          <li>No location, contacts, photos, or microphone — the app never asks for any of them</li>
-          <li>
-            No reading anything from Health beyond the four figures described in
-            <a href="#health">Health</a>, and none of those unless you switch them on
-          </li>
+          <li>We do not sell, rent, or share your data for anyone else's purposes.</li>
+          <li>We do not track you across other apps or websites.</li>
+          <li>We do not ask for your location, contacts, photos, or microphone.</li>
+          <li>We read only the four Health measures described in <a href="#health">Health</a>, and only after you switch the setting on.</li>
         </ul>
       </section>
 
       <section>
         <h2>Where your data lives</h2>
         <p>
-          On one server in Amazon Web Services' London region (eu-west-2), in the United Kingdom. A nightly backup of the database is written to Amazon's storage service in that same London region,
-          encrypted, and deleted automatically after 30 days.
+          Your stored data lives on one server in Amazon Web Services' London region (eu-west-2), in the United Kingdom. Each night, we make an encrypted database backup in Amazon's storage service in
+          the same region. The backup is deleted automatically after 30 days.
         </p>
         <p>
-          Coach requests are the one thing that can travel. We send them to Bedrock's London endpoint, and Bedrock may forward any individual request to another of its European regions when it needs
-          the capacity — Ireland, Frankfurt, Paris, Stockholm, Milan, or Spain. So a coach request may leave the United Kingdom; it never leaves the United Kingdom and the European Economic Area, it
-          stays inside Amazon Web Services throughout, and nothing about it is stored at either end.
+          Coach requests are the one exception. We send them to Bedrock's London endpoint. When it needs more capacity, Bedrock may process a request in Ireland, Frankfurt, Paris, Stockholm, Milan, or
+          Spain. A coach request may therefore leave the United Kingdom, but it remains within the United Kingdom or the European Economic Area. It stays inside Amazon Web Services and is not stored
+          by önd or Bedrock.
         </p>
       </section>
 
       <section>
         <h2>How long we keep it</h2>
         <p>
-          Your profile, your practice history and the exercises you wrote are kept until you erase them — a history you can still see is the point of storing it at all. Sessions you delete in the app
-          are deleted from the server on the next sync. Coach conversations are never stored, so there is nothing to retain.
+          We keep your profile, practice history, and personal exercises until you erase them. Sessions you delete in the app are deleted from the server during the next sync. Coach conversations are
+          never stored, so there is nothing to retain.
         </p>
         <p>
-          The two exceptions to "until you erase it" are the ones described above: the nightly database backup, which holds whatever was there at the time and is deleted after 30 days, and the server
-          logs, which hold no more than the line described above and are pushed out by newer requests rather than kept to a date.
+          There are two exceptions. A nightly database backup contains whatever was stored when it ran and is deleted after 30 days. Server logs contain only the request details described above and
+          are removed as newer entries reach the size limit, not on a fixed date.
         </p>
       </section>
 
       <section>
         <h2>Your rights, and how to erase everything</h2>
+        <p>Under the UK GDPR, you can ask for a copy of your data, ask us to correct or erase it, or object to how we process it. You can also edit most of this data directly in the app.</p>
+        <p>You can erase everything yourself without waiting for us. Go to <strong>Settings &rarr; Delete account &rarr; Delete everything</strong>. This action:</p>
+        <ul>
+          <li>
+            Removes your profile, sessions, comfortable pause measurements, resting breathing rate measurements, personal exercises, coach counter, Apple sign-in link, and account row from our server.
+          </li>
+          <li>Clears the copies on your iPhone and paired Apple Watch, including reminder schedules and notifications queued with iOS.</li>
+        </ul>
         <p>
-          Under the UK GDPR you can ask us for a copy of what we hold about you, ask us to correct it, ask us to erase it, or object to our processing it. Most of the data we hold you can also edit
-          directly in the app.
+          This is a deletion, not a hidden account state. Nothing in the app or live server can restore it. A nightly backup may still contain the data until it expires within 30 days. We open a
+          backup only to restore the whole database after a failure.
         </p>
+        <p>Deleting your account does not cancel an önd subscription. Only Apple can do that. Use Manage subscription in the app or open your name in the system Settings.</p>
         <p>
-          You can erase everything yourself, without asking us and without waiting for a reply: <strong>Settings &rarr; Delete account &rarr; Delete everything</strong>. On our side it removes your
-          profile, your sessions, your breath-hold scores, your resting rates, the exercises you wrote, your coach counter, and the Apple sign-in link if you made one — and then the row itself. On
-          yours it clears the copies held on your iPhone and on a paired Apple Watch, including your reminder schedules and any notifications they had queued with iOS.
+          If you want us to delete the data for you, email <a href="mailto:support@ondbreathe.app">support@ondbreathe.app</a>. We hold no name or email address that could identify your record, so
+          include your Support ID. This is a short prefix of your random identifier. It identifies the record without granting access to it. Open <strong>Settings</strong>, find
+          <strong>Support ID</strong>
+          under Account, tap the row to copy it, and paste it into your message.
         </p>
-        <p>
-          It is a deletion, not a flag: nothing in the app or on the server can bring it back. The one qualification is the nightly backup described above, which still holds whatever was there when it
-          ran until it ages out within 30 days, and which we open only to restore the whole database after a failure.
-        </p>
-        <p>Deleting your account does not cancel an önd subscription. Only Apple can do that — from Manage subscription in the app, or under your name in the system Settings.</p>
-        <p>
-          If you would rather we did it, email
-          <a href="mailto:support@ondbreathe.app">support@ondbreathe.app</a>. Because we hold no name or email address for you, we need a reference to the random identifier your device holds in order
-          to find your record — a short prefix of it, which names your record without being the key to it: open <strong>Settings</strong> in the app, find <strong>Support ID</strong> under Account,
-          and tap the row to copy it. Paste it into your message.
-        </p>
-        <p>
-          Deleting the app alone does not erase what is on the server, and because the identifier lives in the Keychain it can survive a reinstall — so if erasure is what you want, use the control in
-          the app or write to us.
-        </p>
+        <p>Deleting the app does not erase data from the server. The identifier is stored in the Keychain and may survive a reinstall. To erase your data, use the in-app control or write to us.</p>
         <p>
           If you think we have handled your data badly, please tell us first so we can put it right. You also have the right to complain to the Information Commissioner's Office at
           <a href="https://ico.org.uk/">ico.org.uk</a>.
@@ -301,19 +295,19 @@
 
       <section>
         <h2>Our lawful bases</h2>
-        <p>
-          We process your onboarding answers, your practice history, and the exercises you write to provide the app you asked us to provide, which is performance of a contract. We process your
-          subscription details for the same reason, and the Apple account identifier, if you sign in, to give you back the history you asked us to hold for you.
-        </p>
-        <p>
-          Your optional answers — your first name, birth-year band, gender, your note, your display name — are consent, given by choosing to fill them in and withdrawn by clearing them. The heart
-          trends the coach can see are health data, which the UK GDPR treats as a special category and which therefore rests on your explicit consent: the switch in Settings is that consent, turning
-          it off withdraws it, and we process those figures for nothing else.
-        </p>
-        <p>
-          The daily coach counter rests on our legitimate interest in not being bankrupted by a runaway bill. Our server logs and the nightly backup rest on our legitimate interest in being able to
-          tell why something broke, and in not losing everybody's history to one failed disk.
-        </p>
+        <ul>
+          <li>
+            We process your onboarding answers, practice history, personal exercises, and subscription details to provide the app. This is performance of a contract. If you sign in, the same basis
+            covers using your Apple account identifier to restore your history.
+          </li>
+          <li>We process your optional first name, birth-year band, gender, note, and display name with your consent. You give consent by filling in a field and withdraw it by clearing the field.</li>
+          <li>
+            Health trends are special-category health data under the UK GDPR. We process them with your explicit consent and for no other purpose. Turning the setting on gives consent, and turning it
+            off withdraws it.
+          </li>
+          <li>We use our legitimate interest in controlling service costs to process the daily coach counter.</li>
+          <li>We use our legitimate interest in investigating faults and recovering the service to keep server logs and nightly backups.</li>
+        </ul>
       </section>
 
       <section>
@@ -332,7 +326,7 @@
     </main>
 
     <footer>
-      <p>Made independently. No investors to please, no data to sell.</p>
+      <p>önd is made independently, with no investors to please and no data to sell.</p>
       <p class="footer-links">
         <a href="/">Home</a>
         <a href="/support">Support</a>
