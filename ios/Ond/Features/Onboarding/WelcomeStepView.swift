@@ -23,8 +23,6 @@ struct WelcomeStepView: View {
 
     var body: some View {
         VStack(spacing: Theme.Spacing.loose) {
-            AmbientOrb(accent: Theme.Accent.brand)
-
             VStack(spacing: Theme.Spacing.standard) {
                 // Lowercase, and never uppercased: the name is önd, and ÖND is
                 // a different word wearing its hat.
@@ -41,15 +39,17 @@ struct WelcomeStepView: View {
                     // keeps that line and truncates at any screen width.
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text("Fall asleep faster, steady yourself before something hard, "
-                    + "and come down from a hard day, with exercises drawn from "
-                    + "what the research supports.")
+                Text("Fall asleep faster, steady yourself before something "
+                    + "hard, and come down from a hard day, with exercises "
+                    + "drawn from what the research supports.")
                     .font(.body)
                     .foregroundStyle(Theme.Ink.secondary)
             }
             .multilineTextAlignment(.center)
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
+
+            AmbientOrb(accent: Theme.Accent.brand)
         }
         .frame(maxWidth: .infinity)
         // The one entrance in the app: everything rises to meet the orb, which

@@ -3,9 +3,10 @@ import SwiftUI
 
 /// The welcome's first guided breath: a real Coherent 5.5 cadence before the
 /// flow asks anything. Deliberately simpler than a session — two rings and a
-/// core, no halo or hold mark — but phase-led like one. The clock begins when
-/// this view appears, so returning to Welcome starts another complete inhale
-/// rather than landing mid-way through a process-wide ambient loop.
+/// core, no halo, no hold mark and no phase word — but phase-led like one. It
+/// says nothing because the headline above it already does. The clock begins
+/// when this view appears, so returning to Welcome starts another complete
+/// inhale rather than landing mid-way through a process-wide ambient loop.
 struct AmbientOrb: View {
     /// What colour to breathe in. The brand accent, because nothing on the
     /// welcome screen belongs to a technique yet.
@@ -60,11 +61,6 @@ struct AmbientOrb: View {
                 Circle()
                     .fill(core)
                     .scaleEffect(0.47 + travel)
-
-                Text(breath.instruction)
-                    .displaySerif(size: 30)
-                    .foregroundStyle(Theme.Ink.primary)
-                    .contentTransition(.opacity)
             }
         }
         .frame(width: 220, height: 220)
@@ -81,16 +77,14 @@ struct AmbientOrb: View {
     }
 }
 
-/// One frame of the welcome cadence. Its phase and travel are kept together so
-/// the word cannot turn before the drawing does.
+/// One frame of the welcome cadence.
 private struct WelcomeBreath {
     private static let cycleDuration = AmbientBreath.restingCycle
     private static let phaseDuration = cycleDuration / 2
 
     let fullness: Double
-    let instruction: String
 
-    static let still = WelcomeBreath(fullness: 0.5, instruction: "Breathe in")
+    static let still = WelcomeBreath(fullness: 0.5)
 
     init(elapsed: TimeInterval) {
         let position = elapsed.truncatingRemainder(dividingBy: Self.cycleDuration)
@@ -99,11 +93,9 @@ private struct WelcomeBreath {
         let eased = raw * raw * (3 - 2 * raw)
 
         fullness = isInhaling ? eased : 1 - eased
-        instruction = isInhaling ? "Breathe in" : "Breathe out"
     }
 
-    private init(fullness: Double, instruction: String) {
+    private init(fullness: Double) {
         self.fullness = fullness
-        self.instruction = instruction
     }
 }
