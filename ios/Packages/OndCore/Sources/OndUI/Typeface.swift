@@ -22,10 +22,9 @@ public extension Theme {
             _ = registration
         }
 
-        /// The display face at `size`. Public for the headline a screen sets
-        /// in the display face directly; `Wordmark` and `displaySerif(size:)`
-        /// are the roles that reach it for everything else.
-        public static func display(size: CGFloat) -> Font {
+        /// The display face at `size`. `displaySerif(size:)` is how a view
+        /// reaches it, and `Wordmark` is how the name does.
+        static func display(size: CGFloat) -> Font {
             register()
             return Font.custom(postScriptName, size: size)
         }

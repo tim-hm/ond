@@ -16,18 +16,12 @@ struct WelcomeStepView: View {
     @State private var hasArrived = false
 
     var body: some View {
-        // Three bands rather than a cluster: the name and the claim hold the
-        // top, the breath takes the middle, and the detail sits at the foot.
-        // `Spacer(minLength:)` rather than fixed gaps — the scroller stretches
-        // this to the screen's height, and at accessibility sizes the bands
+        // `Spacer(minLength:)` rather than fixed gaps: the scroller stretches
+        // this to the screen's height, and at accessibility sizes the spacers
         // meet their minimum and the screen scrolls instead of crushing.
         VStack(spacing: 0) {
             VStack(spacing: Theme.Spacing.standard) {
-                // The same lockup Home draws, at the same size: this screen is
-                // where the name is learnt, and Home is where it is recognised
-                // again. Held at 30 so the headline under it stays the loudest
-                // thing here.
-                Wordmark(size: 30)
+                Wordmark()
 
                 Text("Guided breathing, grounded in evidence.")
                     .displaySerif(size: 39)
@@ -40,8 +34,7 @@ struct WelcomeStepView: View {
             }
             // Clear of the toolbar rather than tucked under it: the progress
             // dots and Skip are the flow's chrome, and the name is the first
-            // thing this screen says. `section`, because that is the gap this
-            // scale keeps between two blocks that do different jobs.
+            // thing this screen says.
             .padding(.top, Theme.Spacing.section)
 
             Spacer(minLength: Theme.Spacing.loose)
