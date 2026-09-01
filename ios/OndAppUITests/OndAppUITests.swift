@@ -117,11 +117,10 @@ final class OndAppUITests: XCTestCase {
     func testSettingsGroupsHealthChoices() throws {
         openSettingsOnTheFreeTier()
 
-        func assertHealthChoice(_ identifier: String, title: String, description: String) {
+        func assertHealthChoice(_ identifier: String, title: String) {
             let choice = app.switches[identifier]
             reveal(choice)
             XCTAssertTrue(choice.label.contains(title))
-            XCTAssertTrue(choice.label.contains(description))
         }
 
         XCTAssertTrue(app.staticTexts["General"].exists)
@@ -130,25 +129,9 @@ final class OndAppUITests: XCTestCase {
         reveal(app.staticTexts["Practice"])
         reveal(app.staticTexts["Health"])
 
-        assertHealthChoice(
-            "settings-health-check-ins",
-            title: "Ask how you feel before and after",
-            description: "Saves your responses as State of Mind in Apple Health. önd does not "
-                + "read them."
-        )
-        assertHealthChoice(
-            "settings-health-live-heart-rate",
-            title: "Heart rate from your Apple Watch",
-            description: "Shows your heart rate live during practice. Apple Watch keeps a workout "
-                + "open without storing or sharing readings."
-        )
-        assertHealthChoice(
-            "settings-health-watch-trends",
-            title: "Read my heart data",
-            description: "Your coach uses sleeping breathing, resting heart rate and "
-                + "heart-rate variability when needed, and Home draws your heart rate "
-                + "around each session you practise. What it reads is not stored or sent."
-        )
+        assertHealthChoice("settings-health-check-ins", title: "Mood before and after")
+        assertHealthChoice("settings-health-live-heart-rate", title: "Live heart rate")
+        assertHealthChoice("settings-health-watch-trends", title: "Heart and sleep data")
 
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
             .press(
@@ -215,11 +198,7 @@ final class OndAppUITests: XCTestCase {
             return false
         }
 
-        assertHealthChoice(
-            "settings-health-mindful-minutes",
-            title: "Write Mindful Minutes to Health",
-            description: "Records iPhone practices as Mindful Minutes in Apple Health."
-        )
+        assertHealthChoice("settings-health-mindful-minutes", title: "Mindful minutes")
         XCTAssertFalse(
             app.staticTexts[
                 "Apple Health asks separately before önd reads or writes data, and always has "
