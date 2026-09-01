@@ -46,6 +46,11 @@ struct WelcomeStepView: View {
             }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
+            // Clear of the toolbar rather than tucked under it: the progress
+            // dots and Skip are the flow's chrome, and the name is the first
+            // thing this screen says. `section`, because that is the gap this
+            // scale keeps between two blocks that do different jobs.
+            .padding(.top, Theme.Spacing.section)
 
             Spacer(minLength: Theme.Spacing.loose)
 
