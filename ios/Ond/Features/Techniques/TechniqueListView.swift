@@ -217,9 +217,10 @@ struct TechniqueListView: View {
         }
     }
 
-    /// One section plate. It keeps the rows on the palette ground because the
-    /// goal word's contrast is measured there, while the line and shadow give
-    /// the collection the native grouped composition of the reference.
+    /// One section plate. `Surface.raised` rather than the ground it sits on:
+    /// the two are 1.14:1 apart, which is exactly what `Shadow.list` is drawn
+    /// to carry. Filled with the ground instead, the plate matched the screen
+    /// and the pinned filter bar at 1.0:1, and the rows had no edge at all.
     private func groupedRows(
         @ViewBuilder content: () -> some View
     ) -> some View {
@@ -227,7 +228,7 @@ struct TechniqueListView: View {
             .padding(.horizontal, Theme.Spacing.standard)
             .background {
                 RoundedRectangle(cornerRadius: Theme.Radius.card)
-                    .fill(Theme.Surface.ground.shadow(Theme.Shadow.list))
+                    .fill(Theme.Surface.raised.shadow(Theme.Shadow.list))
             }
             .overlay {
                 RoundedRectangle(cornerRadius: Theme.Radius.card)
