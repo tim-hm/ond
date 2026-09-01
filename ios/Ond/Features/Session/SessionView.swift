@@ -292,9 +292,7 @@ struct SessionView: View {
     }
 
     /// VoiceOver reads the screen once and would otherwise never hear that the
-    /// phase changed — the only information the session carries. Every
-    /// boundary, unconditionally: the cues are tones and taps, so nothing else
-    /// is saying the phase and there is no second voice to talk over.
+    /// phase changed — the only information the session carries.
     private func announceCurrentPhase() {
         guard let beat = model.currentBeat else { return }
         AccessibilityNotification.Announcement(beat.spokenInstruction).post()

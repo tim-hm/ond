@@ -29,10 +29,9 @@ final class SessionCues: SessionCueing {
         audio?.prepare()
     }
 
-    /// Both sides have something in flight to hand back. The swell is the one
-    /// that was missed for a while, because a breath is a single continuous
-    /// haptic event as long as its phase, so a pause mid-inhale left the phone
-    /// playing the rest of that inhale out.
+    /// Both sides have something in flight to hand back. A breath is a single
+    /// continuous haptic event as long as its phase, so a pause mid-inhale
+    /// would otherwise leave the phone playing the rest of that inhale out.
     func pause() {
         haptics?.pause()
         audio?.pause()

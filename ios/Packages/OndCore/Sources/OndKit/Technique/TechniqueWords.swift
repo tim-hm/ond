@@ -63,10 +63,8 @@ public extension PhaseKind {
         Breath(kind: self, through: Passage.nose).instruction
     }
 
-    /// The shortest cut of the instruction — the text of the voice manifest's
-    /// short clips. `VoiceCoverageTests` pins the rendered clips to these
-    /// words, so a change here is a re-render, not a copy edit. It drops the
-    /// verb rather than truncating: "Breathe i…" reads as nothing at speed.
+    /// The shortest cut of the instruction. It drops the verb rather than
+    /// truncating: "Breathe i…" reads as nothing at speed.
     var shortInstruction: String {
         switch self {
         case .inhale: "In"
@@ -135,10 +133,9 @@ public extension Breath {
         }
     }
 
-    /// What a cue says for this breath — the words the clip holds. Separate
-    /// from `instruction` because the spoken and printed forms drift apart in
-    /// exactly one place, said by `spokenAs`. `VoiceCoverageTests` holds the
-    /// rendered audio to this, the one definition of what a voice may say.
+    /// What VoiceOver says for this breath. Separate from `instruction`
+    /// because the spoken and printed forms drift apart in exactly one place,
+    /// said by `spokenAs`.
     func spoken(in register: CopyRegister = .plain) -> String {
         playfulInstruction(in: register) ?? spokenAs.instruction
     }

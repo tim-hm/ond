@@ -256,9 +256,6 @@ func briefBreathing(cycles: Int = 1) -> Technique {
 @MainActor
 final class RecordingCues: SessionCueing {
     private(set) var played: [SessionTimeline.Beat] = []
-    /// The beats whose line was started early, in the gap before their
-    /// boundary. Kept apart from `played`: the two happen at different
-    /// instants, and the point of the lead is the distance between them.
     private(set) var completions = 0
     /// Counted, not just flagged: the hardware is released from two places and
     /// the interesting failure is both of them firing.

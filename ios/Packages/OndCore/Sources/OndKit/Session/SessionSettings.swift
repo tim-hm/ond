@@ -23,10 +23,13 @@ public final class SessionSettings: PersonalStore {
         case wristPulse = "session.wristPulse"
     }
 
-    /// Keys no version writes any more. `erase()` clears them too, so a device
-    /// that stored one before its setting was removed does not keep it for
-    /// ever — `Key` no longer names them, so the walk below cannot.
-    private static let legacyKeys = ["session.sound"]
+    /// Keys a past version wrote and none writes now. Pruned at launch rather
+    /// than by `erase()`, which runs only when somebody deletes their account:
+    /// a device that never does would otherwise carry a retired key for ever.
+    /// An enum for `Key`'s reason — a walk needs `allCases` to be complete.
+    enum LegacyKey: String, CaseIterable {
+        case sound = "session.sound"
+    }
 
     /// Named once so the launch reading them and the deletion restoring them
     /// cannot disagree about a fresh install.
@@ -123,6 +126,10 @@ public final class SessionSettings: PersonalStore {
         // always a correct session, and the person is one visit to Advanced
         // away from their own again.
         overridesBySlug = overridesStore.load() ?? [:]
+
+        for key in LegacyKey.allCases {
+            defaults.removeObject(forKey: key.rawValue)
+        }
     }
 
     /// Returns every preference to what a fresh install would find, in memory
@@ -140,8 +147,8 @@ public final class SessionSettings: PersonalStore {
         asksHowYouFeel = Self.defaultAsksHowYouFeel
         overridesBySlug = [:]
 
-        for key in Key.allCases.map(\.rawValue) + Self.legacyKeys {
-            defaults.removeObject(forKey: key)
+        for key in Key.allCases {
+            defaults.removeObject(forKey: key.rawValue)
         }
         overridesStore.erase()
     }

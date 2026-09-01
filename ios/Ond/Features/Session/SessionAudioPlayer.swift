@@ -70,8 +70,8 @@ final class SessionAudioPlayer {
     /// rewinds it, and this player is never anywhere worth returning to.
     func pause() {
         silence?.pause()
-        // Not resumed with the others: the tail of a bell struck before a pause
-        // is nothing anybody is waiting for.
+        // Paused but never resumed: the tail of a bell struck before a pause is
+        // nothing anybody is waiting for.
         stageBell?.pause()
         roundBell?.pause()
     }
@@ -134,15 +134,11 @@ final class SessionAudioPlayer {
         }
     }
 
+    /// Warmed before its first use: skipping that puts a decode inside the
+    /// cue it was meant to sound.
     private func player(for tone: Data) -> AVAudioPlayer? {
-        warmed { try AVAudioPlayer(data: tone) }
-    }
-
-    /// One place decides that a player is warmed before its first use, because
-    /// forgetting it puts a decode inside the cue it was meant to sound.
-    private func warmed(_ make: () throws -> AVAudioPlayer) -> AVAudioPlayer? {
         do {
-            let player = try make()
+            let player = try AVAudioPlayer(data: tone)
             player.prepareToPlay()
             return player
         } catch {

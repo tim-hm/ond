@@ -61,8 +61,7 @@ struct StageSeamTests {
     @Test("Both sighs read as one connected instruction")
     func sighsReadAsOneInstruction() {
         for slug: TechniqueSlug in ["physiological-sigh", "cyclic-sighing"] {
-            let beats = Array(SessionTimeline(technique: SeededCatalogue.technique(slug))
-                .beats.prefix(3))
+            let beats = Array(SeededCatalogue.timeline(slug).beats.prefix(3))
 
             #expect(beats.map(\.instruction) == ["Breathe in", "And in", "And breathe out"])
             #expect(beats.map(\.spokenInstruction) == [
@@ -77,7 +76,7 @@ struct StageSeamTests {
     @Test("Alternating breaths never stack")
     func alternatingBreathsNeverStack() {
         for slug: TechniqueSlug in ["bellows-breath", "box-breathing", "coherent-breathing"] {
-            let beats = SessionTimeline(technique: SeededCatalogue.technique(slug)).beats
+            let beats = SeededCatalogue.timeline(slug).beats
             let stacked = beats.filter(\.stacksOnPrevious)
             #expect(stacked.isEmpty, "\(slug) stacked \(stacked.count) breaths")
         }

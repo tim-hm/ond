@@ -50,16 +50,6 @@ public struct SessionTimeline: Sendable, Equatable {
 
         /// Zero-based index of the cycle within the stage.
         public let cycle: Int
-        /// Zero-based index of the cycle within its stage, counting on across
-        /// rounds. What the voice schedule reads: a stage is a new
-        /// instruction and earns the whole sentence, a round is a repeat of
-        /// one already spoken.
-        public let stageCycle: Int
-        /// Whether this beat belongs to the last cycle of the whole session —
-        /// the last cycle of the last stage of the last round. What the voice
-        /// reads to speak the ending: the short word again, so the end is
-        /// heard and not only felt.
-        public let isFinalCycle: Bool
         /// Zero-based index of the phase within the cycle's pattern.
         public let phase: Int
         /// Whether the person ends this beat rather than the clock. Its
