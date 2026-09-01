@@ -330,10 +330,12 @@ struct HomeView: View {
                     // starts cannot be the line that gets cut.
                     .fixedSize(horizontal: false, vertical: true)
 
-                Image(systemName: "chevron.right")
+                // The compact chevron, not the right-pointing one: this line
+                // raises a sheet, and it is drawn in the shape of that sheet's
+                // own grabber. The line already announces itself as a way in,
+                // so the glyph only says the same thing to the eye.
+                Image(systemName: "chevron.compact.up")
                     .font(.footnote.weight(.semibold))
-                    // The line already announces itself as a way in; the
-                    // chevron only says the same thing to the eye.
                     .accessibilityHidden(true)
             }
             .foregroundStyle(Theme.Ink.tertiary)
