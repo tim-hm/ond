@@ -83,18 +83,19 @@ Every piece of code has a default home. Start at the lowest tier and escalate on
 
 All Swift library code lives in **one** SwiftPM package, `ios/Packages/OndCore`, split into targets. One package rather than three because SwiftPM cannot share a tools-version or platform list across packages — and, more importantly, because each package carries its own `Package.resolved`, so a split means several lockfiles free to pin different versions of the same dependency.
 
-| Target               | Product? | Role                                                                                     | May depend on            |
-| :------------------- | :------- | :--------------------------------------------------------------------------------------- | :----------------------- |
-| `OndAPI`             | **no**   | Generated protobuf + the Connect client factory                                          | Connect, SwiftProtobuf   |
-| `OndKit`             | yes      | Domain models, observable feature models, repositories, and the bundled `catalogue.json` | `OndAPI`                 |
-| `OndUI`              | yes      | Design tokens and shared components                                                      | nothing                  |
-| `OndStyle`           | yes      | Domain-aware visual mappings and shared drawing primitives                               | `OndKit`, `OndUI`        |
-| `OndDiagrams`        | **no**   | Redraws the site's figures (executable)                                                  | `OndKit`                 |
-| `OndLiveSmoke`       | **no**   | Exercises the public Swift transport against a running API (executable)                  | `OndKit`                 |
-| Package test targets | **no**   | Host tests for OndKit, OndUI, and OndStyle                                               | their target under test  |
-| `Ond` (iOS)          | —        | Features, composition root                                                               | the three products above |
-| `OndWatch` (watchOS) | —        | Features, composition root, the phone link                                               | the three products above |
-| `OndActivity` (iOS)  | —        | The Live Activity's views — the lock screen and the Dynamic Island                       | the three products above |
+| Target                           | Product? | Role                                                                                     | May depend on            |
+| :------------------------------- | :------- | :--------------------------------------------------------------------------------------- | :----------------------- |
+| `OndAPI`                         | **no**   | Generated protobuf + the Connect client factory                                          | Connect, SwiftProtobuf   |
+| `OndKit`                         | yes      | Domain models, observable feature models, repositories, and the bundled `catalogue.json` | `OndAPI`                 |
+| `OndUI`                          | yes      | Design tokens and shared components                                                      | nothing                  |
+| `OndStyle`                       | yes      | Domain-aware visual mappings and shared drawing primitives                               | `OndKit`, `OndUI`        |
+| `OndDiagrams`                    | **no**   | Redraws the site's figures (executable)                                                  | `OndKit`                 |
+| `OndLiveSmoke`                   | **no**   | Exercises the public Swift transport against a running API (executable)                  | `OndKit`                 |
+| Package test targets             | **no**   | Host tests for OndKit, OndUI, and OndStyle                                               | their target under test  |
+| `Ond` (iOS)                      | —        | Features, composition root                                                               | the three products above |
+| `OndWatch` (watchOS)             | —        | Features, composition root, the phone link                                               | the three products above |
+| `OndActivity` (iOS)              | —        | The Live Activity's views — the lock screen and the Dynamic Island                       | the three products above |
+| `OndWatchComplication` (watchOS) | —        | The launcher complication's mark                                                         | `OndUI`                  |
 
 Two invariants hold here, and the target graph enforces both:
 
@@ -109,6 +110,8 @@ Two invariants hold here, and the target graph enforces both:
 That gives the pair exactly one seam — the payload — and it lives in `OndKit` as `SessionPresence` so both halves name one type instead of keeping two copies of a struct in step. The lock-screen controls are the one deliberate exception to that rule: `OndActivity/Intents/` is compiled into _both_ targets, because a `LiveActivityIntent` has to be resolvable from the app's own App Intents metadata even though the button that sends it is drawn in the extension. `SessionControlIntents.swift`'s doc comment carries the detail.
 
 The other half of the seam is what is deliberately not shared. The extension's views are its own, by the same rule that keeps the wrist's views off the phone: a lock screen glanced at mid-breath is a different surface from a screen being watched, and `BreathCue` is a ring sweeping one phase where `BreathVisual` is an orb inside a session ring.
+
+`OndWatchComplication` is the second extension and the plainest target here: one `StaticConfiguration` over `accessoryCircular` and `accessoryCorner`, drawing the app icon's open ring and nothing else. The absence of a reading is the point. A tile saying you have not breathed today would be the app nagging — the decision recorded on `OndActivityBundle` for the phone's home screen, and it holds the same on a face. Drawing no text leaves no font to register and no payload to keep in step, which is why its one dependency is `OndUI`.
 
 ### What the two apps share
 

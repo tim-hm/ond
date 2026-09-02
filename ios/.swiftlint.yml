@@ -2,6 +2,7 @@ included:
   - Ond
   - OndActivity
   - OndWatch
+  - OndWatchComplication
   - Packages/OndCore/Sources
   - Packages/OndCore/Tests
 

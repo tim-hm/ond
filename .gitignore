@@ -13,6 +13,7 @@ ios/*.xcworkspace/
 ios/Ond/Info.plist
 ios/OndWatch/Info.plist
 ios/OndActivity/Info.plist
+ios/OndWatchComplication/Info.plist
 # Same again for the entitlements XcodeGen writes from each `entitlements:` block.
 ios/Ond/Ond.entitlements
 ios/OndWatch/OndWatch.entitlements
