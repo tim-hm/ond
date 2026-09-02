@@ -27,13 +27,24 @@ struct PracticeProgressView: View {
     /// is the install's, shared with the coach and the check-ins screen.
     @Environment(HealthContextModel.self) private var heart
 
-    /// The row awaiting confirmation before it and its contribution to every
-    /// figure above are deleted together.
+    /// The row awaiting confirmation before it and every total it counts
+    /// towards are deleted together.
     @State private var toDelete: SessionRecord?
+
+    /// Whether the whole log is open. A flag plus `navigationDestination`
+    /// rather than a link inside the door: deleting the last earlier session
+    /// closes the door, and a link taken away under its own screen pops it.
+    @State private var isShowingHistory = false
 
     /// What the summary and the log are set apart by. The refresh spec's own
     /// number rather than a step off the spacing scale, as the page margin is.
     private static let historyGap: CGFloat = 30
+
+    /// How much practice the tab's log shows: the most recent whole days that
+    /// hold this many sessions between them. A number rather than a page,
+    /// because the log here is the last thing you did and not the record —
+    /// the record is one door away, and the summary must stay above the fold.
+    private static let recentSessions = 5
 
     var body: some View {
         NavigationStack {
@@ -44,26 +55,10 @@ struct PracticeProgressView: View {
             }
             .paletteGround()
             .navigationTitle("Progress")
-            .confirmationDialog(
-                "Delete this session?",
-                isPresented: Binding(
-                    get: { toDelete != nil },
-                    set: {
-                        if !$0 {
-                            toDelete = nil
-                        }
-                    }
-                ),
-                titleVisibility: .visible
-            ) {
-                Button("Delete", role: .destructive) {
-                    guard let record = toDelete else { return }
-                    toDelete = nil
-                    Task { await model.delete(record) }
-                }
-            } message: {
-                Text("It comes out of your totals and streak too.")
+            .navigationDestination(isPresented: $isShowingHistory) {
+                SessionHistoryView(model: model, catalogue: catalogue, own: own)
             }
+            .sessionDeletion(of: $toDelete, from: model)
         }
         // The local fold draws first; the catalogue and sync then finish behind
         // content already on screen. This tab must be complete even when Home
@@ -90,156 +85,65 @@ struct PracticeProgressView: View {
         }
     }
 
-    /// One lazy stack rather than nested ones, because the day headers stick to
-    /// the top of the scroll on the way past and only a section directly inside
-    /// the stack can be pinned.
     private var content: some View {
-        let known = techniques
-        let names = names(of: known)
-        let goals = goals(of: known)
-        let rhythm = PracticeRhythm(sessions: model.history, goals: goals)
-        // Whole days rather than the model's row slice: a header states its
-        // day's total, so a day cut at the page boundary would understate it.
+        let legend = SessionLegend(catalogue: catalogue, own: own)
+        let rhythm = PracticeRhythm(sessions: model.history, goals: legend.goals)
+        // Whole days rather than a count of rows: a plate states its day's
+        // total, so a day cut short would understate it.
         let days = SessionDay.wholeDays(
             of: model.history,
-            coveringAtLeast: model.visibleHistory.count
+            coveringAtLeast: Self.recentSessions
         )
-        let hasEarlier = days.reduce(0) { $0 + $1.sessions.count } < model.history.count
 
-        return LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+        return LazyVStack(alignment: .leading, spacing: 0) {
             ScreenSubtitle("What you have practised, not how well.")
 
             PracticeSummary(rhythm: rhythm, model: model, profiles: profiles)
                 .padding(.horizontal, Theme.Spacing.page)
 
             if !days.isEmpty {
-                historyHeading
-
-                ForEach(days) { day in
-                    Section {
-                        rows(
-                            of: day,
-                            names: names,
-                            goals: goals,
-                            pagesOn: hasEarlier && day.id == days.last?.id
-                        )
-                    } header: {
-                        SessionDayHeader(day: day)
-                    }
-                }
-
-                earlierSessions(isOffered: hasEarlier)
+                history(days, legend: legend)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// The rule and the gap that set the log apart from the summary, and the
-    /// log's own heading. The heading carries the lifetime count so the list's
-    /// depth is legible without scrolling it.
-    private var historyHeading: some View {
+    /// The log: the rule and the gap that set it apart from the summary, the
+    /// heading with the lifetime count, the recent days, and the door to the
+    /// rest where these days are not all of it.
+    private func history(_ days: [SessionDay], legend: SessionLegend) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Divider()
                 .overlay(Theme.Surface.line)
                 .padding(.top, Theme.Spacing.loose)
 
-            // A heading with nothing under it: its rows are pinned sections,
-            // which only stick when they sit directly in the lazy stack.
-            LabelledSection(title: historyTitle) { EmptyView() }
-                .padding(.top, Self.historyGap)
-        }
-        .padding(.horizontal, Theme.Spacing.page)
-        .padding(.bottom, Theme.Spacing.close)
-    }
-
-    private var historyTitle: String {
-        let lifetime = model.stats.sessions
-        return lifetime == 1 ? "History · 1 session" : "History · \(lifetime) sessions"
-    }
-
-    /// One day's rows. Where `pagesOn` is set, reaching the last row asks for
-    /// the next page — the trigger travels with the data, so a page cannot
-    /// load a page, and it is absent when there is nothing left to load.
-    private func rows(
-        of day: SessionDay,
-        names: [TechniqueSlug: String],
-        goals: [TechniqueSlug: TechniqueGoal],
-        pagesOn: Bool
-    ) -> some View {
-        VStack(spacing: 0) {
-            ForEach(day.sessions) { record in
-                let isFinal = record.id == day.sessions.last?.id
-
-                SessionHistoryRow(
-                    record: record,
-                    name: names[record.techniqueSlug] ?? record.techniqueSlug.rawValue,
-                    goal: goals[record.techniqueSlug]
-                )
-                .contextMenu {
-                    Button("Delete session", systemImage: "trash", role: .destructive) {
-                        toDelete = record
+            LabelledSection(title: "History · \(lifetime)") {
+                VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
+                    ForEach(days) { day in
+                        SessionDayPlate(day: day, legend: legend) { toDelete = $0 }
                     }
                 }
-                .onAppear {
-                    if pagesOn, isFinal {
-                        model.revealEarlierSessions()
-                    }
-                }
+            }
+            .padding(.top, Self.historyGap)
 
-                if !isFinal {
-                    Divider().overlay(Theme.Surface.line)
-                }
+            if days.sessionCount < model.history.count {
+                DoorCard(title: "All history", caption: lifetime, action: {
+                    isShowingHistory = true
+                })
+                .glassCard(interactive: true)
+                .accessibilityIdentifier("all-history-door")
+                .padding(.top, Theme.Spacing.standard)
             }
         }
         .padding(.horizontal, Theme.Spacing.page)
     }
 
-    /// The explicit way to the next page, for somebody who reaches the end by
-    /// a means the last row's appearance does not cover.
-    @ViewBuilder
-    private func earlierSessions(isOffered: Bool) -> some View {
-        if isOffered {
-            Button("Show earlier sessions") {
-                model.revealEarlierSessions()
-            }
-            .buttonStyle(.plain)
-            .font(.callout)
-            // The brand blue that reads as small type: `Breath.inhale`'s own
-            // light value measures 4.06:1 on this ground, under the floor.
-            .foregroundStyle(Theme.Accent.brandText)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.top, Theme.Spacing.standard)
-        }
-    }
-
-    /// Everything that can name or categorise a session still on this device.
-    private var techniques: [Technique] {
-        let catalogued = if case let .loaded(techniques) = catalogue.state {
-            techniques
-        } else {
-            [Technique]()
-        }
-
-        return catalogued + own.techniques
-    }
-
-    /// A missing exercise leaves its historical slug visible instead of hiding
-    /// the session that outlived it.
-    private func names(of techniques: [Technique]) -> [TechniqueSlug: String] {
-        Dictionary(
-            techniques.map { ($0.slug, $0.name) }
-        ) { _, latest in latest }
-    }
-
-    /// What each resolvable session was for, keyed by slug.
-    ///
-    /// The chart keeps sessions it cannot place in its totals but excludes them
-    /// from the optional "mostly relax" caption; a guessed goal would make that
-    /// sentence wrong. History keeps the same row and draws a neutral dot.
-    private func goals(of techniques: [Technique]) -> [TechniqueSlug: TechniqueGoal] {
-        techniques.reduce(into: [TechniqueSlug: TechniqueGoal]()) { result, technique in
-            result[technique.slug] = technique.goal
-        }
+    /// The lifetime count, worded for the heading and the door by the rule the
+    /// summary figures already use. Zero never reaches it: nothing here draws
+    /// until a session is on the device.
+    private var lifetime: String {
+        SessionSummaryLines.counted(model.stats.sessions, of: "session")
+            .map { "\($0.value) \($0.label)" } ?? "no sessions"
     }
 }
 
