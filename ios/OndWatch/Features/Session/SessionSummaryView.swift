@@ -23,9 +23,6 @@ struct SessionSummaryView: View {
 
     let onDone: () -> Void
 
-    /// The watch's display size, the one the session's phase word is set in.
-    private static let headlineSize: CGFloat = 26
-
     private var note: String {
         SessionSummaryLines.note(for: record, exercise: technique.name, register: register)
     }
@@ -35,7 +32,7 @@ struct SessionSummaryView: View {
             VStack(spacing: Theme.Spacing.standard) {
                 VStack(spacing: Theme.Spacing.tight) {
                     Text(SessionSummaryLines.headline(for: record, register: register))
-                        .displaySerif(size: Self.headlineSize)
+                        .displaySerif(size: Theme.Metrics.wristDisplaySize)
                         .foregroundStyle(Theme.Ink.primary)
 
                     Text(note)

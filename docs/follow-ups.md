@@ -30,8 +30,6 @@ Each entry says what is open, why it was left, and what closes it.
 
 **The watch counts holds with its own copy of the phone's logic.** Both derive the same count from the same clock, and only the phone's is tested. A change to one will not reach the other. _Closes when the derivation is shared._
 
-**The watch's display size is written out four times.** The wrist sets its display face at 22pt in the session view, the root menu, the session summary and the consent screen. No token holds it, so the four can drift apart. _Closes when one token holds the wrist's display size._
-
 **A prescription now keeps a phase's manner, and no test says so.** `Prescription.dialled` used to drop the manner and now carries it. Nothing changes today, because both seeded prescriptions target `extended-exhale`, which has no manner. The change is real but unobservable, so nothing will catch it when a prescription first targets an exercise that has one. _Closes when a test pins what a dialled prescription keeps._
 
 **A day header can say "Today" after midnight.** Nothing re-renders Progress at the turn of the day, so an app left open on that screen keeps yesterday's header. _Closes when the view observes the day change._

@@ -67,7 +67,8 @@ struct ThemeColorTests {
     /// The coach's send button is a two-tone glyph: the ground's colour as the
     /// arrow, `Breath/Inhale` as the circle under it. A glyph is a graphical
     /// object, so the bar is WCAG 1.4.11's 3:1 rather than AA's 4.5:1. Measured
-    /// because nothing else in this file looks at `Breath/*` at all.
+    /// here because the pair is the other way round from every sweep in this
+    /// file: the ground is the mark, and the breath colour is behind it.
     @Test("the coach's send arrow reads against its own circle")
     func sendArrowIsLegibleOnItsCircle() throws {
         let arrowSet = try #require(try ColorSet(
@@ -94,6 +95,25 @@ struct ThemeColorTests {
                 """
             )
         }
+    }
+
+    /// Where a breath colour carries words rather than a mark — the Dynamic
+    /// Island's phase count, in `Breath/Exhale` at caption size — the bar is
+    /// AA, not the 3:1 `FigureInkTests` holds the same three to. Dark only:
+    /// the Island is black whatever the phone wears, and every breath colour
+    /// misses AA on the light ground, which is what keeps them off it.
+    @Test("a breath colour carrying words clears WCAG AA", arguments: breaths)
+    func breathColourIsLegibleAsSmallText(_ breath: ColorToken) throws {
+        let breathSet = try #require(try ColorSet(at: ColorSet.palette, named: breath.rawValue))
+        let groundSet = try #require(try ColorSet(
+            at: ColorSet.palette,
+            named: ColorToken.surfaceGround.rawValue
+        ))
+
+        let background = try #require(groundSet[.dark]?.color)
+        let foreground = try #require(breathSet[.dark]?.color)
+
+        try expectAA(foreground, on: background, "\(breath.rawValue) on Surface/Ground", .dark)
     }
 
     /// The strengths an accent wash carries a word at. 0.15 is `GoalBadge`;

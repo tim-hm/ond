@@ -65,5 +65,6 @@ struct FigureInkTests {
 }
 
 /// The three phases of a breath, derived rather than listed, the way
-/// `ThemeColorTests` derives its inks and accents.
-private let breaths = ColorToken.allCases.filter { $0.rawValue.hasPrefix("Breath/") }
+/// `ThemeColorTests` derives its inks and accents. Shared with that file,
+/// which holds the same three to AA where they carry words.
+let breaths = ColorToken.allCases.filter { $0.rawValue.hasPrefix("Breath/") }

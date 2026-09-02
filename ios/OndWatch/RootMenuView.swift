@@ -81,15 +81,17 @@ struct RootMenuView: View {
             // Lowercase, and never uppercased: the name is önd, and ÖND is a
             // different word wearing its hat.
             Text("önd")
-                .displaySerif(size: 26)
+                .displaySerif(size: Theme.Metrics.wristDisplaySize)
                 .foregroundStyle(Theme.Ink.primary)
 
             Spacer(minLength: Theme.Spacing.tight)
 
+            // Untinted, as the refresh spec §7 asks: this stands for the
+            // system's own clock.
             Text(.now, style: .time)
                 .font(.caption2)
                 .monospacedDigit()
-                .foregroundStyle(Theme.Breath.inhale)
+                .foregroundStyle(Theme.Ink.primary)
         }
         .listRowInsets(EdgeInsets())
         .listRowBackground(Color.clear)

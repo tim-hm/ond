@@ -22,9 +22,7 @@ struct SessionView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    /// The two lines under the orb, at §7's own sizes. The display cut
-    /// shimmers small, which is what holds the word at 22 rather than lower.
-    private static let phaseWordSize: CGFloat = 26
+    /// The count under the orb, at §7's own size.
     private static let countSize: CGFloat = 13
 
     /// How long the count's presence takes to travel — the second it is
@@ -186,7 +184,7 @@ struct SessionView: View {
 
             VStack(spacing: Theme.Spacing.tight) {
                 Text(model.status == .paused ? "Paused" : beat?.instruction ?? "")
-                    .displaySerif(size: Self.phaseWordSize)
+                    .displaySerif(size: Theme.Metrics.wristDisplaySize)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
 
