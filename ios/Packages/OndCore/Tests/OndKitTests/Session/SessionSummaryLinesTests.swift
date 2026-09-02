@@ -7,6 +7,10 @@ import Testing
 /// the document fails rather than ships.
 @Suite("Session summary lines")
 struct SessionSummaryLinesTests {
+    private func kept(completed: Bool = true) -> SessionSummaryLines.Outcome {
+        .kept(record(completed: completed))
+    }
+
     private func record(
         completed: Bool = true,
         cycles: Int = 4,
@@ -25,7 +29,7 @@ struct SessionSummaryLinesTests {
 
     @Test("A finished session is celebrated and named")
     func aFinishedSessionIsNamed() {
-        let session = record()
+        let session = kept()
 
         #expect(SessionSummaryLines.headline(for: session, register: .plain) == "Nicely done.")
         #expect(SessionSummaryLines.note(for: session, exercise: "Box breathing", register: .plain)
@@ -36,7 +40,7 @@ struct SessionSummaryLinesTests {
     /// verdict on the person who ended it.
     @Test("An early end is said as an early end")
     func anEarlyEndIsSaidPlainly() {
-        let session = record(completed: false)
+        let session = kept(completed: false)
 
         #expect(SessionSummaryLines.headline(for: session, register: .plain) == "That's a session.")
         #expect(SessionSummaryLines.note(for: session, exercise: "Box breathing", register: .plain)
@@ -49,7 +53,7 @@ struct SessionSummaryLinesTests {
     @Test("An early end spends its line on the ending, not the exercise")
     func anEarlyEndDropsTheName() {
         let note = SessionSummaryLines.note(
-            for: record(completed: false),
+            for: kept(completed: false),
             exercise: "Coherent 5.5",
             register: .plain
         )
@@ -62,8 +66,8 @@ struct SessionSummaryLinesTests {
     /// pass no verdict on it, exactly as the plain pair does.
     @Test("The playful register says the same two facts to a child")
     func thePlayfulRegisterSpeaksToAChild() {
-        let finished = record()
-        let stopped = record(completed: false)
+        let finished = kept()
+        let stopped = kept(completed: false)
 
         #expect(SessionSummaryLines.headline(for: finished, register: .playful) == "You did it.")
         #expect(playfulNote(for: finished) == "You breathed Extended exhale together.")
@@ -72,15 +76,40 @@ struct SessionSummaryLinesTests {
         #expect(playfulNote(for: stopped) == "You stopped this one early.")
     }
 
-    private func playfulNote(for record: SessionRecord) -> String {
-        SessionSummaryLines.note(for: record, exercise: "Extended exhale", register: .playful)
+    private func playfulNote(for outcome: SessionSummaryLines.Outcome) -> String {
+        SessionSummaryLines.note(for: outcome, exercise: "Extended exhale", register: .playful)
     }
 
     /// The playful early end spends its one line on the ending too: the rule is
     /// the slot's, not the register's.
     @Test("A playful early end drops the exercise as the plain one does")
     func aPlayfulEarlyEndDropsTheName() {
-        #expect(!playfulNote(for: record(completed: false)).contains("Extended"))
+        #expect(!playfulNote(for: kept(completed: false)).contains("Extended"))
+    }
+
+    /// A session ended inside the recording threshold is still told to the
+    /// person: the screen it would otherwise skip is what makes the ending
+    /// readable rather than a crash.
+    @Test("A session too short to keep says so, and says nothing was kept")
+    func aDiscardedSessionIsStillTold() {
+        let note = SessionSummaryLines.note(
+            for: .discarded,
+            exercise: "Box breathing",
+            register: .plain
+        )
+
+        #expect(SessionSummaryLines.headline(for: .discarded, register: .plain)
+            == "Too short to keep.")
+        #expect(note == "Nothing was recorded.")
+    }
+
+    /// One pair for both registers. There is no playful way to say that nothing
+    /// was kept that does not make light of it.
+    @Test("The playful register says the discarded pair plainly")
+    func aDiscardedSessionKeepsThePlainWords() {
+        #expect(SessionSummaryLines.headline(for: .discarded, register: .playful)
+            == SessionSummaryLines.headline(for: .discarded, register: .plain))
+        #expect(playfulNote(for: .discarded) == "Nothing was recorded.")
     }
 
     /// Progress speaks this figure in its history row, so the rule is measured

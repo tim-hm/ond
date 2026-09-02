@@ -45,9 +45,9 @@ struct DiscreetSessionView: View {
 
     var body: some View {
         Group {
-            if model.status == .finished, let record = model.record, !model.wasDiscarded {
+            if model.status == .finished, let record = model.record {
                 SessionSummaryView(
-                    record: record,
+                    outcome: model.wasDiscarded ? .discarded : .kept(record),
                     technique: model.technique,
                     // Neither `WristSessionHandoff` nor `DiscreetSessionModel`
                     // carries a register, so there is none to read here. The
@@ -71,7 +71,7 @@ struct DiscreetSessionView: View {
             // Both hung on the model's own finish, not on the view callbacks
             // below: the normal posture is wrist down for half an hour, and
             // SwiftUI evaluates nothing while the screen is dark — a workout
-            // released only by `.onChange`, or a sync started only by a tap on
+            // released only by a view update, or a sync started only by a tap on
             // Done, would wait for the wrist to come back up.
             model.onFinished = {
                 runtime.invalidate()
@@ -90,12 +90,6 @@ struct DiscreetSessionView: View {
             // headless would tap a wrist that thinks it stopped.
             model.end()
             runtime.invalidate()
-        }
-        .onChange(of: model.status) { _, status in
-            // A discarded false start has no summary worth showing, so the
-            // screen goes rather than reporting a session nobody kept.
-            guard status == .finished, model.wasDiscarded else { return }
-            dismiss()
         }
     }
 
@@ -134,7 +128,7 @@ struct DiscreetSessionView: View {
             Button("End") {
                 model.end()
             }
-            .accessibilityHint("Ends the session and records what you practised")
+            .accessibilityHint("Ends the session and shows what you practised")
         }
     }
 }

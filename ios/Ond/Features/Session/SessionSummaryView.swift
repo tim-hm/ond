@@ -8,7 +8,9 @@ import SwiftUI
 /// the session happened, says what it was, and offers one way out. The cases,
 /// the strings and the reserved heights are in docs/product/session-summary.md.
 struct SessionSummaryView: View {
-    let record: SessionRecord
+    /// Whether this session was kept, and what was kept. A session too short to
+    /// record still comes here, with no figures, pulse curve or mood question.
+    let outcome: SessionSummaryLines.Outcome
 
     /// The exercise's own name, never the occasion's. The note holds one line,
     /// and an occasion title is a sentence — it would be cut short there and
@@ -64,12 +66,15 @@ struct SessionSummaryView: View {
             // group costs a line's gap rather than a section's.
             VStack(spacing: Theme.Spacing.loose) {
                 slots
-                figures
 
-                // Above the mood row, so the two answers to "did that do
-                // anything" sit together: what the sensor saw, then what the
-                // person says.
-                PulseCurve()
+                if let record = outcome.record {
+                    figures(of: record)
+
+                    // Above the mood row, so the two answers to "did that do
+                    // anything" sit together: what the sensor saw, then what the
+                    // person says.
+                    PulseCurve()
+                }
             }
 
             moodNote
@@ -86,13 +91,13 @@ struct SessionSummaryView: View {
     /// reason: an accessibility size would spill the words out of them.
     private var slots: some View {
         VStack(spacing: 0) {
-            Text(SessionSummaryLines.headline(for: record, register: register))
+            Text(SessionSummaryLines.headline(for: outcome, register: register))
                 .displaySerif(size: SessionSlots.actionSize)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .frame(height: SessionSlots.actionHeight)
 
-            Text(SessionSummaryLines.note(for: record, exercise: exercise, register: register))
+            Text(SessionSummaryLines.note(for: outcome, exercise: exercise, register: register))
                 .font(.body)
                 .foregroundStyle(Theme.Ink.secondary)
                 .lineLimit(1)
@@ -120,7 +125,7 @@ struct SessionSummaryView: View {
 
     /// The evidence, in Progress's own treatment. A figure with a zero in it
     /// is absent rather than empty — the rule is `SessionSummaryLines.figures`.
-    private var figures: some View {
+    private func figures(of record: SessionRecord) -> some View {
         HStack(alignment: .top, spacing: Theme.Spacing.standard) {
             ForEach(SessionSummaryLines.figures(for: record)) { figure in
                 VStack(spacing: Theme.Spacing.tight) {
@@ -139,10 +144,10 @@ struct SessionSummaryView: View {
 
     /// The "after" half of the mood check, inline: the summary is already the
     /// place somebody sits for a moment, and a fourth full screen before Done
-    /// would ask more than the answer is worth. Shown even when the "before"
-    /// was skipped — a single reading is still the person's own record.
+    /// would ask more than the answer is worth. Asked when the "before" was
+    /// skipped, never about a session nothing recorded.
     @ViewBuilder private var moodNote: some View {
-        if settings.asksHowYouFeel {
+        if outcome.record != nil, settings.asksHowYouFeel {
             VStack(spacing: Theme.Spacing.standard) {
                 if let note = mood.note {
                     Text(note)

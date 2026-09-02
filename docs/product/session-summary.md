@@ -1,8 +1,8 @@
 # The session summary and the mood check
 
-Every recorded session ends here. This document is the design behind that screen — what it says, which cases it has to answer, the exact strings, and what the mood check asks. The implementation is [`SessionSummaryView.swift`](../../ios/Ond/Features/Session/SessionSummaryView.swift) on the phone and [its wrist counterpart](../../ios/OndWatch/Features/Session/SessionSummaryView.swift); the strings are [`SessionSummaryLines.swift`](../../ios/Packages/OndCore/Sources/OndKit/Session/SessionSummaryLines.swift), pinned by [`SessionSummaryLinesTests.swift`](../../ios/Packages/OndCore/Tests/OndKitTests/Session/SessionSummaryLinesTests.swift). The mood check's own rules are [`MoodCheckModel.swift`](../../ios/Packages/OndCore/Sources/OndKit/Health/MoodCheckModel.swift).
+Every session ends here, kept or not. This document is the design behind that screen — what it says, which cases it has to answer, the exact strings, and what the mood check asks. The implementation is [`SessionSummaryView.swift`](../../ios/Ond/Features/Session/SessionSummaryView.swift) on the phone and [its wrist counterpart](../../ios/OndWatch/Features/Session/SessionSummaryView.swift); the strings are [`SessionSummaryLines.swift`](../../ios/Packages/OndCore/Sources/OndKit/Session/SessionSummaryLines.swift), pinned by [`SessionSummaryLinesTests.swift`](../../ios/Packages/OndCore/Tests/OndKitTests/Session/SessionSummaryLinesTests.swift). The mood check's own rules are [`MoodCheckModel.swift`](../../ios/Packages/OndCore/Sources/OndKit/Health/MoodCheckModel.swift).
 
-The screen has one job: confirm the session counted, say what it was, and offer one way out. It is written here rather than improvised at the call site for the reason Home's line is — it is the last thing the app says about a practice, and the last thing said is the thing remembered.
+The screen has one job: say whether the session counted, say what it was, and offer one way out. It is written here rather than improvised at the call site for the reason Home's line is — it is the last thing the app says about a practice, and the last thing said is the thing remembered.
 
 ## The screen is the session with the breathing removed
 
@@ -30,14 +30,17 @@ The mood row below the figures is **not** a reserved slot, and the difference is
 
 **One way out, always live.** Done is the screen's one action. No question on the screen gates it, and no answer is required to leave.
 
+**An unrecorded session is still told to the person.** A session too short to keep leaves no record, but somebody did end something. The screen says so and offers the same Done. A screen that vanished instead would be indistinguishable from a crash.
+
 ## The matrix
 
-| Case        | Condition             | Headline            | Note                            |
-| :---------- | :-------------------- | :------------------ | :------------------------------ |
-| Completed   | The timeline ran out  | `Nicely done.`      | `You finished box breathing.`   |
-| Ended early | The person stopped it | `That's a session.` | `You ended this session early.` |
+| Case        | Condition                              | Headline             | Note                            |
+| :---------- | :------------------------------------- | :------------------- | :------------------------------ |
+| Completed   | The timeline ran out                   | `Nicely done.`       | `You finished box breathing.`   |
+| Ended early | The person stopped it                  | `That's a session.`  | `You ended this session early.` |
+| Discarded   | Stopped inside the recording threshold | `Too short to keep.` | `Nothing was recorded.`         |
 
-Two headlines, not one. A single neutral headline for both would be the strictest reading of "never grade", but it would also take the warmth off the ordinary case to avoid praising the rare one. Two are honest because they describe two different records, not two different people.
+Two headlines for a kept session, not one. A single neutral headline for both would be the strictest reading of "never grade", but it would also take the warmth off the ordinary case to avoid praising the rare one. Two are honest because they describe two different records, not two different people.
 
 `That's a session.` was chosen over the repo's earlier `Every breath counts`, which is a claim about worth rather than a statement of the record, and over `Nicely done.` for both, which rounds an abandoned session up. It answers the one doubt somebody who stopped early has — whether it counted — and answers it with the fact rather than with reassurance.
 
@@ -53,8 +56,11 @@ A session started from `With your child` speaks `CopyRegister.playful` throughou
 | :---------- | :-------------------- | :--------------------------------------- |
 | Completed   | `You did it.`         | `You breathed extended exhale together.` |
 | Ended early | `That was breathing.` | `You stopped this one early.`            |
+| Discarded   | `Too short to keep.`  | `Nothing was recorded.`                  |
 
 The four lines are the plain four said to a small child, or to an adult sitting with one. They answer the same two questions, under the same two rules: `You did it.` states the record without measuring it, and `That was breathing.` answers the doubt an early end leaves — the playful reading of `That's a session.`
+
+The discarded pair is the plain one. There is no playful way to say that nothing was kept that does not make light of it, and the register's job is warmth rather than jokes.
 
 `together` is the register's one added word, and only the finished note carries it. The playful register is reachable from one occasion, which is a breath shared with a child by definition. The early note spends its line on the ending, exactly as the plain one does.
 
@@ -80,9 +86,11 @@ The middle label is `time`, not `minutes`: a session of forty seconds under a la
 
 ### A very short session
 
-A session ended by hand inside ten seconds is a false start and never reaches this screen at all — the rule is `SessionRecord.isFalseStart`, and it exists so a journal is not made of mistaps. Above that threshold every session reaches the summary, however short.
+A session ended by hand inside ten seconds is a false start and is never stored — the rule is `SessionRecord.isFalseStart`, and it exists so a journal is not made of mistaps. Above that threshold every session is kept, however short.
 
-A short one therefore renders `That's a session.`, the early-end note, and the figures that have something in them — often the time alone. That is the whole design for the case: no apology, no encouragement, and no third headline.
+A short kept session renders `That's a session.`, the early-end note, and the figures that have something in them — often the time alone. No apology and no encouragement.
+
+A discarded one renders the third headline on the same three reserved slots, and nothing else: no figures, no pulse curve, no mood check, and Done. The screen is spent saying the one thing that is true, which is that there is nothing to show. The mood check is absent because a reading taken here would stand against a session the journal does not hold. On the wrist the same two lines are shown, on both the guided and the discreet screen.
 
 ## The mood check
 
@@ -111,7 +119,7 @@ An odd count is the point of five: the middle is `Okay`, so somebody can report 
 | Condition                               | What happens                                                                                        |
 | :-------------------------------------- | :-------------------------------------------------------------------------------------------------- |
 | `asksHowYouFeel` is off                 | Neither question is asked and the row is absent — no placeholder, no note that nothing was recorded |
-| The session was a false start           | There is no summary, so there is nothing to ask                                                     |
+| The session was discarded               | The summary is shown; the after half is not asked, because no session was kept                      |
 | The way in was ignored or never offered | The summary still asks; a single reading is still the person's own record                           |
 | The answer is already given             | The question is replaced by the sentence, in place                                                  |
 | A short session                         | It is still asked                                                                                   |

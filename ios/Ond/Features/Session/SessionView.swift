@@ -75,9 +75,9 @@ struct SessionView: View {
 
     var body: some View {
         ZStack {
-            if model.status == .finished, let record = model.record, !model.wasDiscarded {
+            if model.status == .finished, let record = model.record {
                 SessionSummaryView(
-                    record: record,
+                    outcome: model.wasDiscarded ? .discarded : .kept(record),
                     exercise: model.technique.name,
                     register: register,
                     reached: model.reachedStage,
@@ -170,13 +170,6 @@ struct SessionView: View {
             }
         }
         .onChange(of: model.currentBeat?.id) { _, _ in announceCurrentPhase() }
-        // A false start — ended by hand inside the first seconds — was never
-        // recorded, so there is no summary to show; the screen just goes.
-        .onChange(of: model.status) { _, status in
-            if status == .finished, model.wasDiscarded {
-                dismiss()
-            }
-        }
     }
 
     /// Which words and which drawing this session asked for, off the plan rather
