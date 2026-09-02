@@ -4,9 +4,9 @@ import SwiftUI
 
 /// The four switches and the reminder dial, asked once instead of found
 /// later. Every label is Settings' own, word for word — this screen writes to
-/// the same stores. Leaving the screen asks iOS for every permission the
-/// switches left on imply, and for nothing they are off for; a switch just
-/// turned on *is* the in-context ask. See [`OnboardingModel/requestOptInGrants()`].
+/// the same stores. Leaving the screen asks iOS for the permissions the
+/// switches left on need; a switch just turned on *is* the in-context ask.
+/// See [`OnboardingModel/requestOptInGrants()`].
 struct OptInsStepView: View {
     @Bindable var model: OnboardingModel
 
@@ -41,8 +41,8 @@ struct OptInsStepView: View {
                 .padding(.horizontal, -Theme.Spacing.standard)
 
             Text(
-                "Leaving this screen asks iOS for what these choices imply, "
-                    + "and for nothing they are off for. Skip applies the same defaults Next does."
+                "Next asks iOS for the permissions your switches need. "
+                    + "Nothing is asked for a switch that is off."
             )
             .font(.caption)
             .foregroundStyle(Theme.Ink.tertiary)
