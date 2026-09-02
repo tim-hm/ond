@@ -425,7 +425,7 @@ final class OndAppUITests: XCTestCase {
 
         XCTAssertTrue(coach.isHittable)
         XCTAssertGreaterThanOrEqual(coach.frame.height, 44)
-        XCTAssertFalse(begin.isHittable, "Begin should scroll with the practice content")
+        XCTAssertTrue(begin.isHittable, "Begin stays pinned while the reading scrolls")
         XCTAssertGreaterThan(coach.frame.minY, app.staticTexts["Evidence"].frame.minY)
     }
 
