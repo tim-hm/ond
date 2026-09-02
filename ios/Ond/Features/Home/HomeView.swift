@@ -148,7 +148,7 @@ struct HomeView: View {
     private var content: some View {
         switch catalogue.state {
         case .loading:
-            ProgressView()
+            ReferenceLoadingView()
 
         case .loaded:
             if let offer {

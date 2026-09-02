@@ -48,8 +48,6 @@ Each entry says what is open, why it was left, and what closes it.
 
 **A discreet wrist session cannot carry a register.** Neither `WristSessionHandoff` nor `DiscreetSessionModel` holds one, so that summary always uses the plain words. Nothing in the seed forbids a moment that is both playful and discreet, and one would speak playfully and then end plainly. _Closes when the register reaches the wrist's discreet path._
 
-**The board tells a named subscriber it has no name.** `BoardCard`'s caption falls through to the opt-in line while the board is loading and while the network is down, so somebody who has already chosen a name reads "Off until you put a name to it." during every fetch. _Closes when the card states its loading and unreachable cases._
-
 **A goal word on its own wash is not measured.** `ThemeColorTests` measures a text accent against the plain ground. The session's qualifier line sits on a wash of that same accent, where no accent clears AA. Pre-existing, and not introduced by the register work. _Closes when the wash has a measured floor, or the line moves off it._
 
 ## Verification owed on hardware

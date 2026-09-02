@@ -89,15 +89,13 @@ struct LeaderboardView: View {
     private var board: some View {
         switch model.leaderboard {
         case .idle, .loading:
-            ProgressView()
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Theme.Spacing.loose)
+            ReferenceLoadingView(.inline)
 
         case .unreachable:
             VStack(spacing: Theme.Spacing.close) {
-                Text("Leaderboards need a connection")
+                Text(LeaderboardLines.unreachable)
                     .font(.headline)
-                Text("Everything else here is on your phone and stays there.")
+                Text(LeaderboardLines.unreachableDetail)
                     .font(.caption)
                     .foregroundStyle(Theme.Ink.tertiary)
                     .multilineTextAlignment(.center)
