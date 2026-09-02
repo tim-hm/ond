@@ -128,6 +128,26 @@ struct ConversationStoreTests {
         await store.save(conversation())
         #expect(await store.conversations().count == 1)
     }
+
+    /// What the hand-written decoder on `ChatTurn` exists for: turns were on
+    /// disk before `isFailed` was, and a file that stopped decoding is set
+    /// aside and read as no conversations at all.
+    @Test("A conversation stored before the failed marker still decodes")
+    func decodesTurnsWithoutTheFailedMarker() async throws {
+        let directory = temporaryDirectory()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let stored = """
+        [{"id":"\(UUID().uuidString)","createdAt":"2024-01-01T00:00:00Z",\
+        "updatedAt":"2024-01-01T00:00:00Z","turns":[{"id":"\(UUID().uuidString)",\
+        "role":"person","text":"What helps with sleep?"}]}]
+        """
+        try Data(stored.utf8).write(to: directory.appending(path: "conversations.json"))
+
+        let read = await FileConversationStore(directory: directory).conversations()
+
+        #expect(read.count == 1, "the file still decodes whole")
+        #expect(read.first?.turns.first?.isFailed == false)
+    }
 }
 
 @Suite("The conversation list model")

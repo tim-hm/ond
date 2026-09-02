@@ -12,9 +12,9 @@ import os
 public final class CoachChatModel {
     /// What the transcript says when a reply never started. In the coach's
     /// row, not a banner: the conversation is the screen, so the conversation
-    /// is where the answer — including this one — appears.
-    static let unavailableReply =
-        "The coach can't answer just now. Try again shortly."
+    /// is where the answer — including this one — appears. It does not tell
+    /// the person to try again; the row below it is the way to.
+    static let unavailableReply = "The coach can't answer just now."
 
     /// How often a streaming reply republishes, for a view that wants to animate
     /// one step over exactly the window it will be on screen for. The pacer has
@@ -102,15 +102,39 @@ public final class CoachChatModel {
     /// Ignored while a reply is streaming — the send affordance is disabled
     /// then, and a race through it would interleave two answers.
     public func send(_ message: String) {
+        ask(message, as: UUID())
+    }
+
+    /// Asks the last question again in place of the apology under it. Both
+    /// turns go and the question is put back under its own id, so the server
+    /// reads the history it read the first time and the screen keeps the
+    /// exchange it pinned. Only the newest turn is retriable: an older failure
+    /// has been asked past. A second tap finds nothing left to retry.
+    public func retry() {
+        guard !isReplying,
+              transcript.last?.isFailed == true,
+              let question = transcript.dropLast().last,
+              question.role == .person, !question.text.isEmpty
+        else { return }
+
+        transcript.removeLast(2)
+        ask(question.text, as: question.id)
+    }
+
+    private func ask(_ message: String, as id: UUID) {
         let message = message.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !message.isEmpty, !isReplying else { return }
+
+        // An apology for a reply that never came is this app talking, not the
+        // coach. Read back, it would have the model answer its own outage.
+        let spoken = transcript.filter { !$0.isFailed }
 
         // Only what the server will read: it silently keeps the newest
         // `maxHistoryDepth` turns, so a longer upload is bytes it provably
         // throws away. The per-turn length bound is the repository's business,
         // enforced where the wire message is built.
-        let history = Array(transcript.suffix(ChatTurn.maxHistoryDepth))
-        transcript.append(ChatTurn(role: .person, text: message))
+        let history = Array(spoken.suffix(ChatTurn.maxHistoryDepth))
+        transcript.append(ChatTurn(id: id, role: .person, text: message))
         persist()
         isReplying = true
         lastReplySource = nil
@@ -218,7 +242,9 @@ public final class CoachChatModel {
     /// apology under a live card would contradict it.
     private func finish() {
         if let reply, transcript.last?.id != reply.id {
-            transcript.append(ChatTurn(role: .coach, text: Self.unavailableReply))
+            transcript.append(
+                ChatTurn(role: .coach, text: Self.unavailableReply, isFailed: true)
+            )
         }
         reply = nil
         isReplying = false

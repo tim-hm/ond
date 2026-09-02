@@ -17,6 +17,11 @@ struct CoachTranscript<Row: View>: View {
     /// written: sending sets it and scrolling answers.
     let pinned: UUID?
 
+    /// Asks the newest question again, where the newest turn is an apology for
+    /// a reply that never landed. A `var`, because a `let` with a default is
+    /// left out of the memberwise initialiser and no caller could pass one.
+    var retry: (() -> Void)?
+
     @ViewBuilder let row: (ChatTurn) -> Row
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -42,7 +47,7 @@ struct CoachTranscript<Row: View>: View {
                 }
 
                 ForEach(settled) { turn in
-                    row(turn)
+                    entry(turn)
                 }
 
                 if !watched.isEmpty {
@@ -121,7 +126,7 @@ struct CoachTranscript<Row: View>: View {
     private var watchedExchange: some View {
         VStack(spacing: Theme.Spacing.loose) {
             ForEach(watched) { turn in
-                row(turn)
+                entry(turn)
             }
 
             if isThinking {
@@ -139,6 +144,26 @@ struct CoachTranscript<Row: View>: View {
         // the exchange has not already filled, so it shrinks away as the
         // answer grows and never leaves a screen of blank to scroll into.
         Color.clear.frame(height: max(0, viewport - watchedHeight))
+    }
+
+    /// One turn, and under it the way to ask again where that is offered. One
+    /// container either way, so the row keeps its identity when the offer
+    /// arrives or goes.
+    private func entry(_ turn: ChatTurn) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.close) {
+            row(turn)
+
+            if let retry, turn.id == retriable {
+                Button(action: retry) {
+                    Text("Try again")
+                        .font(.footnote.weight(.semibold))
+                        .tapTarget()
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.Ink.secondary)
+                .accessibilityHint("Asks your question again")
+            }
+        }
     }
 
     /// The way back to an answer that has run on past the screen while it was
@@ -164,6 +189,14 @@ struct CoachTranscript<Row: View>: View {
     /// read. Lazy, because a long conversation is mostly this.
     private var settled: ArraySlice<ChatTurn> {
         turns.prefix(turns.count - watched.count)
+    }
+
+    /// The turn that may be asked again: the newest, and only where its reply
+    /// never landed. An older failure has been asked past, and its answer would
+    /// arrive below a later question.
+    private var retriable: ChatTurn.ID? {
+        guard let last = turns.last, last.isFailed else { return nil }
+        return last.id
     }
 
     /// The exchange being watched, or nothing at all before the first send of
