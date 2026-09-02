@@ -28,10 +28,14 @@ struct OptInsStepView: View {
     private var switches: some View {
         VStack(spacing: Theme.Spacing.standard) {
             row("Mood before and after", isOn: $model.optIns.asksHowYouFeel)
-            row("Live heart rate", note: "Needs önd+", isOn: $model.optIns.showsWristPulse)
+            row(
+                "Live heart rate",
+                note: SubscriptionTier.plusRequirementNote,
+                isOn: $model.optIns.showsWristPulse
+            )
             row(
                 "Heart and sleep data",
-                note: "Needs önd+",
+                note: SubscriptionTier.plusRequirementNote,
                 isOn: $model.optIns.coachReadsHealthTrends
             )
             row("Mindful minutes", isOn: $model.optIns.writesMindfulMinutes)

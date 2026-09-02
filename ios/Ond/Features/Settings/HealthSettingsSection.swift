@@ -1,3 +1,4 @@
+import OndKit
 import OndUI
 import SwiftUI
 
@@ -8,6 +9,12 @@ struct HealthSettingsSection: View {
     @Binding private var coachReadsHealthTrends: Bool
     @Binding private var writesMindfulMinutes: Bool
 
+    /// Whether each paid row still has to name what it needs. Without the
+    /// marker the row reads as free until turning it on opens the offer
+    /// instead.
+    private let wristPulseNeedsPlus: Bool
+    private let healthTrendsNeedsPlus: Bool
+
     let preparePulse: () async -> Void
     let requestReadAccess: () -> Void
 
@@ -16,6 +23,8 @@ struct HealthSettingsSection: View {
         showsWristPulse: Binding<Bool>,
         coachReadsHealthTrends: Binding<Bool>,
         writesMindfulMinutes: Binding<Bool>,
+        wristPulseNeedsPlus: Bool,
+        healthTrendsNeedsPlus: Bool,
         preparePulse: @escaping () async -> Void,
         requestReadAccess: @escaping () -> Void
     ) {
@@ -23,6 +32,8 @@ struct HealthSettingsSection: View {
         _showsWristPulse = showsWristPulse
         _coachReadsHealthTrends = coachReadsHealthTrends
         _writesMindfulMinutes = writesMindfulMinutes
+        self.wristPulseNeedsPlus = wristPulseNeedsPlus
+        self.healthTrendsNeedsPlus = healthTrendsNeedsPlus
         self.preparePulse = preparePulse
         self.requestReadAccess = requestReadAccess
     }
@@ -35,7 +46,10 @@ struct HealthSettingsSection: View {
             .accessibilityIdentifier("settings-health-check-ins")
 
             Toggle(isOn: $showsWristPulse) {
-                settingsLabel("Live heart rate", description: nil)
+                settingsLabel(
+                    "Live heart rate",
+                    description: wristPulseNeedsPlus ? SubscriptionTier.plusRequirementNote : nil
+                )
             }
             .accessibilityIdentifier("settings-health-live-heart-rate")
             // Asked here rather than over a session's first countdown.
@@ -45,7 +59,10 @@ struct HealthSettingsSection: View {
             }
 
             Toggle(isOn: $coachReadsHealthTrends) {
-                settingsLabel("Heart and sleep data", description: nil)
+                settingsLabel(
+                    "Heart and sleep data",
+                    description: healthTrendsNeedsPlus ? SubscriptionTier.plusRequirementNote : nil
+                )
             }
             .accessibilityIdentifier("settings-health-watch-trends")
             // The preference and Health's permission remain separate choices.

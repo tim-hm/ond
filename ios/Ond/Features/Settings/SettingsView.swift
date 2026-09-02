@@ -60,6 +60,11 @@ struct SettingsView: View {
         @Bindable var settings = settings
         @Bindable var health = health
         let stacksPickers = dynamicTypeSize.isAccessibilitySize
+        // Each Health row states what it costs once. The row's switch and the
+        // row's marker read the same constant, so one cannot be repriced
+        // without the other.
+        let wristPulseCosts = SubscriptionTier.watchConnected
+        let healthTrendsCosts = SubscriptionTier.healthTrends
 
         List {
             Section {
@@ -91,15 +96,17 @@ struct SettingsView: View {
                 asksHowYouFeel: $settings.asksHowYouFeel,
                 showsWristPulse: paidPreference(
                     $settings.showsWristPulse,
-                    requiring: .watchConnected,
+                    requiring: wristPulseCosts,
                     presenting: .watch
                 ),
                 coachReadsHealthTrends: paidPreference(
                     $health.coachReadsHealthTrends,
-                    requiring: .healthTrends,
+                    requiring: healthTrendsCosts,
                     presenting: .health
                 ),
                 writesMindfulMinutes: $health.writesMindfulMinutes,
+                wristPulseNeedsPlus: plus.tier < wristPulseCosts,
+                healthTrendsNeedsPlus: plus.tier < healthTrendsCosts,
                 preparePulse: { await pulse.prepare() },
                 requestReadAccess: { health.requestReadAccess() }
             )
