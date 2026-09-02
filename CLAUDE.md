@@ -32,8 +32,9 @@ crates/api      axum + tonic on the app port; Prometheus on a private port
 crates/migrate  schema migrations + the seeded technique catalogue
 crates/physiology  shared breathing-safety facts used by api and migrate
 crates/toolkit   repository tooling behind mise tasks
-ios/            Ond (iOS), OndWatch (watchOS), and OndActivity over one local
-                SwiftPM package, OndCore; OndKit bundles catalogue.json, the
+ios/            Ond (iOS), OndWatch (watchOS), OndActivity, and the watch face
+                complication OndWatchComplication over one local SwiftPM
+                package, OndCore; OndKit bundles catalogue.json, the
                 seed exported from crates/migrate that both apps breathe
                 before they have ever reached the server
 web/            the marketing one-pager; static at serve time, but its
@@ -61,7 +62,7 @@ All önd ports live in **18100–18199**, starting with the API on 18100. [docs/
 - **gRPC registration** — `crates/api/src/grpc.rs`. **HTTP routes** — `crates/api/src/http/mod.rs`. Both are single aggregation points.
 - **Generated protobuf** — Rust into `OUT_DIR` via `crates/api/build.rs`, re-exported through `crates/api/src/proto.rs`; Swift committed under `ios/Packages/OndCore/Sources/OndAPI/Generated/`.
 - **Domain models (Swift)** — the `OndKit` target in `ios/Packages/OndCore/`. Only it touches generated protobuf types; `OndAPI` is not a package product, so neither app target can import one.
-- **Shipping Swift targets** — `ios/Ond/` (iOS), `ios/OndWatch/` (watchOS), and `ios/OndActivity/` (the Live Activity extension), each over the same three package products. What they share and what they deliberately duplicate is in [docs/code-structure.md](docs/code-structure.md).
+- **Shipping Swift targets** — `ios/Ond/` (iOS), `ios/OndWatch/` (watchOS), and `ios/OndActivity/` (the Live Activity extension), each over the same three package products; `ios/OndWatchComplication/` (the watch face complication) draws a mark and one token, so it takes `OndUI` alone. What they share and what they deliberately duplicate is in [docs/code-structure.md](docs/code-structure.md).
 
 ## 3. Development
 

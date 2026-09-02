@@ -8,6 +8,7 @@
 │    Ond          (iOS)        │
 │    OndWatch (watchOS)        │
 │    OndActivity (iOS)         │  Live Activity extension
+│    OndWatchComplication      │  watch face complication
 │    └── OndCore               │  one SwiftPM package, three products
 │        ├── OndKit            │  domain models + repositories
 │        │   └── OndAPI        │  generated protobuf, not a product
@@ -37,7 +38,7 @@ web/    ──────────────────►  the one-pager
 infra/  ──────────────────►  the box all of the above is deployed onto
 ```
 
-All three shipping targets sit on the same three products. What the apps share and what they deliberately duplicate is in [code-structure.md](code-structure.md).
+The two apps and the Live Activity sit on the same three products; the watch face complication draws a mark and one token, so it takes OndUI alone. What the apps share and what they deliberately duplicate is in [code-structure.md](code-structure.md).
 
 ## Components
 
@@ -55,6 +56,7 @@ All three shipping targets sit on the same three products. What the apps share a
 | `ios/Ond`                    | The iOS app: composition root plus features.                                                                                                            |
 | `ios/OndWatch`               | The watchOS app: the same session over the same package, plus the `WatchConnectivity` link that hands it an identity.                                   |
 | `ios/OndActivity`            | The iOS Live Activity extension: lock-screen and Dynamic Island views rendered out of process.                                                          |
+| `ios/OndWatchComplication`   | The watchOS complication: the app's mark on a watch face, and a tap that opens it. It states nothing, so it carries no timeline.                        |
 | `OndLiveSmoke`               | A development executable in OndCore that exercises the public Swift transport against a running API.                                                    |
 | `web/`                       | The one-pager plus the privacy and support pages. Static at serve time, but its figures are generated — Caddy serves it beside the API on one hostname. |
 | `infra/`                     | OpenTofu for the single box everything above is deployed onto, plus what runs on it. See [deployment.md](deployment.md).                                |
