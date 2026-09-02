@@ -24,11 +24,10 @@ struct MomentsView: View {
     var body: some View {
         content
             .navigationTitle("Moments")
-            // The drain is hung off the session finishing rather than the
-            // screen going away, on the carousel's exact reasoning: a push
-            // counts as going away, and the RPC must not start in the same
-            // instant the workout session does.
-            .navigationDestination(item: $chosen) { stop in
+            // A cover rather than a push, as the guided player has: the
+            // session ends when its screen goes, and the dismiss guard the
+            // screen states cannot stop a back swipe out of a stack.
+            .fullScreenCover(item: $chosen) { stop in
                 DiscreetSessionView(
                     model: DiscreetSessionModel(
                         technique: stop.technique,
@@ -38,9 +37,11 @@ struct MomentsView: View {
                     ),
                     occasionName: stop.title
                 ) { _ in
-                    // The record itself is the phone's business, not this
-                    // screen's: a session started here was never ordered, so
-                    // there is nobody waiting to be told which one it was.
+                    // Hung on the session finishing rather than on the cover
+                    // closing, on the carousel's reasoning: the RPC must not
+                    // start in the same instant the workout session does. The
+                    // record is the phone's business — a session started here
+                    // was never ordered, so nobody waits to be told of it.
                     Task { await journey.sync() }
                 }
             }
