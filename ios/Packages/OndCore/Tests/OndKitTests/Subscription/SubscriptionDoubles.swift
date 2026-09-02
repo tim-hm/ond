@@ -20,16 +20,23 @@ final class FakeStoreFront: StoreFront, @unchecked Sendable {
     /// test would otherwise never reach.
     private let isEligibleForTrial: Bool
 
+    /// Whether the App Store answers with nothing — no signal, or a product
+    /// this build's ids do not find. The honest degradation is a screen that
+    /// stops waiting and says so, and this is the only way to reach it.
+    private let sellsNothing: Bool
+
     init(
         entitlements: [SubscriptionTransaction] = [],
         failingWith error: (any Error)? = nil,
         purchaseOutcome: PurchaseOutcome = .cancelled,
-        isEligibleForTrial: Bool = true
+        isEligibleForTrial: Bool = true,
+        sellsNothing: Bool = false
     ) {
         self.entitlements = entitlements
         purchaseError = error
         self.purchaseOutcome = purchaseOutcome
         self.isEligibleForTrial = isEligibleForTrial
+        self.sellsNothing = sellsNothing
     }
 
     func set(_ entitlements: [SubscriptionTransaction]) {
@@ -40,7 +47,9 @@ final class FakeStoreFront: StoreFront, @unchecked Sendable {
     /// the price of about seven and a half months — so a test asserting the
     /// saving is asserting arithmetic rather than a coincidence.
     func products() async -> [SubscriptionProduct] {
-        [
+        guard !sellsNothing else { return [] }
+
+        return [
             SubscriptionProduct(
                 plan: .monthly,
                 displayPrice: "£1.99",

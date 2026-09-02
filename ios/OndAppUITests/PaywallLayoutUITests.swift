@@ -25,6 +25,10 @@ final class PaywallLayoutUITests: XCTestCase {
         XCTAssertEqual(monthly.frame.minY, yearly.frame.minY, accuracy: 2)
         XCTAssertGreaterThan(purchase.frame.minY, monthly.frame.maxY)
         XCTAssertGreaterThan(purchase.frame.midY, app.frame.midY)
+        XCTAssertTrue(
+            app.frame.contains(purchase.frame),
+            "the purchase button must stand inside the screen, not below its edge"
+        )
     }
 
     func testAccessibilityTextCanScrollThroughEveryPurchaseControl() {

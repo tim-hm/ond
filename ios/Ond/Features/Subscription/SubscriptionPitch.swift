@@ -69,11 +69,14 @@ struct SubscriptionPitch: View {
     }
 
     /// Year and month beside each other, in the order the reference reads.
+    /// The tiles stand as placeholders until the App Store has priced them,
+    /// so nobody reads a dash as the price.
     private var plans: some View {
         planLayout {
             planTile(.yearly)
             planTile(.monthly)
         }
+        .redacted(reason: store.isAwaitingProducts ? .placeholder : [])
     }
 
     @ViewBuilder
@@ -151,7 +154,10 @@ struct SubscriptionPitch: View {
             Text(actionTitle)
         }
         .buttonStyle(.inkAction)
-        .disabled(store.isBusy)
+        .disabled(store.isBusy || isAwaitingPrice)
+        // The same placeholder the tiles wear, so a button that cannot be
+        // pressed yet reads as a price still coming rather than a dead control.
+        .redacted(reason: isAwaitingPrice ? .placeholder : [])
         .accessibilityLabel(purchaseAccessibilityLabel)
         .accessibilityIdentifier("paywall-purchase")
     }
@@ -167,6 +173,14 @@ struct SubscriptionPitch: View {
         .foregroundStyle(Theme.Ink.tertiary)
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
+    }
+
+    /// Whether the action would buy a price the App Store has not answered
+    /// with yet. Onboarding is exempt: there the same button is the way past
+    /// the screen while there is nothing to sell, and a first run must not
+    /// wait on the network to continue.
+    private var isAwaitingPrice: Bool {
+        store.isAwaitingProducts && !continuesWhenUnavailable
     }
 
     private var actionTitle: String {
@@ -203,12 +217,24 @@ struct SubscriptionPitch: View {
         }
     }
 
+    /// Redaction is drawn, so it reaches nobody listening: the wait has to be
+    /// said here as well, or VoiceOver reads a dash as the price.
     private func accessibilityLabel(for candidate: SubscriptionPlan) -> String {
-        [title(of: candidate), price(of: candidate), detail(of: candidate)]
+        guard !store.isAwaitingProducts else {
+            return "\(title(of: candidate)), \(Self.waiting)"
+        }
+
+        return [title(of: candidate), price(of: candidate), detail(of: candidate)]
             .joined(separator: ", ")
     }
 
+    private static let waiting = "waiting for the price"
+
     private var purchaseAccessibilityLabel: String {
+        if isAwaitingPrice {
+            return "\(actionTitle), \(Self.waiting)"
+        }
+
         guard let product = store.product(for: plan) else { return actionTitle }
 
         return "\(actionTitle), \(title(of: plan)), \(product.displayPrice) per \(plan.periodName)"

@@ -39,6 +39,13 @@ public final class SubscriptionStore: PersonalStore {
     /// what they cost.
     public private(set) var products: [SubscriptionProduct] = []
 
+    /// Whether the App Store has still to say what anything costs. True before
+    /// the first [`loadProducts`] and while one runs, so a paywall can hold its
+    /// prices back rather than print a placeholder over a live purchase button.
+    /// An answer with nothing clears it: that is the unavailable offer, which
+    /// is a different thing to say.
+    public private(set) var isAwaitingProducts = true
+
     /// How far a purchase or a restore has got. One enum rather than a pair of
     /// flags: two booleans admit four states, and "busy while awaiting
     /// approval" is not one of them.
@@ -181,7 +188,12 @@ public final class SubscriptionStore: PersonalStore {
         // priceless for the life of the process.
         guard products.count < SubscriptionPlan.allCases.count else { return }
 
+        // Raised again around every fetch, not only the first: a paywall
+        // reopened after an answer with nothing is waiting once more, and a
+        // flag latched false would draw that wait as a price.
+        isAwaitingProducts = true
         products = await front.products()
+        isAwaitingProducts = false
     }
 
     /// Buys `plan`. Both products share one subscription group, so buying one
