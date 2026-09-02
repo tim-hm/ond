@@ -22,14 +22,14 @@ Verify with `xcode-select -p`; it should print the Xcode path, not `/Library/Dev
 ```bash
 mise install          # every pinned tool
 mise run migrate      # starts Postgres, creates the DB, migrates, seeds
-mise run dev          # API on :18100
+mise run dev          # API on :29100
 ```
 
 In another terminal:
 
 ```bash
-curl -s localhost:18100/health
-grpcurl -plaintext localhost:18100 ond.v1.TechniqueService/ListTechniques
+curl -s localhost:29100/health
+grpcurl -plaintext localhost:29100 ond.v1.TechniqueService/ListTechniques
 ```
 
 Then the app:
@@ -44,17 +44,19 @@ Pick any iPhone simulator and press ⌘R. You should see the technique catalogue
 
 | Service      | Port  | Notes                                                |
 | :----------- | :---- | :--------------------------------------------------- |
-| API          | 18100 | gRPC-Web and JSON on the same listener               |
-| PostgreSQL   | 18101 | `mise run db:psql` to query it                       |
-| `web/`       | 18102 | `mise run web:serve`, static preview only            |
-| Metrics      | 18103 | Prometheus scrape target, never published            |
-| Grafana      | 18104 | `tailscale serve` on the box. Not 443 — Caddy has it |
-| Prometheus   | 18105 | Same, for ad-hoc PromQL and the `/alerts` page       |
-| Alertmanager | 18106 | Same. Where a firing alert is silenced               |
+| API          | 29100 | gRPC-Web and JSON on the same listener               |
+| PostgreSQL   | 29101 | `mise run db:psql` to query it                       |
+| `web/`       | 29102 | `mise run web:serve`, static preview only            |
+| Metrics      | 29103 | Prometheus scrape target, never published            |
+| Grafana      | 29104 | `tailscale serve` on the box. Not 443 — Caddy has it |
+| Prometheus   | 29105 | Same, for ad-hoc PromQL and the `/alerts` page       |
+| Alertmanager | 29106 | Same. Where a firing alert is silenced               |
 
-**önd owns 18100–18199.** Every port this repo uses comes from that block, and nothing else on the machine should claim it — one range means one thing to remember and one thing to check.
+**önd owns 29100–29199.** Every port this repo uses comes from that block, and nothing else on the machine should claim it — one range means one thing to remember and one thing to check.
 
-The block is chosen to clear the sibling `connect` repo, which reserves 15432, 15433, 17233, 17474, 17687, 18080–18092, and 19000. That matters more than it sounds: connect's Tilt binds `127.0.0.1:15432`, which beats a container's `*:15432` binding for anything resolving `localhost`, so an önd process pointed at 15432 would silently read and write connect's database. If you add a service, take the next free number in 18100–18199.
+The block must clear the sibling `connect` repo, which reserves 15432, 15433, 17233, 17474, 17687, 18080–18092, and 19000. That matters more than it sounds: connect's Tilt binds `127.0.0.1:15432`, which beats a container's `*:15432` binding for anything resolving `localhost`, so an önd process pointed at 15432 would silently read and write connect's database.
+
+önd held 18100–18199 until other services on this machine filled the 18xxx range around it. Moving to 29100–29199 kept every service's last two digits, so what was 18104 is 29104. If you add a service, take the next free number in 29100–29199.
 
 ## The gate
 

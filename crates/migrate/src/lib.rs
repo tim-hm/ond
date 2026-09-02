@@ -99,7 +99,7 @@ mod tests {
     #[test]
     fn carries_the_query_string_onto_the_maintenance_url() {
         let options = PgConnectOptions::from_str(
-            "postgres://postgres:postgres@localhost:18101/ond?sslmode=require",
+            "postgres://postgres:postgres@localhost:29101/ond?sslmode=require",
         )
         .expect("a valid connection string");
 

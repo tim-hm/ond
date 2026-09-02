@@ -31,12 +31,12 @@ alerting:
 
 scrape_configs:
   # The product: users, active subscriptions, gross MRR, and the request
-  # metrics for both protocols. 18103 rather than the API's own 18100 — a
+  # metrics for both protocols. 29103 rather than the API's own 29100 — a
   # separate listener, so nothing that fronts the public port can route to it
   # (docs/observability.md).
   - job_name: api
     static_configs:
-      - targets: ["api:18103"]
+      - targets: ["api:29103"]
 
   # The edge. Answers what the public listener saw, including the requests that
   # never reached the API — a TLS handshake that failed, a path that fell

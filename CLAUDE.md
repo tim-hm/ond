@@ -41,7 +41,7 @@ web/            the marketing one-pager; static at serve time, but its
 infra/          OpenTofu for the one box the whole thing deploys onto
 ```
 
-All önd ports live in **18100–18199**, starting with the API on 18100. [docs/contributing.md](docs/contributing.md) has the table and why the block starts there — one enumeration, so a service added to one list cannot be missing from the other.
+All önd ports live in **29100–29199**, starting with the API on 29100. [docs/contributing.md](docs/contributing.md) has the table and why the block starts there — one enumeration, so a service added to one list cannot be missing from the other.
 
 | Pattern        | One-liner                                                                                               | Details                                          |
 | :------------- | :------------------------------------------------------------------------------------------------------ | :----------------------------------------------- |

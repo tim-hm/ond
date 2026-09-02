@@ -96,7 +96,7 @@ mod tests {
     /// name derived from the same source as the registration could not fail.
     const REFLECTION_PATH: &str = "/grpc.reflection.v1.ServerReflection/ServerReflectionInfo";
 
-    const DATABASE_URL: &str = "postgres://postgres@localhost:18101/ond";
+    const DATABASE_URL: &str = "postgres://postgres@localhost:29101/ond";
 
     /// A state with no database behind it. `connect_lazy` parses the URL and
     /// connects on first use, and registration touches neither — nor does it
@@ -108,8 +108,8 @@ mod tests {
             Config {
                 environment,
                 database_url: DATABASE_URL.to_owned(),
-                port: 18100,
-                metrics_port: 18103,
+                port: 29100,
+                metrics_port: 29103,
             },
             Arc::new(DisabledModelClient),
             Arc::new(AppStoreVerifier),

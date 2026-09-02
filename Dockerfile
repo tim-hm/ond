@@ -44,5 +44,5 @@ COPY --from=build /src/target/release/api /src/target/release/migrate /usr/local
 RUN useradd --system --no-create-home ond
 USER ond
 
-EXPOSE 18100
+EXPOSE 29100
 CMD ["api"]

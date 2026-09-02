@@ -291,7 +291,7 @@
     {
       "type": "table",
       "title": "Firing",
-      "description": "The rules in infra/box/alerts.yml, read from Prometheus' own ALERTS series. They also reach an inbox through Alertmanager; this is so the dashboard does not have to be what finds out. Silences live in Alertmanager at 18106 — an email cannot acknowledge anything.",
+      "description": "The rules in infra/box/alerts.yml, read from Prometheus' own ALERTS series. They also reach an inbox through Alertmanager; this is so the dashboard does not have to be what finds out. Silences live in Alertmanager at 29106 — an email cannot acknowledge anything.",
       "gridPos": {
         "h": 8,
         "w": 24,

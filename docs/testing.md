@@ -99,7 +99,7 @@ mise run coverage    # informational Rust and Swift summaries; no percentage gat
 
 ## System tests and coverage
 
-`test:swift:live` expects the API at `http://localhost:18100` and proves the real Swift gRPC-Web client can decode its seeded catalogue. `test:ui:phone` expects a booted iOS simulator and audits Home and an active Coherent Breathing session. `test:system` owns the local API lifecycle and runs both; it refuses to replace a process already listening on port 18100.
+`test:swift:live` expects the API at `http://localhost:29100` and proves the real Swift gRPC-Web client can decode its seeded catalogue. `test:ui:phone` expects a booted iOS simulator and audits Home and an active Coherent Breathing session. `test:system` owns the local API lifecycle and runs both; it refuses to replace a process already listening on port 29100.
 
 `coverage:rs` exercises the Rust unit and e2e suites. `coverage:swift` measures the host Swift package's first-party modules and excludes generated code, dependencies, tests, and development executables. The reports are information, not release gates, and their detailed data stays in ignored build directories.
 

@@ -24,10 +24,10 @@
 # The API on its own name, so infra/main.tf's record can be repointed without
 # moving the marketing page. Every path goes to the API, which is what makes
 # the separate metrics port in crates/api structural — no allowlist here could
-# keep a path on 18100 private. reverse_proxy appends the accepted peer to
+# keep a path on 29100 private. reverse_proxy appends the accepted peer to
 # X-Forwarded-For, the key crates/api/src/throttle.rs rations against.
 __API_HOST__ {
-	reverse_proxy api:18100
+	reverse_proxy api:29100
 }
 
 __WEB_HOST__ {
