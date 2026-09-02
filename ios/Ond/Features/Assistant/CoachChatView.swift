@@ -132,9 +132,21 @@ struct CoachChatView: View {
     }
 
     private var conversation: some View {
-        CoachTranscript(turns: model.transcript, isReplying: model.isReplying, pinned: pinned) {
+        CoachTranscript(
+            turns: model.transcript,
+            isReplying: model.isReplying,
+            pinned: pinned,
+            retry: retry
+        ) {
             row(for: $0)
         }
+    }
+
+    /// Re-pins as well as re-asks: the question keeps its id through a retry,
+    /// so a conversation opened cold still watches the exchange it re-sent.
+    private func retry() {
+        model.retry()
+        pinned = model.transcript.last?.id
     }
 
     /// One turn as a bubble: the person's trailing, the coach's leading, each
