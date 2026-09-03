@@ -36,13 +36,13 @@ The mood row below the figures is **not** a reserved slot, and the difference is
 
 | Case        | Condition                              | Headline             | Note                            |
 | :---------- | :------------------------------------- | :------------------- | :------------------------------ |
-| Completed   | The timeline ran out                   | `Nicely done.`       | `You finished box breathing.`   |
-| Ended early | The person stopped it                  | `That's a session.`  | `You ended this session early.` |
+| Completed   | The timeline ran out                   | `All done.`          | `You finished box breathing.`   |
+| Ended early | The person stopped it                  | `All done.`          | `You ended this session early.` |
 | Discarded   | Stopped inside the recording threshold | `Too short to keep.` | `Nothing was recorded.`         |
 
-Two headlines for a kept session, not one. A single neutral headline for both would be the strictest reading of "never grade", but it would also take the warmth off the ordinary case to avoid praising the rare one. Two are honest because they describe two different records, not two different people.
+One headline for a kept session, not two. The note under it already states which of the two happened, so a headline that differed as well would say the same fact twice — and the version that differed graded it, which is the one thing this screen must not do.
 
-`That's a session.` was chosen over the repo's earlier `Every breath counts`, which is a claim about worth rather than a statement of the record, and over `Nicely done.` for both, which rounds an abandoned session up. It answers the one doubt somebody who stopped early has — whether it counted — and answers it with the fact rather than with reassurance.
+The line is `All done.` because it is what a person would say out loud. It replaced `Nicely done.` and `That's a session.`, a pair that put warmth on the ordinary case and an argument on the rare one: `That's a session.` was answering a doubt about whether an early end counted, which is a question the note answers plainly and the figures settle.
 
 **The exercise is named only when the session ran to its end.** The note holds one line so the figures below it cannot move, and an early end has to spend that line on the ending. The exercise is on the record either way, and Progress names it there.
 
@@ -58,7 +58,7 @@ A session started from `With your child` speaks `CopyRegister.playful` throughou
 | Ended early | `That was breathing.` | `You stopped this one early.`            |
 | Discarded   | `Too short to keep.`  | `Nothing was recorded.`                  |
 
-The four lines are the plain four said to a small child, or to an adult sitting with one. They answer the same two questions, under the same two rules: `You did it.` states the record without measuring it, and `That was breathing.` answers the doubt an early end leaves — the playful reading of `That's a session.`
+The four lines are the plain four said to a small child, or to an adult sitting with one. They answer the same two questions, under the same two rules: `You did it.` states the record without measuring it, and `That was breathing.` answers the doubt an early end leaves. Playful keeps two headlines where plain has one, because a child is being spoken to rather than told.
 
 The discarded pair is the plain one. There is no playful way to say that nothing was kept that does not make light of it, and the register's job is warmth rather than jokes.
 
@@ -88,7 +88,7 @@ The middle label is `time`, not `minutes`: a session of forty seconds under a la
 
 A session ended by hand inside ten seconds is a false start and is never stored — the rule is `SessionRecord.isFalseStart`, and it exists so a journal is not made of mistaps. Above that threshold every session is kept, however short.
 
-A short kept session renders `That's a session.`, the early-end note, and the figures that have something in them — often the time alone. No apology and no encouragement.
+A short kept session renders `All done.`, the early-end note, and the figures that have something in them — often the time alone. No apology and no encouragement.
 
 A discarded one renders the third headline on the same three reserved slots, and nothing else: no figures, no pulse curve, no mood check, and Done. The screen is spent saying the one thing that is true, which is that there is nothing to show. The mood check is absent because a reading taken here would stand against a session the journal does not hold. On the wrist the same two lines are shown, on both the guided and the discreet screen.
 

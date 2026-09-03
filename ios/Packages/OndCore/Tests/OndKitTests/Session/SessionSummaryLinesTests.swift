@@ -31,7 +31,7 @@ struct SessionSummaryLinesTests {
     func aFinishedSessionIsNamed() {
         let session = kept()
 
-        #expect(SessionSummaryLines.headline(for: session, register: .plain) == "Nicely done.")
+        #expect(SessionSummaryLines.headline(for: session, register: .plain) == "All done.")
         #expect(SessionSummaryLines.note(for: session, exercise: "Box breathing", register: .plain)
             == "You finished Box breathing.")
     }
@@ -42,7 +42,7 @@ struct SessionSummaryLinesTests {
     func anEarlyEndIsSaidPlainly() {
         let session = kept(completed: false)
 
-        #expect(SessionSummaryLines.headline(for: session, register: .plain) == "That's a session.")
+        #expect(SessionSummaryLines.headline(for: session, register: .plain) == "All done.")
         #expect(SessionSummaryLines.note(for: session, exercise: "Box breathing", register: .plain)
             == "You ended this session early.")
     }

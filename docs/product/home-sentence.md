@@ -28,14 +28,14 @@ The line has one job: say what this week holds, and give the reader nothing to b
 
 Counts one to nine are spelled as words and capitalised, because each one opens a sentence; ten and above stay digits. `Foundation` spells the word, because a hand-written English table would not survive a localised build.
 
-Whichever sentence wins, an early end is added to it rather than replacing it:
+Whichever sentence wins, an early end is folded into it rather than replacing it or following it:
 
-| Selected sentence | One early end                                                       | Two or more                                       |
-| :---------------- | :------------------------------------------------------------------ | :------------------------------------------------ |
-| A week's count    | `Four sessions this week. One you ended early.`                     | `Three sessions this week. Two you ended early.`  |
-| A single session  | folded into the one sentence: `One session this week, ended early.` | not possible — one session cannot end early twice |
+| Selected sentence | One early end                               | Two or more                                       |
+| :---------------- | :------------------------------------------ | :------------------------------------------------ |
+| A week's count    | `Four sessions this week, one ended early.` | `Three sessions this week, two ended early.`      |
+| A single session  | `One session this week, ended early.`       | not possible — one session cannot end early twice |
 
-A week of one session takes the folded form because `One session this week. One you ended early` is two sentences about one thing.
+Every line is one sentence. An early end appended as a second sentence read as an afterthought about a fact this line states on purpose, and `One session this week. One you ended early` was two sentences about one thing. The count that opens the sentence is capitalised; the count inside it is not.
 
 ## Broken week
 

@@ -41,12 +41,15 @@ public enum HomeStateLine {
         let early = week.count { !$0.completed }
         let count = spelled(week.count)
         let counted = week.count == history.count
-            ? "\(count) sessions in your first week."
-            : "\(count) sessions this week."
+            ? "\(count) sessions in your first week"
+            : "\(count) sessions this week"
+        // One sentence, as the week's single session already is. The early
+        // ends were a second sentence appended to the first, which reads as an
+        // afterthought about a fact this line is stating on purpose.
         switch early {
-        case 0: return counted
-        case 1: return counted + " One you ended early."
-        default: return counted + " \(spelled(early)) you ended early."
+        case 0: return counted + "."
+        case 1: return counted + ", one ended early."
+        default: return counted + ", \(spelled(early).lowercased()) ended early."
         }
     }
 
@@ -99,10 +102,10 @@ public enum HomeStateLine {
     }
 
     /// "Four" for four, "12" for twelve: the small counts read as prose and
-    /// the large ones as the number they are. Capitalised, because every
-    /// count here opens a sentence. Foundation spells the word rather than a
-    /// table here, on `Duration.spelled`'s argument: a localised build will
-    /// not agree with English.
+    /// the large ones as the number they are. Capitalised for the count that
+    /// opens the sentence; the early-end count lowercases it. Foundation
+    /// spells the word rather than a table here, on `Duration.spelled`'s
+    /// argument: a localised build will not agree with English.
     static func spelled(_ count: Int) -> String {
         guard (1 ... 9).contains(count),
               let word = spellOut.string(from: NSNumber(value: count))
