@@ -36,9 +36,9 @@ struct SessionView: View {
 
     var body: some View {
         Group {
-            if model.status == .finished, let record = model.record, !model.wasDiscarded {
+            if model.status == .finished, let record = model.record {
                 SessionSummaryView(
-                    record: record,
+                    outcome: model.wasDiscarded ? .discarded : .kept(record),
                     technique: model.technique,
                     register: model.timeline.register,
                     reached: model.reachedStage
@@ -68,11 +68,6 @@ struct SessionView: View {
             // The budget goes back the moment the breathing ends, not when the
             // screen does — a summary being read needs no runtime session.
             runtime.invalidate()
-            // A false start — ended by hand inside the first seconds — was never
-            // recorded, so there is no summary to show; the screen just goes.
-            if model.wasDiscarded {
-                dismiss()
-            }
         }
         .onChange(of: model.currentBeat?.id) { _, _ in announceCurrentPhase() }
     }

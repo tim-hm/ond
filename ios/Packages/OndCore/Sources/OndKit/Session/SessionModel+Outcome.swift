@@ -17,10 +17,10 @@ public extension SessionModel {
         case finished
     }
 
-    /// Whether the ended session was let go rather than kept — the view's cue
-    /// to close quietly instead of presenting a summary of nothing. The rule
-    /// itself lives on `SessionRecord.isFalseStart`, shared with the discreet
-    /// model.
+    /// Whether the ended session was let go rather than kept. The summary is
+    /// shown either way — an ending nobody was told about reads as a crash —
+    /// and this decides which of its forms. The rule itself lives on
+    /// `SessionRecord.isFalseStart`, shared with the discreet model.
     var wasDiscarded: Bool {
         status == .finished && record?.isFalseStart == true
     }

@@ -6,12 +6,31 @@ import Foundation
 /// drift apart on the one copy rule that matters — celebrate what happened,
 /// never grade it. The cases are in docs/product/session-summary.md.
 public enum SessionSummaryLines {
-    /// The screen's one sentence. Two forms rather than one: they describe two
-    /// different records, not two different people. A session ended by hand is
-    /// told it is a session, which is the only doubt it leaves. The playful
-    /// register says the same two facts to a small child.
-    public static func headline(for record: SessionRecord, register: CopyRegister) -> String {
-        switch register {
+    /// Which session the summary is speaking about. A session ended by hand
+    /// inside `SessionRecord.minimumRecordedDuration` is discarded, and it
+    /// still reaches this screen: a screen that vanished instead would be
+    /// indistinguishable from a crash.
+    public enum Outcome: Equatable, Sendable {
+        case kept(SessionRecord)
+        case discarded
+
+        /// What was kept, or nil where nothing was. The figures, the pulse
+        /// curve and the mood question all speak about a session that exists.
+        public var record: SessionRecord? {
+            guard case let .kept(record) = self else { return nil }
+            return record
+        }
+    }
+
+    /// The screen's one sentence. Three forms rather than one: they describe
+    /// three different records, not three different people. A session ended by
+    /// hand is told it is a session, which is the only doubt it leaves. The
+    /// discarded line is the same in both registers — there is no playful way
+    /// to say that nothing was kept without making light of it.
+    public static func headline(for outcome: Outcome, register: CopyRegister) -> String {
+        guard case let .kept(record) = outcome else { return "Too short to keep." }
+
+        return switch register {
         case .plain: record.completed ? "Nicely done." : "That's a session."
         case .playful: record.completed ? "You did it." : "That was breathing."
         }
@@ -22,11 +41,13 @@ public enum SessionSummaryLines {
     /// an early end is the fact that has to survive it. A playful session is
     /// breathed with somebody, so its finished line says so.
     public static func note(
-        for record: SessionRecord,
+        for outcome: Outcome,
         exercise: String,
         register: CopyRegister
     ) -> String {
-        switch register {
+        guard case let .kept(record) = outcome else { return "Nothing was recorded." }
+
+        return switch register {
         case .plain:
             record.completed
                 ? "You finished \(exercise)."

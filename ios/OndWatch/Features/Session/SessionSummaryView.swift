@@ -9,7 +9,9 @@ import SwiftUI
 /// air. It has no mood check either — the wrist never asked the first half.
 /// The cases are in docs/product/session-summary.md.
 struct SessionSummaryView: View {
-    let record: SessionRecord
+    /// Whether this session was kept, and what was kept. A session too short to
+    /// record still comes here, with no figures under its two lines.
+    let outcome: SessionSummaryLines.Outcome
     let technique: Technique
 
     /// Which words this session speaks, so the wrist and the phone end a
@@ -24,14 +26,14 @@ struct SessionSummaryView: View {
     let onDone: () -> Void
 
     private var note: String {
-        SessionSummaryLines.note(for: record, exercise: technique.name, register: register)
+        SessionSummaryLines.note(for: outcome, exercise: technique.name, register: register)
     }
 
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.standard) {
                 VStack(spacing: Theme.Spacing.tight) {
-                    Text(SessionSummaryLines.headline(for: record, register: register))
+                    Text(SessionSummaryLines.headline(for: outcome, register: register))
                         .displaySerif(size: Theme.Metrics.wristDisplaySize)
                         .foregroundStyle(Theme.Ink.primary)
 
@@ -48,7 +50,9 @@ struct SessionSummaryView: View {
                 }
                 .multilineTextAlignment(.center)
 
-                figures
+                if let record = outcome.record {
+                    figures(of: record)
+                }
 
                 Button("Done", action: onDone)
             }
@@ -59,7 +63,7 @@ struct SessionSummaryView: View {
 
     /// A figure with a zero in it is absent rather than empty — the rule is
     /// `SessionSummaryLines.figures`, shared with the phone.
-    private var figures: some View {
+    private func figures(of record: SessionRecord) -> some View {
         HStack(alignment: .top, spacing: Theme.Spacing.standard) {
             ForEach(SessionSummaryLines.figures(for: record)) { figure in
                 VStack(spacing: Theme.Spacing.tight) {
