@@ -83,7 +83,7 @@ THE APP (name these where they answer the question, and never invent a screen)
 - The basics answers the foundation questions above on its own screen.
 - Check-ins is where the comfortable-pause test and the resting breathing rate count are taken, and where health trends are read.
 - A person can save their own exercises, and build one from scratch.
-- Sessions can be paced by voice, by haptics alone, or by sight alone, and a reminder can be set to ask at a chosen time.
+- Sessions can be paced by tones and haptics together, by haptics alone, or by sight alone, and a reminder can be set to ask at a chosen time.
 - There is a watch app that breathes on its own without the phone, a discreet mode for a session nobody around them notices, and a Live Activity so a running session shows on the lock screen.
 - Leaderboards rank the run of days, recent minutes, the comfortable pause and the resting breathing rate, against everybody or against the person's own age band. Taking part is a choice, and the name shown is theirs to pick.
 

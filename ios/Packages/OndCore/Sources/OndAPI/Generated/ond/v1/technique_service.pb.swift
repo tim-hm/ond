@@ -528,26 +528,12 @@ public nonisolated struct Ond_V1_Phase: Sendable {
   /// Clears the value of `hapticPattern`. Subsequent reads from it will return its default value.
   public mutating func clearHapticPattern() {self._hapticPattern = nil}
 
-  /// The line this phase speaks, named as the clip the voice render wrote. One
-  /// entry of the exercise's script, because a script is written against the
-  /// real timings and a phase is where those live. Absent means the client
-  /// picks the cue from the phase itself.
-  public var voiceScript: String {
-    get {_voiceScript ?? String()}
-    set {_voiceScript = newValue}
-  }
-  /// Returns true if `voiceScript` has been explicitly set.
-  public var hasVoiceScript: Bool {self._voiceScript != nil}
-  /// Clears the value of `voiceScript`. Subsequent reads from it will return its default value.
-  public mutating func clearVoiceScript() {self._voiceScript = nil}
-
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
 
   fileprivate var _turnGapMs: UInt32? = nil
   fileprivate var _hapticPattern: String? = nil
-  fileprivate var _voiceScript: String? = nil
 }
 
 /// A run of cycles sharing one phase pattern.
@@ -1030,7 +1016,7 @@ nonisolated extension Ond_V1_ReadingContent: SwiftProtobuf.Message, SwiftProtobu
 
 nonisolated extension Ond_V1_Phase: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Phase"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}kind\0\u{3}duration_ms\0\u{3}min_duration_ms\0\u{3}max_duration_ms\0\u{1}passage\0\u{1}manner\0\u{3}turn_gap_ms\0\u{3}haptic_pattern\0\u{3}voice_script\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}kind\0\u{3}duration_ms\0\u{3}min_duration_ms\0\u{3}max_duration_ms\0\u{1}passage\0\u{1}manner\0\u{3}turn_gap_ms\0\u{3}haptic_pattern\0\u{b}voice_script\0\u{c}\u{9}\u{1}")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -1046,7 +1032,6 @@ nonisolated extension Ond_V1_Phase: SwiftProtobuf.Message, SwiftProtobuf._Messag
       case 6: try { try decoder.decodeSingularEnumField(value: &self.manner) }()
       case 7: try { try decoder.decodeSingularUInt32Field(value: &self._turnGapMs) }()
       case 8: try { try decoder.decodeSingularStringField(value: &self._hapticPattern) }()
-      case 9: try { try decoder.decodeSingularStringField(value: &self._voiceScript) }()
       default: break
       }
     }
@@ -1081,9 +1066,6 @@ nonisolated extension Ond_V1_Phase: SwiftProtobuf.Message, SwiftProtobuf._Messag
     try { if let v = self._hapticPattern {
       try visitor.visitSingularStringField(value: v, fieldNumber: 8)
     } }()
-    try { if let v = self._voiceScript {
-      try visitor.visitSingularStringField(value: v, fieldNumber: 9)
-    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1096,7 +1078,6 @@ nonisolated extension Ond_V1_Phase: SwiftProtobuf.Message, SwiftProtobuf._Messag
     if lhs.manner != rhs.manner {return false}
     if lhs._turnGapMs != rhs._turnGapMs {return false}
     if lhs._hapticPattern != rhs._hapticPattern {return false}
-    if lhs._voiceScript != rhs._voiceScript {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

@@ -231,11 +231,10 @@ message Phase {
   // client does not know plays the derived pattern and logs.
   optional string haptic_pattern = 8;
 
-  // The line this phase speaks, named as the clip the voice render wrote. One
-  // entry of the exercise's script, because a script is written against the
-  // real timings and a phase is where those live. Absent means the client
-  // picks the cue from the phase itself.
-  optional string voice_script = 9;
+  // Was `voice_script`, the clip a phase spoke. The app cues with tones and
+  // haptics only, so nothing authors or reads a spoken line.
+  reserved 9;
+  reserved "voice_script";
 }
 
 // A run of cycles sharing one phase pattern.

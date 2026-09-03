@@ -23,10 +23,9 @@ public struct Phase: Sendable, Hashable, Codable {
     /// none is written yet. An authored zero is not nil — it says this rhythm
     /// turns without a gap, which a continuous exercise means.
     public let turnGap: Duration?
-    /// The tap this phase plays and the line it speaks, named by keys the
-    /// client resolves. Nil on ``turnGap``'s terms and for its reason.
+    /// The tap this phase plays, named by a key the client resolves. Nil on
+    /// ``turnGap``'s terms and for its reason.
     public let hapticPattern: String?
-    public let voiceScript: String?
 
     /// Defaults the range to the duration itself — the honest description of a
     /// phase nobody has widened, and what keeps a hand-built `Phase` in a test
@@ -38,8 +37,7 @@ public struct Phase: Sendable, Hashable, Codable {
         range: ClosedRange<Duration>? = nil,
         manner: Manner? = nil,
         turnGap: Duration? = nil,
-        hapticPattern: String? = nil,
-        voiceScript: String? = nil
+        hapticPattern: String? = nil
     ) {
         self.breath = breath
         self.duration = duration
@@ -47,7 +45,6 @@ public struct Phase: Sendable, Hashable, Codable {
         self.manner = manner
         self.turnGap = turnGap
         self.hapticPattern = hapticPattern
-        self.voiceScript = voiceScript
     }
 
     /// The same phase said as a kind and a passage, for the two decoders that
@@ -133,13 +130,6 @@ public struct Stage: Sendable, Hashable, Codable {
     /// as good an estimate as exists before the person decides.
     public var duration: Duration {
         cycleDuration * max(cycles, 1)
-    }
-
-    /// Which phase of the pattern has the most room to be spoken into — where
-    /// a line that teaches rather than instructs goes. The first of equals,
-    /// and zero for an empty pattern, which the repository already refuses.
-    var longestPhase: Int {
-        phases.indices.max { phases[$0].duration < phases[$1].duration } ?? 0
     }
 
     /// Whether the stage outruns a second-by-second count: a phase under two

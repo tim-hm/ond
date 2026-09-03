@@ -37,7 +37,6 @@ public enum Log {
         "settings",
         "subscription",
         "user-technique",
-        "voice-clips",
         "watch-link",
     ]
 }

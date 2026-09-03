@@ -228,14 +228,11 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                 // 250 is the motor turn between a full breath and finding
                 // more on top of it. The zero after the sip is the technique
                 // itself: you top up and you let go, without a pause between.
-                inhale(Passage::Nose, 1500, (1000, 2500))
-                    .with_gap(250)
-                    .with_script("sigh-in"),
+                inhale(Passage::Nose, 1500, (1000, 2500)).with_gap(250),
                 inhale(Passage::Nose, 1000, (500, 1200))
                     .with_gap(0)
-                    .with_haptic(HapticPattern::Sip)
-                    .with_script("sigh-and-in"),
-                exhale(Passage::Nose, 5000, (4000, 8000)).with_script("sigh-and-out"),
+                    .with_haptic(HapticPattern::Sip),
+                exhale(Passage::Nose, 5000, (4000, 8000)),
             ],
             // The summary promises "one or two rounds"; three is the generous
             // end of that, and the technique loses its point when stretched
@@ -281,14 +278,11 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             // five minutes of this sustainable. The sip's 0.5s floor is the
             // watch haptic floor, matching the sigh.
             &[
-                inhale(Passage::Nose, 2000, (1500, 3000))
-                    .with_gap(250)
-                    .with_script("sigh-in"),
+                inhale(Passage::Nose, 2000, (1500, 3000)).with_gap(250),
                 inhale(Passage::Nose, 1000, (500, 1500))
                     .with_gap(0)
-                    .with_haptic(HapticPattern::Sip)
-                    .with_script("sigh-and-in"),
-                exhale(Passage::Nose, 7000, (5000, 10000)).with_script("sigh-and-out"),
+                    .with_haptic(HapticPattern::Sip),
+                exhale(Passage::Nose, 7000, (5000, 10000)),
             ],
             // Thirty ten-second cycles is the trial's five minutes a day, which
             // is the entire claim this technique makes. Shortening it would

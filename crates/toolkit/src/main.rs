@@ -24,7 +24,6 @@ mod proto;
 mod screenshots;
 mod sources;
 mod system_test;
-mod voice;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -38,14 +37,6 @@ async fn main() -> Result<()> {
         .collect::<Vec<_>>()
         .as_slice()
     {
-        ["voice"] => {
-            voice::render(
-                &root.join("voice"),
-                &repo.join("ios/Packages/OndCore/Sources/OndKit/Resources/Voice"),
-            )
-            .await
-        }
-        ["voice", "list"] => voice::list().await,
         ["icons"] => icons::render(&repo),
         ["box", "check", name] => box_config::check(&repo, name),
         ["deploy", "api"] => deploy::api(&repo),
@@ -70,7 +61,7 @@ async fn main() -> Result<()> {
         ["observability", "check"] => observability::check(&repo),
         ["metrics", "check"] => metrics::check(&repo),
         other => bail!(
-            "usage: toolkit <voice [list] | icons | box check <config> | comments <check | baseline> | deploy <api | website> | dev <plus | sign-in> [user] | infra drift | proto check | deps check | ios <sim | device> <phone | watch> | ios <ui-test | screenshots> | test system | migrations check | observability check | metrics check> (got {other:?})"
+            "usage: toolkit <icons | box check <config> | comments <check | baseline> | deploy <api | website> | dev <plus | sign-in> [user] | infra drift | proto check | deps check | ios <sim | device> <phone | watch> | ios <ui-test | screenshots> | test system | migrations check | observability check | metrics check> (got {other:?})"
         ),
     }
 }

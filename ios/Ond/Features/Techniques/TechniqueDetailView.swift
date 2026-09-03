@@ -282,8 +282,7 @@ struct TechniqueDetailView: View {
         SessionLaunchResolver(sessions: sessions) {
             SessionCues(
                 mode: settings.cueMode,
-                strength: settings.hapticStrength,
-                sound: settings.sound
+                strength: settings.hapticStrength
             )
         }
     }

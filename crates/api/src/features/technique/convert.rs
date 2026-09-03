@@ -146,7 +146,6 @@ pub(crate) fn phase_to_proto(phase: PlayablePhase) -> Result<pb::Phase, wire::Un
             .map(|gap| wire::counted("phase turn gap", gap))
             .transpose()?,
         haptic_pattern: phase.haptic_pattern,
-        voice_script: phase.voice_script,
     })
 }
 

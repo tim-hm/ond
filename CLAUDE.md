@@ -50,7 +50,6 @@ All önd ports live in **29100–29199**, starting with the API on 29100. [docs/
 | Code structure | Feature-first, three-tier escalation, no junk drawers                                                   | [docs/code-structure.md](docs/code-structure.md) |
 | Testing        | Write tests. Not too many. Mostly integration.                                                          | [docs/testing.md](docs/testing.md)               |
 | Observability  | Log at boundaries, stay silent in between                                                               | [docs/observability.md](docs/observability.md)   |
-| Voice          | Spoken cues render at build time; the manifest is the source                                            | [docs/voice.md](docs/voice.md)                   |
 | Setup & ports  | First run, port table, Xcode prerequisites                                                              | [docs/contributing.md](docs/contributing.md)     |
 | Deployment     | One box: OpenTofu provisions it, `mise run deploy:api` and `deploy:website` ship to it, Caddy fronts it | [docs/deployment.md](docs/deployment.md)         |
 

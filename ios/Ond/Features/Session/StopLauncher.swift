@@ -119,8 +119,7 @@ private struct StopLauncherPresentation: ViewModifier {
         SessionLaunchResolver(sessions: launcher.sessions) {
             SessionCues(
                 mode: settings.cueMode,
-                strength: settings.hapticStrength,
-                sound: settings.sound
+                strength: settings.hapticStrength
             )
         }
     }

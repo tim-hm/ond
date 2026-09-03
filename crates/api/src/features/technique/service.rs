@@ -252,7 +252,6 @@ fn assemble_playable_stages(
                 max_duration_ms: row.max_duration_ms,
                 turn_gap_ms: row.turn_gap_ms,
                 haptic_pattern: row.haptic_pattern,
-                voice_script: row.voice_script,
             });
     }
 
@@ -320,7 +319,6 @@ mod tests {
             max_duration_ms: 8000,
             turn_gap_ms: None,
             haptic_pattern: None,
-            voice_script: None,
         }
     }
 

@@ -226,7 +226,6 @@ pub(super) struct PhaseSeed {
     /// one only where the derived answer is wrong for the exercise.
     pub(super) turn_gap_ms: Option<i32>,
     pub(super) haptic_pattern: Option<&'static str>,
-    pub(super) voice_script: Option<&'static str>,
 }
 
 /// A run of cycles sharing one phase pattern.
@@ -357,7 +356,6 @@ pub(super) const fn breath(
         max_duration_ms: dial.1,
         turn_gap_ms: None,
         haptic_pattern: None,
-        voice_script: None,
     }
 }
 
@@ -373,7 +371,6 @@ pub(super) const fn hold(kind: PhaseKind, duration_ms: i32, dial: (i32, i32)) ->
         max_duration_ms: dial.1,
         turn_gap_ms: None,
         haptic_pattern: None,
-        voice_script: None,
     }
 }
 
@@ -415,12 +412,6 @@ impl HapticPattern {
     }
 }
 
-/// The reserved `voice_script` meaning "say nothing at any cycle". The client
-/// holds the same word, and the column's 1-64 character check admits it. A
-/// phase that speaks nothing keeps its tone. The form cue is the one line the
-/// word does not silence, where the phase has room to say it.
-pub(super) const SILENT_SCRIPT: &str = "silent";
-
 /// What a phase authors on top of its shape, chained onto the constructors
 /// above so a phase that authors nothing stays one line.
 impl PhaseSeed {
@@ -439,22 +430,12 @@ impl PhaseSeed {
         self
     }
 
-    /// The clip this phase speaks, where its place in the session implies none
-    /// or implies the wrong one. `SILENT_SCRIPT` is how a phase says nothing.
-    pub(super) const fn with_script(mut self, script: &'static str) -> Self {
-        self.voice_script = Some(script);
-        self
-    }
-
-    /// A phase of a rhythm that turns without a pause and says nothing. The
-    /// derived 25 ms would put a stutter in a rhythm whose whole physiology is
-    /// that it has none, an envelope under 1.5 s is noise with a tap buried in
-    /// it, and at this rate a spoken cue is a second rhythm competing with the
-    /// first. Bellows breath and the Wim Hof round breathing are the two.
+    /// A phase of a rhythm that turns without a pause. The derived 25 ms would
+    /// put a stutter in a rhythm whose whole physiology is that it has none,
+    /// and an envelope under 1.5 s is noise with a tap buried in it. Bellows
+    /// breath and the Wim Hof round breathing are the two.
     pub(super) const fn continuous(self) -> Self {
-        self.with_gap(0)
-            .with_haptic(HapticPattern::Drum)
-            .with_script(SILENT_SCRIPT)
+        self.with_gap(0).with_haptic(HapticPattern::Drum)
     }
 }
 

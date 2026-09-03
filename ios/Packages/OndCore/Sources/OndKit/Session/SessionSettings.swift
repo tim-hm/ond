@@ -20,14 +20,19 @@ public final class SessionSettings: PersonalStore {
         case guidance = "session.guidance"
         case hapticStrength = "session.hapticStrength"
         case moodCheck = "session.moodCheck"
-        case sound = "session.sound"
         case wristPulse = "session.wristPulse"
     }
 
+    /// Keys a past version wrote and none writes now. Pruned at launch rather
+    /// than by `erase()`, which runs only when somebody deletes their account:
+    /// a device that never does would otherwise carry a retired key for ever.
+    /// An enum for `Key`'s reason — a walk needs `allCases` to be complete.
+    enum LegacyKey: String, CaseIterable {
+        case sound = "session.sound"
+    }
+
     /// Named once so the launch reading them and the deletion restoring them
-    /// cannot disagree about a fresh install. `sound` is computed: the
-    /// preferred voice is decided beside the voice roster, and a `static let`
-    /// would fix it at first use.
+    /// cannot disagree about a fresh install.
     private static let defaultAppearance = Appearance.system
     private static let defaultBreathVisual = BreathVisualStyle.scaling
     private static let defaultCueMode = SessionCueMode.hapticsAndAudio
@@ -35,9 +40,6 @@ public final class SessionSettings: PersonalStore {
     private static let defaultHapticStrength = HapticStrength.standard
     private static let defaultAsksHowYouFeel = true
     private static let defaultShowsWristPulse = false
-    private static var defaultSound: SessionSound {
-        SessionVoice.preferred.map(SessionSound.voice) ?? .tones
-    }
 
     public var appearance: Appearance {
         didSet { defaults.set(appearance.rawValue, forKey: Key.appearance.rawValue) }
@@ -63,14 +65,6 @@ public final class SessionSettings: PersonalStore {
         didSet { defaults.set(hapticStrength.rawValue, forKey: Key.hapticStrength.rawValue) }
     }
 
-    /// What the sound *is*; `cueMode` decides whether there is any. A voice by
-    /// default — the one the manifest marks, so the choice lives beside the
-    /// roster. A stored choice is read before this default; it falls back to
-    /// tones only where a build shipped no clips at all.
-    public var sound: SessionSound {
-        didSet { defaults.set(sound.rawValue, forKey: Key.sound.rawValue) }
-    }
-
     /// Whether a session asks the paired watch for a live heart rate. Off by
     /// default: honouring it wakes the watch app and holds a workout session
     /// open for the whole practice, a cost nobody agreed to by tapping Begin.
@@ -86,14 +80,6 @@ public final class SessionSettings: PersonalStore {
     /// Health writes too; `MoodRecorder` has no preference of its own.
     public var asksHowYouFeel: Bool {
         didSet { defaults.set(asksHowYouFeel, forKey: Key.moodCheck.rawValue) }
-    }
-
-    /// Whether a session will say its phases out loud. Both halves, because
-    /// either one silences the voice: a mode with no sound plays no clips, and
-    /// tones are not speech. `SessionView` asks so its VoiceOver announcement
-    /// does not repeat a sentence a clip is already speaking.
-    public var speaksPhases: Bool {
-        cueMode.playsAudio && sound.voice != nil
     }
 
     /// Every dialled technique, keyed by slug — the key the catalogue keeps
@@ -124,8 +110,6 @@ public final class SessionSettings: PersonalStore {
             .flatMap(SessionCueMode.init(rawValue:)) ?? Self.defaultCueMode
         hapticStrength = defaults.string(forKey: Key.hapticStrength.rawValue)
             .flatMap(HapticStrength.init(rawValue:)) ?? Self.defaultHapticStrength
-        sound = defaults.string(forKey: Key.sound.rawValue)
-            .flatMap(SessionSound.init(rawValue:)) ?? Self.defaultSound
         guidance = defaults.string(forKey: Key.guidance.rawValue)
             .flatMap(SessionGuidance.init(rawValue:)) ?? Self.defaultGuidance
         breathVisual = defaults.string(forKey: Key.breathVisual.rawValue)
@@ -142,6 +126,10 @@ public final class SessionSettings: PersonalStore {
         // always a correct session, and the person is one visit to Advanced
         // away from their own again.
         overridesBySlug = overridesStore.load() ?? [:]
+
+        for key in LegacyKey.allCases {
+            defaults.removeObject(forKey: key.rawValue)
+        }
     }
 
     /// Returns every preference to what a fresh install would find, in memory
@@ -155,7 +143,6 @@ public final class SessionSettings: PersonalStore {
         cueMode = Self.defaultCueMode
         guidance = Self.defaultGuidance
         hapticStrength = Self.defaultHapticStrength
-        sound = Self.defaultSound
         showsWristPulse = Self.defaultShowsWristPulse
         asksHowYouFeel = Self.defaultAsksHowYouFeel
         overridesBySlug = [:]

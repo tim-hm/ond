@@ -48,7 +48,7 @@ The two apps and the Live Activity sit on the same three products; the watch fac
 | `crates/api`                 | The service. Serves gRPC-Web and JSON on public port 29100, plus Prometheus exposition on private port 29103.                                           |
 | `crates/migrate`             | Owns the schema and the seeded technique catalogue. Runs to completion and exits.                                                                       |
 | `crates/physiology`          | Domain safety thresholds shared by the API's authoring checks and migrate's catalogue checks.                                                           |
-| `crates/toolkit`             | Repository tooling behind mise tasks, including migration immutability and voice rendering.                                                             |
+| `crates/toolkit`             | Repository tooling behind mise tasks, including migration immutability.                                                                                 |
 | `…/OndCore/Sources/OndAPI`   | Generated protobuf and the Connect client factory. Not a package product, so only OndKit can reach it.                                                  |
 | `…/OndCore/Sources/OndKit`   | Domain types, observable models, and repositories. The only Swift code that touches generated types.                                                    |
 | `…/OndCore/Sources/OndUI`    | Domain-free design tokens and shared controls.                                                                                                          |

@@ -257,26 +257,8 @@ public final class SessionModel {
 
             guard let anchor else { return }
             let boundary = anchor.advanced(by: beat.end - timelineBanked)
-            await speakAhead(of: beat, arrivingAt: boundary)
             try? await clock.sleep(until: boundary)
         }
-    }
-
-    /// Starts the next beat's line inside the gap this one ends on, so the
-    /// line is already running as the boundary arrives. The gap is the whole
-    /// of the lead: it is stillness borrowed from this phase, so nothing is
-    /// spoken over. A boundary with no line, and a rhythm authored to turn
-    /// without a gap, are both left to wake once.
-    private func speakAhead(
-        of beat: SessionTimeline.Beat,
-        arrivingAt boundary: ContinuousClock.Instant
-    ) async {
-        guard beat.turnGap > .zero,
-              let next = timeline.beat(at: beat.end),
-              next.clipStem != nil
-        else { return }
-        guard await (try? clock.sleep(until: boundary - beat.turnGap)) != nil else { return }
-        cues.speakAhead(next)
     }
 
     /// Stops the plan at the top of a hold the person ends. Nothing schedules

@@ -115,24 +115,19 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
 /// An authored zero and an absent value are different instructions, and proto3
 /// tells them apart only because the field is optional. A wire that flattened
 /// one into the other would put the derived turn back into every continuous
-/// rhythm in the catalogue. The sigh's sip authors all three columns, and its
-/// gap is a zero.
+/// rhythm in the catalogue. The sigh's sip authors both columns, and its gap
+/// is a zero.
 fn assert_cadence_survives_the_wire(response: &pb::ListTechniquesResponse) {
     let phase = |slug: &str, index: usize| &find(response, slug).stages[0].phases[index];
 
     let sip = phase("physiological-sigh", 1);
     assert_eq!(sip.turn_gap_ms, Some(0));
     assert_eq!(sip.haptic_pattern.as_deref(), Some("sip"));
-    assert_eq!(sip.voice_script.as_deref(), Some("sigh-and-in"));
 
     let opening = phase("box-breathing", 0);
     assert_eq!(
-        (
-            opening.turn_gap_ms,
-            opening.haptic_pattern.as_deref(),
-            opening.voice_script.as_deref()
-        ),
-        (None, None, None),
+        (opening.turn_gap_ms, opening.haptic_pattern.as_deref()),
+        (None, None),
         "box breathing's inhale authors nothing and asks the client to derive"
     );
 }
