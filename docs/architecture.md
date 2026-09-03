@@ -44,7 +44,7 @@ All three shipping targets sit on the same three products. What the apps share a
 | Component                    | Role                                                                                                                                                    |
 | :--------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `proto/`                     | The API contract. The only description of the wire format.                                                                                              |
-| `crates/api`                 | The service. Serves gRPC-Web and JSON on public port 18100, plus Prometheus exposition on private port 18103.                                           |
+| `crates/api`                 | The service. Serves gRPC-Web and JSON on public port 29100, plus Prometheus exposition on private port 29103.                                           |
 | `crates/migrate`             | Owns the schema and the seeded technique catalogue. Runs to completion and exits.                                                                       |
 | `crates/physiology`          | Domain safety thresholds shared by the API's authoring checks and migrate's catalogue checks.                                                           |
 | `crates/toolkit`             | Repository tooling behind mise tasks, including migration immutability and voice rendering.                                                             |

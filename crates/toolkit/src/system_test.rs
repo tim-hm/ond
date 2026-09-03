@@ -16,12 +16,12 @@ use anyhow::{Context, Result, bail, ensure};
 
 use crate::devices::{self, Platform};
 
-const API: &str = "127.0.0.1:18100";
+const API: &str = "127.0.0.1:29100";
 
 pub async fn run(repo: &Path) -> Result<()> {
     ensure!(
         TcpStream::connect_timeout(&API.parse()?, Duration::from_millis(300)).is_err(),
-        "test:system: port 18100 is already occupied; stop the existing server first."
+        "test:system: port 29100 is already occupied; stop the existing server first."
     );
 
     let mut cleanup = Cleanup::default();
@@ -51,7 +51,7 @@ pub async fn run(repo: &Path) -> Result<()> {
     let mut healthy = false;
     for _ in 0..60 {
         tokio::time::sleep(Duration::from_secs(1)).await;
-        if reqwest::get("http://localhost:18100/health")
+        if reqwest::get("http://localhost:29100/health")
             .await
             .is_ok_and(|response| response.status().is_success())
         {

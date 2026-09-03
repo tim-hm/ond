@@ -82,7 +82,7 @@ SQLX_OFFLINE = "true"
 # Supplied per-task rather than inherited: a shell that has visited the
 # sibling `connect` repo exports a DATABASE_URL pointing at *its* cluster.
 # Port rationale lives in compose.yaml.
-DATABASE_URL = "postgres://postgres:postgres@localhost:18101/ond?sslmode=disable"
+DATABASE_URL = "postgres://postgres:postgres@localhost:29101/ond?sslmode=disable"
 
 # Every non-`dev` cargo invocation builds here instead of ./target. The reason
 # is the cargo *file lock*, not artifact invalidation: without the split,
@@ -483,7 +483,7 @@ run = "swift test --package-path Packages/OndCore"
 [tasks."test:swift:live"]
 description = "Exercise the Swift gRPC-Web client against a running local backend"
 dir = "{{config_root}}/ios/Packages/OndCore"
-run = "swift run --quiet OndLiveSmoke http://localhost:18100"
+run = "swift run --quiet OndLiveSmoke http://localhost:29100"
 
 [tasks."test:ui:phone"]
 description = "Run the iPhone accessibility UI suite on a booted simulator"
@@ -549,8 +549,8 @@ run = ["mise run coverage:rs", "mise run coverage:swift"]
 
 [tasks."web:serve"]
 description = "Serve the marketing one-pager locally"
-# 18102: next free port in the 18100–18199 block (API 18100, Postgres 18101).
-run = "serve --listen 18102 {{config_root}}/web"
+# 29102: next free port in the 29100–29199 block (API 29100, Postgres 29101).
+run = "serve --listen 29102 {{config_root}}/web"
 
 # infra: applied deliberately — nothing below runs from `check` or CI. Every
 # task that reaches AWS pins AWS_PROFILE for DATABASE_URL's reason: an
@@ -638,7 +638,7 @@ dir = "{{config_root}}/ios"
 # survives a DHCP renewal and derives per machine with no config. The watch
 # gets it too: it talks to the backend directly, not through the phone.
 run = ["xcodegen generate", '''
-  url="http://$(scutil --get LocalHostName).local:18100"
+  url="http://$(scutil --get LocalHostName).local:29100"
   plutil -replace OndAPIBaseURL -string "$url" Ond/Info.plist
   plutil -replace OndAPIBaseURL -string "$url" OndWatch/Info.plist
   ''']

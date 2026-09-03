@@ -7,7 +7,7 @@ Native SwiftUI clients for iPhone and Apple Watch, a Rust backend, and PostgreSQ
 ```bash
 mise install        # every pinned tool
 mise run migrate    # Postgres up, schema applied, catalogue seeded
-mise run dev        # API on :18100
+mise run dev        # API on :29100
 mise run ios:open   # generate the Xcode project and open it
 ```
 

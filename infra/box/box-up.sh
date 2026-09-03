@@ -36,9 +36,9 @@ docker compose restart caddy prometheus alertmanager loki alloy grafana
 # Idempotent, and applied here rather than by cloud-init, which runs once at
 # first boot. `--https` is not optional: its default is 443, which Caddy
 # holds — that collision has taken the site down once (docs/deployment.md).
-tailscale serve --bg --https=18104 3000
-tailscale serve --bg --https=18105 9090
-tailscale serve --bg --https=18106 9093
+tailscale serve --bg --https=29104 3000
+tailscale serve --bg --https=29105 9090
+tailscale serve --bg --https=29106 9093
 
 # Every deploy loads a new image under the same tag, leaving the previous
 # one dangling on a 20 GiB root volume; nothing else ever removes them.

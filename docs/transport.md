@@ -61,7 +61,7 @@ Tower applies the outermost `.layer` last, so `identity::resolve` sits _inside_ 
 
 `throttle::enforce` sits outside it and inside `GrpcWebLayer` for both of those reasons at once: a caller over their budget is refused before the upsert can write anything, and the refusal still reaches the client as a status rather than a bare HTTP code. It is on the gRPC router alone too — a health check that can be rationed is a deploy that can be made to look failed.
 
-The native gRPC recorder sits outside both refusal layers and inside `GrpcWebLayer`, where it can observe statuses produced before a handler as well as final trailer statuses from a stream. The HTTP recorder and request trace wrap the combined router, so JSON calls, CORS refusals, and gRPC-Web requests share one boundary. `obs::metrics::install()` is inside `build_app` so the e2e router installs the same recorder as the binary. Metrics are exposed by `metrics_router` on private port 18103, not as a third route on this public listener.
+The native gRPC recorder sits outside both refusal layers and inside `GrpcWebLayer`, where it can observe statuses produced before a handler as well as final trailer statuses from a stream. The HTTP recorder and request trace wrap the combined router, so JSON calls, CORS refusals, and gRPC-Web requests share one boundary. `obs::metrics::install()` is inside `build_app` so the e2e router installs the same recorder as the binary. Metrics are exposed by `metrics_router` on private port 29103, not as a third route on this public listener.
 
 ## The two identity headers
 

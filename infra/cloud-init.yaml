@@ -58,12 +58,12 @@ runcmd:
         --accept-dns=false \
         --ssh
 
-      # Grafana at 18104, tailnet-only: the container publishes 3000 on
-      # loopback, so this proxy is the entire route to it. --https=18104 has
+      # Grafana at 29104, tailnet-only: the container publishes 3000 on
+      # loopback, so this proxy is the entire route to it. --https=29104 has
       # already caused an outage — serve defaults to 443, inside Caddy's
       # 0.0.0.0:443 bind, and Caddy losing that bind kills the public site while
       # every on-box health check passes. Set here so a rebuilt box is reachable.
-      tailscale serve --bg --https=18104 3000
+      tailscale serve --bg --https=29104 3000
     ) || echo 'cloud-init: the tailnet join failed — the box is reachable only through SSM Session Manager; see docs/deployment.md' >&2
   # `set -e` is not the default here: without it a failed device probe carries on
   # into mkfs with an empty argument, which is exactly how this silently produced

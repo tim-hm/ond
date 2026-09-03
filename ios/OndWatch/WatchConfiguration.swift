@@ -10,9 +10,9 @@ enum WatchConfiguration {
     // Where a build points when the baked development URL is absent. Split by
     // configuration as the phone's is: a TestFlight wrist has no route to
     // loopback, while Debug keeps localhost — the watch simulator shares it
-    // with the Mac, so 18100 reaches a backend started with `mise run dev`.
+    // with the Mac, so 29100 reaches a backend started with `mise run dev`.
     #if DEBUG
-        private static let defaultBaseURL = "http://localhost:18100"
+        private static let defaultBaseURL = "http://localhost:29100"
     #else
         private static let defaultBaseURL = Deployment.apiBaseURL
     #endif

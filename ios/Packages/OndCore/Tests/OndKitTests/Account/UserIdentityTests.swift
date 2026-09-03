@@ -45,7 +45,7 @@ struct UserIdentityTests {
     /// One fixture for both hooks: they differ only in the body type, which is
     /// `Data?` for a unary call and `Void` for a stream opening.
     private func request<Input>(_ path: String, message: Input) throws -> HTTPRequest<Input> {
-        let url = try #require(URL(string: "http://localhost:18100/ond.v1.\(path)"))
+        let url = try #require(URL(string: "http://localhost:29100/ond.v1.\(path)"))
         return HTTPRequest(
             url: url,
             headers: ["content-type": ["application/grpc-web+proto"]],

@@ -4,7 +4,7 @@
 
 # Pinned, not derived: Compose otherwise names the project after the invoking
 # directory, so a git worktree — where agents run the gate — becomes a second
-# project whose database cannot bind the 18101 the first one already holds.
+# project whose database cannot bind the 29101 the first one already holds.
 # Here rather than as COMPOSE_PROJECT_NAME in .mise.toml so a hand-typed
 # `docker compose` resolves to the same project; `-p` still overrides it.
 name: ond
@@ -12,12 +12,12 @@ name: ond
 services:
   db:
     image: postgres:18-alpine
-    # 18101, not 5432: a Homebrew/Postgres.app server usually owns 5432, and
+    # 29101, not 5432: a Homebrew/Postgres.app server usually owns 5432, and
     # connect's Tilt forward owns 127.0.0.1:15432, which beats a container's
     # `*:15432` for `localhost` — pointing there silently reaches that cluster.
-    # Every önd port lives in 18100–18199, a block connect uses none of.
+    # Every önd port lives in 29100–29199, a block nothing else here claims.
     ports:
-      - "18101:5432"
+      - "29101:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres

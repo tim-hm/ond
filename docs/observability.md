@@ -117,7 +117,7 @@ The display name and the intent note never do. They are the person's own words, 
 
 **Two kinds of number, and only one of them is about the server.** Request rate, status and latency say whether the box is healthy. The census — how many people exist, how many are paying, what that bills in a month — says whether the product is working, which is the question the dashboard was built to answer. A box nobody is paying for is up in exactly the same way as one everybody is.
 
-Served on **18103, a separate listener from the public 18100** (`api::metrics_router`, bound in `main.rs`). The reason is exposure rather than tidiness: `api.ondbreathe.app` reverse-proxies every path to 18100 unconditionally, so a metrics route on the main router would be a public metrics route the moment it was added — there is no path allowlist left to keep it private. The separate port is what makes that structural instead of conventional. The api service maps no host port, so the only things that can reach 18103 are the containers beside it.
+Served on **29103, a separate listener from the public 29100** (`api::metrics_router`, bound in `main.rs`). The reason is exposure rather than tidiness: `api.ondbreathe.app` reverse-proxies every path to 29100 unconditionally, so a metrics route on the main router would be a public metrics route the moment it was added — there is no path allowlist left to keep it private. The separate port is what makes that structural instead of conventional. The api service maps no host port, so the only things that can reach 29103 are the containers beside it.
 
 | Metric                                      | Kind      | Says                                                                                                               |
 | :------------------------------------------ | :-------- | :----------------------------------------------------------------------------------------------------------------- |
@@ -168,7 +168,7 @@ The last four are written by `infra/box/backup.sh` into node-exporter's textfile
 
 ## The dashboard
 
-Grafana on the box, reachable **only over the tailnet**: the container publishes 3000 on loopback and `tailscale serve` proxies it at the node's own MagicDNS name on **port 18104**, with TLS from a certificate Tailscale issues. The port is not cosmetic — `serve`'s default of 443 collides with Caddy's, and [deployment.md](deployment.md) records what that outage looks like. No security group rule admits it and none is asked for; the tailnet ACL is the whole of the authorisation, which is the same rule that admits an SSH session (see [deployment.md](deployment.md)).
+Grafana on the box, reachable **only over the tailnet**: the container publishes 3000 on loopback and `tailscale serve` proxies it at the node's own MagicDNS name on **port 29104**, with TLS from a certificate Tailscale issues. The port is not cosmetic — `serve`'s default of 443 collides with Caddy's, and [deployment.md](deployment.md) records what that outage looks like. No security group rule admits it and none is asked for; the tailnet ACL is the whole of the authorisation, which is the same rule that admits an SSH session (see [deployment.md](deployment.md)).
 
 Grafana runs with **anonymous access and no login form**, which is only correct while that port stays on loopback. Publishing it anywhere else makes the dashboard world-writable.
 
@@ -212,7 +212,7 @@ The exclusion in `GrpcUnexpectedFailures` is the load-bearing part. Four codes a
 
 Alertmanager publishes to an SNS topic and one email subscription takes everything. It signs with the instance profile, so no credential lands on the box — the property the assistant's Bedrock calls and the backup's S3 writes already had. `infra/box/alertmanager.yml.tmpl` is rendered by `mise run deploy:api` from the OpenTofu state, because the topic ARN carries the account id and a literal committed beside the config is a literal nothing reconciles.
 
-An email cannot acknowledge anything, so a flapping alert re-notifies every `repeat_interval` (12h). Silences live in Alertmanager's own UI, on the tailnet at **18106**; Prometheus' own UI and `/alerts` page are at **18105**.
+An email cannot acknowledge anything, so a flapping alert re-notifies every `repeat_interval` (12h). Silences live in Alertmanager's own UI, on the tailnet at **29106**; Prometheus' own UI and `/alerts` page are at **29105**.
 
 **What none of that covers is the case where the rules are never evaluated.** A stopped box, a full disk, or a Prometheus crash-looping on a rule file that does not parse all look exactly like nothing firing. Two things outside the box answer that:
 

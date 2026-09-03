@@ -37,7 +37,7 @@ The instance is disposable; the things worth keeping live elsewhere:
 - **Backups** — nightly `pg_dump | gzip | aws s3 cp` from a cron installed by cloud-init, into the `backup_bucket` output, 30-day expiry. Credentials come from the instance profile; no keys exist on the box.
 - **TLS certificates** — in the `caddy-data` Docker volume, persisted so redeploys never touch ACME rate limits.
 
-The public entrance is Caddy on 443 (80 redirects and answers ACME challenges), reverse-proxying to the API on 18100. gRPC-Web is plain HTTP POST underneath, so no special proxy handling is needed. Postgres is not reachable from outside the compose network at all.
+The public entrance is Caddy on 443 (80 redirects and answers ACME challenges), reverse-proxying to the API on 29100. gRPC-Web is plain HTTP POST underneath, so no special proxy handling is needed. Postgres is not reachable from outside the compose network at all.
 
 ## Reachability
 
@@ -67,7 +67,7 @@ The `ssh` section decides who may open a session; it does not open the port. Tai
   // Tailscale SSH needs the port allowed here as well as in `ssh` above.
   {"action": "accept", "src": ["autogroup:member"], "dst": ["tag:server:22"]},
   // Grafana, Prometheus and Alertmanager. Narrower than SSH on purpose.
-  {"action": "accept", "src": ["autogroup:admin"], "dst": ["tag:server:18104-18106"]},
+  {"action": "accept", "src": ["autogroup:admin"], "dst": ["tag:server:29104-29106"]},
 ],
 ```
 
@@ -97,16 +97,16 @@ Those flags have to match the ones in `infra/cloud-init.yaml`, which nothing rec
 
 ### The dashboard
 
-Grafana answers at **`https://<the box's MagicDNS name>:18104/`** and at no other address. The container publishes 3000 on loopback; `tailscale serve` is the whole route in, and Tailscale issues the certificate for the node's own name, so the dashboard is HTTPS without Caddy or ACME being involved. What it shows and why those numbers is in [observability.md](observability.md).
+Grafana answers at **`https://<the box's MagicDNS name>:29104/`** and at no other address. The container publishes 3000 on loopback; `tailscale serve` is the whole route in, and Tailscale issues the certificate for the node's own name, so the dashboard is HTTPS without Caddy or ACME being involved. What it shows and why those numbers is in [observability.md](observability.md).
 
-**18104 rather than 443, and this took the site down once.** `tailscale serve` defaults to 443 and binds it on the tailnet address; Docker publishes Caddy on `0.0.0.0:443`, which includes that address. Both cannot hold it. What that looks like is worth recognising, because nothing about it says "port conflict": Caddy loses the bind and ends up **running with no network attached**, so `docker ps` says up, `docker compose config` says it is on `ond_default`, `docker inspect` shows no networks at all, and the public site answers nothing while Prometheus reports every container healthy. The repair is to free 443 (`tailscale serve --https=443 off`) and recreate Caddy.
+**29104 rather than 443, and this took the site down once.** `tailscale serve` defaults to 443 and binds it on the tailnet address; Docker publishes Caddy on `0.0.0.0:443`, which includes that address. Both cannot hold it. What that looks like is worth recognising, because nothing about it says "port conflict": Caddy loses the bind and ends up **running with no network attached**, so `docker ps` says up, `docker compose config` says it is on `ond_default`, `docker inspect` shows no networks at all, and the public site answers nothing while Prometheus reports every container healthy. The repair is to free 443 (`tailscale serve --https=443 off`) and recreate Caddy.
 
 Two things have to be switched on in the tailnet, once each, and both fail in the same readable way — `tailscale serve` says so and names the link:
 
 - **Serve**, at `https://login.tailscale.com/f/serve?node=<node>`. Enabling it also provisions the HTTPS certificates it needs.
 - The **`ssh` policy rule** covering `tag:server`, which [Reachability](#reachability) already required for `mise run deploy:api`.
 
-A box that joined the tailnet but cannot serve is the ordinary partial failure here: SSH works, the dashboard 404s, and `sudo tailscale serve status` on the box says `No serve config`. Re-running `tailscale serve --bg --https=18104 3000` is the repair, and it is idempotent — but never without the `--https` flag, for the reason above.
+A box that joined the tailnet but cannot serve is the ordinary partial failure here: SSH works, the dashboard 404s, and `sudo tailscale serve status` on the box says `No serve config`. Re-running `tailscale serve --bg --https=29104 3000` is the repair, and it is idempotent — but never without the `--https` flag, for the reason above.
 
 ## The site
 

@@ -174,7 +174,7 @@ services:
   # What turns a firing rule into an email. Signs its SNS calls with the
   # instance profile, so its config holds a topic ARN and no credential.
   # Loopback, like prometheus and grafana; `tailscale serve` publishes it at
-  # 18106, which is where silences live — an email cannot acknowledge, so that
+  # 29106, which is where silences live — an email cannot acknowledge, so that
   # UI is the only way to quiet a known-broken thing before `repeat_interval`.
   alertmanager:
     <<: *logging

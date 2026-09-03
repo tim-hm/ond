@@ -118,14 +118,14 @@ impl Config {
     }
 }
 
-/// önd owns 18100–18199; this is the first of them. See docs/contributing.md
+/// önd owns 29100–29199; this is the first of them. See docs/contributing.md
 /// for why the range starts here.
-const DEFAULT_PORT: u16 = 18100;
+const DEFAULT_PORT: u16 = 29100;
 
-/// The scrape listener. 18101 and 18102 are Postgres and the site preview, so
+/// The scrape listener. 29101 and 29102 are Postgres and the site preview, so
 /// this is the next free number in the block — see the port table in
 /// docs/contributing.md, which is the thing to keep in step.
-const DEFAULT_METRICS_PORT: u16 = 18103;
+const DEFAULT_METRICS_PORT: u16 = 29103;
 
 /// The app, as Apple names it. Two verifiers check it and must mean the same
 /// app: the `bundleId` on an App Store signed transaction and the `aud` of a

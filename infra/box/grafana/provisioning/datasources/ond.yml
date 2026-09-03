@@ -19,7 +19,7 @@ datasources:
       timeInterval: 15s
       # Lists alerts.yml's rules under Grafana's Alerting page; they are
       # datasource-managed, so without this the Alerting UI shows nothing and
-      # a rule's state only exists at Prometheus on 18105. The dashboard's
+      # a rule's state only exists at Prometheus on 29105. The dashboard's
       # Firing panel reads the ALERTS series directly instead — the alertlist
       # panel only renders Grafana-managed rules and would sit empty for ever.
       manageAlerts: true

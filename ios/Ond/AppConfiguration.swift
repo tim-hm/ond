@@ -7,10 +7,10 @@ import OndKit
 /// overrides compile away in Release; a shipped build gets the default.
 enum AppConfiguration {
     // Release points at the deployed API: a TestFlight phone cannot reach the
-    // developer's loopback. Debug keeps localhost, where 18100 is the port
+    // developer's loopback. Debug keeps localhost, where 29100 is the port
     // `crates/api` binds and the simulator shares the Mac's loopback.
     #if DEBUG
-        private static let defaultBaseURL = "http://localhost:18100"
+        private static let defaultBaseURL = "http://localhost:29100"
     #else
         private static let defaultBaseURL = Deployment.apiBaseURL
     #endif

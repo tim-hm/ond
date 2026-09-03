@@ -121,7 +121,7 @@ Treat documentation as a first-class part of the codebase. Review whether the pr
 
 - File/module/path references it cites still exist (`crates/api/src/state.rs`, `crates/api/src/grpc.rs`, the `docs/*.md` links, the directory layouts in "Where code lives").
 - Commands it prescribes still work — every `mise run <task>` named in the doc must exist in `.mise.toml`. Cross-check the task table in §3 against `mise tasks`.
-- The port block (18100–18199, API 18100, Postgres 18101) matches `.mise.toml` and `compose.yaml`.
+- The port block (29100–29199, API 29100, Postgres 29101) matches `.mise.toml` and `compose.yaml`.
 - The environment-variable count the backend reads matches the count CLAUDE.md §1.4 states — currently two: `OND_ENV` and `DATABASE_URL`. Read the list off §1.4 rather than off this line, then grep `env::var` / `std::env` across `crates/` and flag any variable §1.4 does not name.
 - Patterns it describes are still the ones the code follows.
 
