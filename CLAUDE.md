@@ -96,7 +96,7 @@ mise run fmt        # 2. Format
 mise run check      # 3. Full validation
 ```
 
-`mise run check` runs `check:swift` and `test:swift` through `check:mac`, which detects the Swift toolchain and skips loudly where there is none — so a headless environment still passes the gate without pretending it validated the Swift.
+`mise run check` runs `check:swift`, `test:swift` and both app builds through `check:mac`, which detects the Swift toolchain and skips loudly where there is none — so a headless environment still passes the gate without pretending it validated the Swift. The app builds are last and are the slowest part of the gate; they are in it because nothing else compiles a target, and a watchOS-only break used to pass everything.
 
 `check:diagrams` stays outside the gate even so, because it builds `OndDiagrams` to redraw the marketing site's figures from the app's own geometry — minutes rather than seconds, and it only has an opinion when `ios/` or `web/` changed. Run it whenever you touch either; without it the page keeps drawing a technique the app has since changed. Nothing else will catch that — see **No CI** below.
 

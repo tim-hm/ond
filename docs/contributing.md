@@ -66,7 +66,7 @@ mise run fmt        # 2. format
 mise run check      # 3. full validation
 ```
 
-`mise run check` covers Rust, protobuf, doc links, and the formatting of everything that is not Rust or Swift — markdown, YAML, JSON, and TOML all go through `vp` (`check:text`), with `check:md` layering markdown's own rules on top. It covers Swift too, via `check:mac`, which runs `check:swift` and `test:swift` on macOS and skips loudly anywhere else.
+`mise run check` covers Rust, protobuf, doc links, and the formatting of everything that is not Rust or Swift — markdown, YAML, JSON, and TOML all go through `vp` (`check:text`), with `check:md` layering markdown's own rules on top. It covers Swift too, via `check:mac`, which runs `check:swift`, `test:swift` and both app builds on macOS and skips loudly anywhere else.
 
 ### Breaking the protobuf contract on purpose
 
