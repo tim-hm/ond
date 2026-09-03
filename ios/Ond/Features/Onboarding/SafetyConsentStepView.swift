@@ -13,10 +13,10 @@ struct SafetyConsentStepView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
             VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 19))
-                    .foregroundStyle(Theme.Accent.caution)
-                    .accessibilityHidden(true)
+                RoundedRectangle(cornerRadius: 1, style: .continuous)
+                    .fill(Theme.Accent.caution)
+                    .frame(width: 48, height: 2)
+                    .padding(.bottom, 4)
 
                 Text(terms.title)
                     .displaySerif(size: 36)
