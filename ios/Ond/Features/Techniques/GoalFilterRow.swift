@@ -40,10 +40,14 @@ struct GoalFilterRow: View {
                     }
                 }
             }
-            .padding(.horizontal, Theme.Spacing.page)
             .padding(.vertical, Theme.Spacing.close)
         }
         .scrollIndicators(.hidden)
+        // The page margin as a content margin, not as padding inside the
+        // content: padding scrolls with the pills, so the last one met the
+        // scroll view's edge and was cut. A content margin insets the scrolled
+        // area itself, which is how every system filter shelf is built.
+        .contentMargins(.horizontal, Theme.Spacing.page, for: .scrollContent)
         // This row is a pinned section header on both of its screens. Its opaque
         // ground keeps scrolled cards and type from showing through the native
         // navigation chrome while the bar itself remains system-owned.

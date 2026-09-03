@@ -107,6 +107,8 @@ struct PracticeProgressView: View {
         let hasEarlier = days.reduce(0) { $0 + $1.sessions.count } < model.history.count
 
         return LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+            ScreenSubtitle("What you have practised, not how well.")
+
             PracticeSummary(rhythm: rhythm, model: model, profiles: profiles)
                 .padding(.horizontal, Theme.Spacing.page)
 

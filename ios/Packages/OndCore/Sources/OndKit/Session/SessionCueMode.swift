@@ -24,23 +24,10 @@ public enum SessionCueMode: String, Sendable, CaseIterable, Identifiable {
         self != .visualOnly
     }
 
+    /// Observed platform behaviour, and what `SessionCues.playsInBackground`
+    /// rests on: iOS withholds haptics from a locked device, so sound is the
+    /// only channel that follows somebody out of the app.
     public var playsAudio: Bool {
         self == .hapticsAndAudio
-    }
-
-    /// What this mode costs once the screen goes off, said where the mode is
-    /// chosen. Observed platform behaviour: iOS withholds haptics from a locked
-    /// device, so sound is the only channel that follows somebody out —
-    /// `SessionCues.playsInBackground` rests on this. Exhaustive so a fourth
-    /// mode cannot be added without answering the question.
-    public var screenOffNote: String {
-        switch self {
-        case .hapticsAndAudio:
-            "iPhone haptics stop when the screen is off. You will hear the session but not feel it."
-        case .haptics:
-            "iPhone haptics stop when the screen is off, so the session pauses and tells you."
-        case .visualOnly:
-            "The session pauses when you leave the app, and tells you."
-        }
     }
 }

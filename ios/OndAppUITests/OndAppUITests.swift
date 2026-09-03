@@ -128,16 +128,6 @@ final class OndAppUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Appearance"].exists)
 
         reveal(app.staticTexts["Practice"])
-        let screenOffNote = app.descendants(matching: .any).matching(
-            NSPredicate(format: "label CONTAINS %@", "iPhone haptics stop when the screen is off")
-        ).firstMatch
-        XCTAssertTrue(screenOffNote.exists)
-        XCTAssertTrue(
-            screenOffNote.label.contains(
-                "iPhone haptics stop when the screen is off. You will hear the session but "
-                    + "not feel it."
-            )
-        )
         reveal(app.staticTexts["Health"])
 
         assertHealthChoice(

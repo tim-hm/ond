@@ -171,6 +171,8 @@ struct TechniqueListView: View {
         case let .loaded(techniques):
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                    ScreenSubtitle("Choose by the rhythm, not the moment.")
+
                     Section {
                         VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
                             catalogueSection(of: matching(techniques))
@@ -217,22 +219,15 @@ struct TechniqueListView: View {
         }
     }
 
-    /// One section plate. It keeps the rows on the palette ground because the
-    /// goal word's contrast is measured there, while the line and shadow give
-    /// the collection the native grouped composition of the reference.
+    /// One section plate. It drew its own surface and filled it with the
+    /// ground it sits on, which matched the screen and the pinned filter bar
+    /// at 1.0:1 and left the rows no edge. `plate()` is the shared recipe.
     private func groupedRows(
         @ViewBuilder content: () -> some View
     ) -> some View {
         VStack(spacing: 0, content: content)
             .padding(.horizontal, Theme.Spacing.standard)
-            .background {
-                RoundedRectangle(cornerRadius: Theme.Radius.card)
-                    .fill(Theme.Surface.ground.shadow(Theme.Shadow.list))
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: Theme.Radius.card)
-                    .stroke(Theme.Surface.line, lineWidth: 0.5)
-            }
+            .plate()
     }
 
     private var rowDivider: some View {

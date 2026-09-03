@@ -136,7 +136,11 @@ struct CoachRootView: View {
     /// a matched pair spanning the row would read as a segmented control. The
     /// check-ins sit here because only the coach reads either number back.
     private func withCoachShortcuts(_ room: some View) -> some View {
-        VStack(spacing: Theme.Spacing.standard) {
+        // The subtitle sits in the wrapper rather than on each branch, so the
+        // free tier's offer gets the same line as the subscribed room.
+        VStack(spacing: 0) {
+            ScreenSubtitle("Ask about your practice and get an exercise back.")
+
             HStack(spacing: Theme.Spacing.close) {
                 ShortcutLink(title: "The basics", systemImage: "book.closed") {
                     FoundationsView(model: foundations)
@@ -149,7 +153,8 @@ struct CoachRootView: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, Theme.Spacing.standard)
-            .padding(.top, Theme.Spacing.standard)
+            .padding(.bottom, Theme.Spacing.standard)
+
             room
         }
     }

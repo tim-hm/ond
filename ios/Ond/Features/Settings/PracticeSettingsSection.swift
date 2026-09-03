@@ -44,16 +44,7 @@ struct PracticeSettingsSection: View {
             // it and not a choice that could take no effect.
             .disabled(reduceMotion)
 
-            settingsPicker(
-                "Cues",
-                // The consequence sits under the label that decides it. The
-                // Haptic strength row carried this until the mode that says
-                // the most about a screen going off — the one that plays no
-                // haptics — was the mode that switched that row off.
-                description: settings.cueMode.screenOffNote,
-                selection: $settings.cueMode,
-                stacks: stacksPickers
-            ) {
+            settingsPicker("Cues", selection: $settings.cueMode, stacks: stacksPickers) {
                 ForEach(SessionCueMode.allCases) { mode in
                     Text(mode.title).tag(mode)
                 }
