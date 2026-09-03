@@ -190,9 +190,8 @@ struct OnboardingView: View {
                 advance()
             } label: {
                 Text(forwardTitle)
-                    .brandActionLabel()
             }
-            .brandAction()
+            .buttonStyle(.inkAction(minHeight: Theme.Metrics.leadActionHeight))
             .padding(.horizontal, Theme.Spacing.page)
             .padding(.top, Theme.Spacing.close)
         }

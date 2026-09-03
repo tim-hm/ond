@@ -23,9 +23,8 @@ struct SafetyConsentView: View {
                 onAgreed()
             } label: {
                 Text(store.terms.agreement)
-                    .brandActionLabel()
             }
-            .brandAction()
+            .buttonStyle(.inkAction(minHeight: Theme.Metrics.leadActionHeight))
             .padding(.horizontal, Theme.Spacing.page)
             .padding(.top, Theme.Spacing.close)
         }

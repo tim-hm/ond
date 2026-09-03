@@ -45,6 +45,12 @@ extension SubscriptionTier {
         case .plus: "önd+"
         }
     }
+
+    /// What a switch says under its label while önd+ is what it needs. One
+    /// mapping for the same reason `title` is one: onboarding asks these
+    /// questions first and Settings asks them again, and two spellings of the
+    /// same fact read as two different facts.
+    static let plusRequirementNote = "Needs \(plus.title)"
 }
 
 extension View {

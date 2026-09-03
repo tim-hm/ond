@@ -20,7 +20,8 @@ final class SubscriptionScreenshotTests: XCTestCase {
 
         capture(
             "07-subscription-first-run",
-            once: app.staticTexts["Everything that works offline stays free. Forever."]
+            once: pricedPlan,
+            or: offerArrived
         )
     }
 
@@ -31,7 +32,8 @@ final class SubscriptionScreenshotTests: XCTestCase {
 
         capture(
             "08-subscription-plans",
-            once: app.staticTexts["Everything that works offline stays free. Forever."]
+            once: pricedPlan,
+            or: offerArrived
         )
     }
 
@@ -41,7 +43,8 @@ final class SubscriptionScreenshotTests: XCTestCase {
 
         capture(
             "09-subscription-first-run-dark",
-            once: app.staticTexts["Everything that works offline stays free. Forever."]
+            once: pricedPlan,
+            or: offerArrived
         )
     }
 
@@ -51,8 +54,31 @@ final class SubscriptionScreenshotTests: XCTestCase {
 
         capture(
             "10-subscription-plans-dark",
-            once: app.staticTexts["Everything that works offline stays free. Forever."]
+            once: pricedPlan,
+            or: offerArrived
         )
+    }
+
+    /// What every subscription shot waits for: a tile the App Store has
+    /// priced. The headline is on the first frame and the prices are not, so a
+    /// shot anchored on the words alone photographs the placeholders this
+    /// screen draws while it waits. The phrase is the one `SubscriptionPitch`
+    /// gives VoiceOver for that wait.
+    private var pricedPlan: XCUIElement {
+        app.buttons.matching(
+            NSPredicate(
+                format: "identifier == %@ AND NOT (label CONTAINS %@)",
+                "paywall-plan-yearly",
+                "waiting for the price"
+            )
+        ).firstMatch
+    }
+
+    /// The screen itself, as the fallback anchor: a build with nothing on sale
+    /// never prices a tile, and a shot of the offer without prices is still
+    /// better than no shot at all.
+    private var offerArrived: XCUIElement {
+        app.staticTexts["Everything that works offline stays free. Forever."]
     }
 
     /// Launches at the free tier, which is what makes either screen appear.

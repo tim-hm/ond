@@ -11,31 +11,14 @@ public extension View {
             .frame(maxWidth: .infinity)
     }
 
-    /// The type, width and colour of a label inside that capsule.
-    /// `Action.brandLabel` over `Accent/Brand` is the pairing the palette
-    /// measures — 7.43:1, against 2.49:1 for the white label the system would
-    /// otherwise write there.
+    /// The type, width and colour of a label inside a button tinted
+    /// `Accent/Brand`. `Action.brandLabel` over that fill is the pairing the
+    /// palette measures — 7.43:1, against 2.49:1 for the white label the
+    /// system would otherwise write there.
     func brandActionLabel() -> some View {
         primaryActionLabel()
             .foregroundStyle(Theme.Action.brandLabel)
     }
-
-    // `View+Glass` is guarded for the same reason: the package's macOS floor is
-    // low enough to build the tests on a host, and the glass button style
-    // arrived in macOS 26. Nothing outside the phone asks for this control.
-    #if os(iOS)
-        /// The glass fill of that same control, applied **to** the button. A
-        /// recipe rather than a `ButtonStyle`, because the material is
-        /// `.glassProminent`'s. The label wears `brandActionLabel()`, which
-        /// carries the colour: a foreground set out here holds only while the
-        /// system declines to write its own — white over `Accent/Brand` at 2.49:1.
-        func brandAction() -> some View {
-            buttonStyle(.glassProminent)
-                .buttonBorderShape(.capsule)
-                .controlSize(.extraLarge)
-                .tint(Theme.Accent.brand)
-        }
-    #endif
 }
 
 private extension View {
