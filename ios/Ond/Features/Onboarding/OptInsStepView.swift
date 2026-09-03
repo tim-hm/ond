@@ -27,18 +27,14 @@ struct OptInsStepView: View {
     /// it, and Settings never locks the off direction either.
     private var switches: some View {
         VStack(spacing: Theme.Spacing.standard) {
-            row("Ask how you feel before and after", isOn: $model.optIns.asksHowYouFeel)
+            row("Mood before and after", isOn: $model.optIns.asksHowYouFeel)
+            row("Live heart rate", note: "Needs önd+", isOn: $model.optIns.showsWristPulse)
             row(
-                "Heart rate from your Apple Watch",
-                note: "Needs önd+",
-                isOn: $model.optIns.showsWristPulse
-            )
-            row(
-                "Read my heart data",
+                "Heart and sleep data",
                 note: "Needs önd+",
                 isOn: $model.optIns.coachReadsHealthTrends
             )
-            row("Write Mindful Minutes to Health", isOn: $model.optIns.writesMindfulMinutes)
+            row("Mindful minutes", isOn: $model.optIns.writesMindfulMinutes)
 
             Divider()
                 .overlay(Theme.Surface.line)
