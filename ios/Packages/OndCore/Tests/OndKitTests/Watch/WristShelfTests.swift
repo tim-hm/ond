@@ -8,8 +8,30 @@ struct WristShelfTests {
     private static let catalogue = SeededCatalogue.techniques
 
     private func shelf(_ history: [SessionRecord]) -> WristShelf {
-        WristShelf(techniques: Self.catalogue, history: history)
+        WristShelf(techniques: Self.catalogue, history: history, tier: .free)
     }
+
+    /// A catalogue of one paid exercise, so the gate is asserted against a
+    /// technique this test priced rather than one the seed happens to hold —
+    /// today it holds none, which is exactly why the rule needs pinning.
+    private static let paid = Technique(
+        id: "t",
+        slug: "steady",
+        name: "Steady",
+        summary: "",
+        goal: .calm,
+        stages: [
+            Stage(
+                phases: [
+                    Phase(kind: .inhale, duration: .seconds(5)),
+                    Phase(kind: .exhale, duration: .seconds(5)),
+                ],
+                cycles: 6
+            ),
+        ],
+        recommendedRounds: 1,
+        requires: .plus
+    )
 
     private func slugs(_ history: [SessionRecord]) -> [TechniqueSlug] {
         shelf(history).stops.map(\.technique.slug)
@@ -62,5 +84,19 @@ struct WristShelfTests {
         ]
 
         #expect(slugs(history) == ["humming-breath", "cooling-breath", "bellows-breath"])
+    }
+
+    /// Having breathed it is the case worth pinning: history is the shelf's
+    /// first source, so a locked exercise that reached it once must still drop.
+    @Test("A lapsed wrist is not offered an exercise it cannot start")
+    func aPaidExerciseIsDroppedAtFree() {
+        let history = [HomeFixtures.session("steady", at: Date(timeIntervalSince1970: 1000))]
+        #expect(WristShelf(techniques: [Self.paid], history: history, tier: .free).stops.isEmpty)
+    }
+
+    @Test("The same exercise stands once the phone says it is paid for")
+    func aPaidExerciseStandsAtPlus() {
+        let shelf = WristShelf(techniques: [Self.paid], history: [], tier: .plus)
+        #expect(shelf.stops.map(\.technique.slug) == ["steady"])
     }
 }
