@@ -10,11 +10,11 @@
   the phone handed it and the sessions breathed on it. Declaring the phone's
   full set here would describe a bundle that does not exist.
 
-  Two consequences of that are worth stating, since both look like omissions.
-  The wrist writes Mindful Minutes to HealthKit and reads nothing from it, and
-  a write to the device's own Health store is not collection. Breath-hold
-  scores reach the wrist from the phone but are never recorded on it — the
-  sync queue's score store stays empty here — so nothing sends them back.
+  Health looks omitted and is not. The wrist writes Mindful Minutes and reads
+  heart rate for PulseRelay, but a write to the device's own store is not
+  collection, and a reading answers one phone session in real time and reaches
+  no server. The phone declares Health for its stored breath-hold scores; the
+  wrist records none, so neither reason applies here.
 -->
 <plist version="1.0">
 <dict>
