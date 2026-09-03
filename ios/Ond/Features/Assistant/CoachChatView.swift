@@ -10,10 +10,6 @@ import UIKit
 /// Phone-only by design: text entry is hostile on the wrist.
 struct CoachChatView: View {
     let catalogue: TechniqueListModel
-    let sessions: any SessionRecording
-
-    @Environment(SubscriptionStore.self) private var plus
-    @Environment(SessionSettings.self) private var settings
 
     /// The check-ins' model, so a breath-hold the coach offered is taken here
     /// and lands in Check-ins like one taken from its own door. From the
@@ -29,10 +25,8 @@ struct CoachChatView: View {
 
     @State private var model: CoachChatModel
     @State private var draft = ""
-    @State private var started: PhoneSessionLaunch?
-    /// Whether the coach offered an exercise this tier does not open. Which one
-    /// is not kept — there is one subscription to sell either way.
-    @State private var isShowingPaywall = false
+
+    @State private var launcher: StopLauncher
     @State private var isTakingBoltTest = false
 
     /// How many messages this visit has copied. A count rather than the turn's
@@ -66,8 +60,8 @@ struct CoachChatView: View {
         opening: String? = nil
     ) {
         self.catalogue = catalogue
-        self.sessions = sessions
         self.opening = opening
+        _launcher = State(wrappedValue: StopLauncher(sessions: sessions))
         _model = State(wrappedValue: CoachChatModel(
             conversation: conversation,
             store: chats,
@@ -112,29 +106,47 @@ struct CoachChatView: View {
             // because the person accepted its own offer would hand them back
             // a truncated answer after the session.
             .onDisappear {
-                if started == nil {
+                if launcher.started == nil {
                     model.cancel()
                 }
             }
-            .fullScreenCover(item: $started) { session in
-                SessionView(model: session.model)
-            }
+            .stopLauncher(launcher)
             .sensoryFeedback(.success, trigger: copies)
-            .paywall(for: .general, isPresented: $isShowingPaywall)
             // A cover rather than a sheet, matching the door on the Check-ins
             // screen: the test is two minutes of holding still, and a card the
             // transcript shows through is a screen to look away from.
             .fullScreenCover(isPresented: $isTakingBoltTest) {
                 NavigationStack {
                     BoltTestView(model: journey)
+                        // The cover has no back gesture and the test dismisses
+                        // itself only from its result screen, so without this
+                        // the one way out is to take the whole test. The
+                        // pushed route from Check-ins has Back and needs none.
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Cancel") { isTakingBoltTest = false }
+                            }
+                        }
                 }
             }
     }
 
     private var conversation: some View {
-        CoachTranscript(turns: model.transcript, isReplying: model.isReplying, pinned: pinned) {
+        CoachTranscript(
+            turns: model.transcript,
+            isReplying: model.isReplying,
+            pinned: pinned,
+            retry: retry
+        ) {
             row(for: $0)
         }
+    }
+
+    /// Re-pins as well as re-asks: the question keeps its id through a retry,
+    /// so a conversation opened cold still watches the exchange it re-sent.
+    private func retry() {
+        model.retry()
+        pinned = model.transcript.last?.id
     }
 
     /// One turn as a bubble: the person's trailing, the coach's leading, each
@@ -291,31 +303,7 @@ struct CoachChatView: View {
     /// — never written to the person's saved dials: a chat suggestion is
     /// advice for one session, not a settings edit.
     private func start(_ technique: Technique, offer: ExerciseOffer) {
-        // Plain and unprescribed: an offer is the coach reshaping an exercise,
-        // not a route into a moment, so it carries neither a register nor an
-        // occasion of its own.
-        let outcome = resolver.resolvePhoneSession(
-            technique,
-            dialledWith: offer.overrides,
-            for: plus.tier
-        )
-        switch outcome {
-        case let .phoneSession(session):
-            started = session
-        case .subscriptionRequired:
-            isShowingPaywall = true
-        case .wristHandoff:
-            break
-        }
-    }
-
-    private var resolver: SessionLaunchResolver {
-        SessionLaunchResolver(sessions: sessions) {
-            SessionCues(
-                mode: settings.cueMode,
-                strength: settings.hapticStrength
-            )
-        }
+        launcher.begin(DialStop.standingFor(technique, dialled: offer.overrides))
     }
 
     /// Sends, and names the question the transcript should pin to the top.

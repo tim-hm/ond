@@ -8,8 +8,6 @@ import SwiftUI
 struct TechniqueDetailView: View {
     /// The mutually exclusive sheets this detail screen can present.
     private enum PresentedSheet: String, Identifiable {
-        /// The subscription offer for a locked exercise.
-        case paywall
         /// The editor for a personal exercise.
         case edit
         /// The non-destructive dials for a catalogue exercise.
@@ -41,24 +39,41 @@ struct TechniqueDetailView: View {
 
     @Environment(SessionSettings.self) private var settings
     @Environment(\.dismiss) private var dismiss
-    @State private var started: PhoneSessionLaunch?
 
     @Environment(SubscriptionStore.self) private var plus
+
+    @State private var launcher: StopLauncher
 
     @State private var presentedSheet: PresentedSheet?
     @State private var isConfirmingDelete = false
     @State private var deletionFailure: String?
 
+    init(
+        technique: Technique,
+        own: UserTechniqueModel,
+        sessions: any SessionRecording,
+        assistant: any AssistantReading,
+        chats: any ConversationStoring,
+        catalogue: TechniqueListModel
+    ) {
+        self.technique = technique
+        self.own = own
+        self.sessions = sessions
+        self.assistant = assistant
+        self.chats = chats
+        self.catalogue = catalogue
+        _launcher = State(wrappedValue: StopLauncher(sessions: sessions))
+    }
+
     var body: some View {
-        @Bindable var settings = settings
         // Derived once per pass and handed down: `dialled` walks the stored
         // preferences and rebuilds every stage, which is not work to repeat for
         // each section of one screen.
         let dialled = technique.dialled(with: settings.overrides(for: technique))
 
         ScrollView {
-            // The shape of the exercise, how to do it, the way in, then the
-            // deeper reading for whoever wants it.
+            // The shape of the exercise, how to do it, then the deeper reading
+            // for whoever wants it.
             VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
                 BreathRhythmChart(technique: dialled)
 
@@ -66,8 +81,6 @@ struct TechniqueDetailView: View {
                 // dose count seconds, cycles and minutes, and those have to be
                 // the ones the dials are set to.
                 TechniquePractice(technique: dialled)
-
-                beginButton(playing: dialled)
 
                 aboutSection
 
@@ -94,6 +107,7 @@ struct TechniqueDetailView: View {
             }
             .padding(Theme.Spacing.standard)
         }
+        .safeAreaInset(edge: .bottom) { beginBar }
         .paletteGround()
         // The exercise list kicks this off too, but this screen is reachable
         // without it — a notification, a home card, a coach offer — and the
@@ -111,9 +125,7 @@ struct TechniqueDetailView: View {
             ToolbarItem(placement: .topBarTrailing) { TechniqueStarButton(technique: technique) }
             ToolbarItem(placement: .topBarTrailing) { changeButton }
         }
-        .fullScreenCover(item: $started) { session in
-            SessionView(model: session.model)
-        }
+        .stopLauncher(launcher)
         .sheet(item: $presentedSheet) { sheet in
             presented(sheet)
         }
@@ -251,48 +263,36 @@ struct TechniqueDetailView: View {
         }
     }
 
-    /// Begin, or the offer that has to come first. The lock is
+    /// The way in, held at the bottom edge so a long page cannot scroll it
+    /// away, over a material the reading passes under. The lock is
     /// `SessionLaunchResolver`'s to enforce — this screen only decides what
-    /// the button says and which sheet opens. A locked technique should still
-    /// read; the offer belongs at the moment somebody tries to breathe it.
-    private func beginButton(playing dialled: Technique) -> some View {
+    /// the button says. A locked exercise should still read; the offer belongs
+    /// at the moment somebody tries to breathe it.
+    private var beginBar: some View {
         let isUnlocked = technique.isUnlocked(for: plus.tier)
 
         return Button {
-            let outcome = resolver.resolvePhoneSession(
-                dialled,
-                dialledWith: nil,
-                for: plus.tier
-            )
-            switch outcome {
-            case let .phoneSession(session):
-                started = session
-            case .subscriptionRequired:
-                presentedSheet = .paywall
-            case .wristHandoff:
-                break
-            }
+            launcher.begin(DialStop.standingFor(
+                technique,
+                dialled: settings.overrides(for: technique)
+            ))
         } label: {
             Text(isUnlocked ? "Begin" : "Unlock to breathe this")
         }
-        .buttonStyle(.inkAction)
-    }
-
-    private var resolver: SessionLaunchResolver {
-        SessionLaunchResolver(sessions: sessions) {
-            SessionCues(
-                mode: settings.cueMode,
-                strength: settings.hapticStrength
-            )
-        }
+        .buttonStyle(.inkAction(minHeight: Theme.Metrics.leadActionHeight))
+        // The page's own margin, not the wider one the other pinned actions
+        // use, so the capsule's edges line up with the cards above it. The
+        // material reaches the home indicator, or the reading would show
+        // through the strip below the bar.
+        .padding(.horizontal, Theme.Spacing.standard)
+        .padding(.vertical, Theme.Spacing.close)
+        .background(.regularMaterial, ignoresSafeAreaEdges: .bottom)
     }
 
     /// The destination for the one active sheet.
     @ViewBuilder
     private func presented(_ sheet: PresentedSheet) -> some View {
         switch sheet {
-        case .paywall:
-            PaywallView(.general)
         case .edit:
             if let limits = own.limits {
                 TechniqueComposerView(model: own, limits: limits, editing: technique)
