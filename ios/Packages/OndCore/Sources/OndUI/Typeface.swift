@@ -22,15 +22,9 @@ public extension Theme {
             _ = registration
         }
 
-        /// The role for "önd" wherever the wordmark appears.
-        public static func wordmark(size: CGFloat) -> Font {
-            display(size: size)
-        }
-
-        /// The display face at `size`. Prefer the named role above; this is
-        /// the one they share, public for the headline a screen sets in the
-        /// display face directly.
-        public static func display(size: CGFloat) -> Font {
+        /// The display face at `size`. `displaySerif(size:)` is how a view
+        /// reaches it, and `Wordmark` is how the name does.
+        static func display(size: CGFloat) -> Font {
             register()
             return Font.custom(postScriptName, size: size)
         }

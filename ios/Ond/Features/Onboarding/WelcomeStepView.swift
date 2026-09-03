@@ -15,26 +15,13 @@ struct WelcomeStepView: View {
     /// a fresh `false` and the entrance runs again.
     @State private var hasArrived = false
 
-    /// The wordmark's letter spacing, scaled with its own type. A fixed value
-    /// beside a Dynamic Type font closes up as the letters grow, which turns a
-    /// spaced wordmark into an ordinary word at exactly the sizes somebody
-    /// asked for larger text.
-    @ScaledMetric(relativeTo: .title2) private var wordmarkTracking: CGFloat = 3
-
     var body: some View {
-        // Three bands rather than a cluster: the name and the claim hold the
-        // top, the breath takes the middle, and the detail sits at the foot.
-        // `Spacer(minLength:)` rather than fixed gaps — the scroller stretches
-        // this to the screen's height, and at accessibility sizes the bands
+        // `Spacer(minLength:)` rather than fixed gaps: the scroller stretches
+        // this to the screen's height, and at accessibility sizes the spacers
         // meet their minimum and the screen scrolls instead of crushing.
         VStack(spacing: 0) {
             VStack(spacing: Theme.Spacing.standard) {
-                // Lowercase, and never uppercased: the name is önd, and ÖND is
-                // a different word wearing its hat.
-                Text("önd breathe")
-                    .font(Theme.Typeface.wordmark(size: 26))
-                    .tracking(wordmarkTracking)
-                    .foregroundStyle(Theme.Ink.secondary)
+                Wordmark()
 
                 Text("Guided breathing, grounded in evidence.")
                     .displaySerif(size: 39)
@@ -43,13 +30,11 @@ struct WelcomeStepView: View {
                     // width, where the headline is one line. Without this it
                     // keeps that line and truncates at any screen width.
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(.isHeader)
             // Clear of the toolbar rather than tucked under it: the progress
             // dots and Skip are the flow's chrome, and the name is the first
-            // thing this screen says. `section`, because that is the gap this
-            // scale keeps between two blocks that do different jobs.
+            // thing this screen says.
             .padding(.top, Theme.Spacing.section)
 
             Spacer(minLength: Theme.Spacing.loose)
