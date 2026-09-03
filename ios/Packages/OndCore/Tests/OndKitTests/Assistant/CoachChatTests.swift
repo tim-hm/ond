@@ -85,8 +85,9 @@ struct CoachChatTests {
         )
     }
 
-    /// Offline is one quiet sentence in the coach's row, and the composer
-    /// stays alive: the next send works without any retry affordance.
+    /// Offline is one quiet sentence in the coach's row, marked as the failure
+    /// it is so the transcript can offer the question again, and the composer
+    /// stays alive either way.
     @Test("A failure before the reply is one quiet sentence, and sending still works")
     func failureLeavesAQuietSentence() async throws {
         let script = ChatScript()
@@ -99,11 +100,19 @@ struct CoachChatTests {
         #expect(model.transcript.count == 2)
         #expect(model.transcript[1].role == .coach)
         #expect(model.transcript[1].text == CoachChatModel.unavailableReply)
+        #expect(model.transcript[1].isFailed, "the row the retry hangs under")
+        #expect(!model.transcript[0].isFailed, "the question itself did not fail")
         #expect(!model.isReplying, "the composer is live again")
 
         model.send("still there?")
         try await settle(until: { model.transcript.count == 3 })
         #expect(model.transcript.count == 3, "the next question goes through untouched")
+
+        let next = try #require(script.calls.last)
+        #expect(
+            next.history.map(\.text) == ["hello"],
+            "the apology is this app talking, so the coach never reads it back"
+        )
     }
 
     /// A reply that breaks mid-answer keeps what arrived, with no quiet
@@ -120,6 +129,61 @@ struct CoachChatTests {
 
         #expect(model.transcript.count == 2)
         #expect(model.transcript[1].text == "The mechanism is ")
+        #expect(!model.transcript[1].isFailed, "half an answer is an answer, not a failure")
+        #expect(!model.isReplying)
+    }
+
+    /// The "Try again" the transcript draws under a failed reply. The apology
+    /// and the question it stood for both go, and the question is asked again
+    /// under its own id, so the screen keeps the exchange it pinned.
+    @Test("Retry asks the last question again and clears the failed turn")
+    func retryReplacesTheFailedTurn() async throws {
+        let script = ChatScript()
+        let model = chatModel(script)
+
+        model.send("Why is my breath short?")
+        let question = try #require(model.transcript.first?.id)
+        script.finish(throwing: AssistantRepositoryError.transport(.stub("no network")))
+        try await settle(until: { !model.isReplying })
+
+        model.retry()
+        // The second tap stands for a double tap on the button.
+        model.retry()
+        try await settle(until: { model.isReplying })
+
+        #expect(model.transcript.count == 1, "the apology is gone and the question stands")
+        #expect(model.transcript[0].id == question, "the pinned question keeps its identity")
+        #expect(script.calls.count == 2, "one resend, not two")
+
+        let resend = try #require(script.calls.last)
+        #expect(resend.message == "Why is my breath short?")
+        #expect(resend.history.isEmpty, "the retried question is asked from a clean slate")
+
+        script.yield(AssistantChunk(text: "A longer exhale.", source: .model))
+        script.finish()
+        try await settle(until: { !model.isReplying })
+
+        #expect(model.transcript.map(\.role) == [.person, .coach])
+        #expect(model.transcript[1].text == "A longer exhale.")
+        #expect(!model.transcript[1].isFailed)
+    }
+
+    /// Retry is the failed row's own affordance: nothing else offers it, and a
+    /// call with an answer in place must not ask the same question twice.
+    @Test("Retry does nothing where the last reply landed")
+    func retryIgnoresAnAnsweredTurn() async throws {
+        let script = ChatScript()
+        let model = chatModel(script)
+
+        model.send("first")
+        script.yield(AssistantChunk(text: "An answer.", source: .model))
+        script.finish()
+        try await settle(until: { !model.isReplying })
+
+        model.retry()
+
+        #expect(model.transcript.count == 2, "the answered exchange is untouched")
+        #expect(script.calls.count == 1, "no second question")
         #expect(!model.isReplying)
     }
 

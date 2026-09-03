@@ -26,6 +26,11 @@ public struct ChatTurn: Sendable, Hashable, Identifiable, Codable {
     /// kind. Nil on every person turn and on replies that proposed nothing.
     public let proposal: CoachProposal?
 
+    /// Whether this turn stands in for a reply that never landed, rather than
+    /// carrying one. Only ever true on a coach turn, and only where nothing at
+    /// all arrived: it is what lets the transcript offer the question again.
+    public let isFailed: Bool
+
     /// The exercise offer, where that is what this turn proposed.
     ///
     /// Kept as a name for the one place that asks the question in exactly this
@@ -40,12 +45,27 @@ public struct ChatTurn: Sendable, Hashable, Identifiable, Codable {
         id: UUID = UUID(),
         role: ChatRole,
         text: String,
-        proposal: CoachProposal? = nil
+        proposal: CoachProposal? = nil,
+        isFailed: Bool = false
     ) {
         self.id = id
         self.role = role
         self.text = text
         self.proposal = proposal
+        self.isFailed = isFailed
+    }
+
+    /// Hand-written for one key: `isFailed` arrived after conversations were
+    /// already persisted, and a synthesized decoder would fail every stored
+    /// file that predates it — which `JSONFileStore` would then set aside and
+    /// show as no conversations at all.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        role = try container.decode(ChatRole.self, forKey: .role)
+        text = try container.decode(String.self, forKey: .text)
+        proposal = try container.decodeIfPresent(CoachProposal.self, forKey: .proposal)
+        isFailed = try container.decodeIfPresent(Bool.self, forKey: .isFailed) ?? false
     }
 
     /// The longest message the server accepts, in Unicode scalars — the
