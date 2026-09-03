@@ -4,8 +4,8 @@ import SwiftUI
 
 /// Progress: the shape, record and shared context of this person's practice.
 /// The summary sits first and whole — chart, figures, board — because it is
-/// what "how am I doing" is asked of; the log follows it under a rule and
-/// never pushes it off the screen. Everything above the board is computed from
+/// what "how am I doing" is asked of; the log follows under its own heading
+/// and never pushes it off the screen. Everything above the board is computed from
 /// the sessions on this phone, so the tab is complete in airplane mode.
 struct PracticeProgressView: View {
     let model: JourneyModel
@@ -35,10 +35,6 @@ struct PracticeProgressView: View {
     /// rather than a link inside the door: deleting the last earlier session
     /// closes the door, and a link taken away under its own screen pops it.
     @State private var isShowingHistory = false
-
-    /// What the summary and the log are set apart by. The refresh spec's own
-    /// number rather than a step off the spacing scale, as the page margin is.
-    private static let historyGap: CGFloat = 30
 
     /// How much practice the tab's log shows: the most recent whole days that
     /// hold this many sessions between them. A number rather than a page,
@@ -108,34 +104,41 @@ struct PracticeProgressView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// The log: the rule and the gap that set it apart from the summary, the
-    /// heading with the lifetime count, the recent days, and the door to the
-    /// rest where these days are not all of it.
+    /// The log: a heading carrying the lifetime count and the way to the whole
+    /// record, then the recent days. The gap above is the only thing setting
+    /// the log apart from the summary — a section heading is a break already,
+    /// and a rule over it draws a second one.
     private func history(_ days: [SessionDay], legend: SessionLegend) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Divider()
-                .overlay(Theme.Surface.line)
-                .padding(.top, Theme.Spacing.loose)
-
-            LabelledSection(title: "History · \(lifetime)") {
-                VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
-                    ForEach(days) { day in
-                        SessionDayPlate(day: day, legend: legend) { toDelete = $0 }
-                    }
+        LabelledSection(title: "History · \(lifetime)") {
+            if days.sessionCount < model.history.count {
+                seeAll
+            }
+        } content: {
+            VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
+                ForEach(days) { day in
+                    SessionDayPlate(day: day, legend: legend) { toDelete = $0 }
                 }
             }
-            .padding(.top, Self.historyGap)
-
-            if days.sessionCount < model.history.count {
-                DoorCard(title: "All history", caption: lifetime, action: {
-                    isShowingHistory = true
-                })
-                .glassCard(interactive: true)
-                .accessibilityIdentifier("all-history-door")
-                .padding(.top, Theme.Spacing.standard)
-            }
         }
+        .padding(.top, Theme.Spacing.section)
         .padding(.horizontal, Theme.Spacing.page)
+    }
+
+    /// The way to the whole record, on the heading rather than under the last
+    /// plate: it opens the log, not the day it would have sat beneath.
+    /// Offered only where the tab is not already showing everything.
+    private var seeAll: some View {
+        Button("See all") { isShowingHistory = true }
+            .font(.footnote.weight(.medium))
+            .tracking(1.3)
+            .textCase(.uppercase)
+            // The brand blue that reads as small type, as the log's own
+            // paging button uses: `Breath.inhale` measures 4.06:1 here.
+            .foregroundStyle(Theme.Accent.brandText)
+            .tapTarget()
+            .accessibilityIdentifier("all-history-door")
+            .accessibilityLabel("See all history")
+            .accessibilityHint("Opens every session this device holds")
     }
 
     /// The lifetime count, worded for the heading and the door by the rule the
