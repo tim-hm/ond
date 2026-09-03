@@ -110,7 +110,7 @@ struct HomeStateLineTests {
         ]
 
         #expect(line(week) ==
-            "Four sessions this week. One you ended early.")
+            "Four sessions this week, one ended early.")
     }
 
     @Test("Several early ends pluralise the record")
@@ -131,7 +131,7 @@ struct HomeStateLineTests {
         ]
 
         #expect(line(week) ==
-            "Three sessions this week. Two you ended early.")
+            "Three sessions this week, two ended early.")
     }
 
     /// The calendar's week is half-open: a record stamped exactly on the
@@ -228,7 +228,7 @@ struct HomeStateLineTests {
         ]
 
         #expect(line(history) ==
-            "Two sessions this week. One you ended early.")
+            "Two sessions this week, one ended early.")
     }
 
     @Test("Last week's early end does not haunt this week's line")

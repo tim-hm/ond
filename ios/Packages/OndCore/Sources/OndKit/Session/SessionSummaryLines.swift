@@ -22,16 +22,16 @@ public enum SessionSummaryLines {
         }
     }
 
-    /// The screen's one sentence. Three forms rather than one: they describe
-    /// three different records, not three different people. A session ended by
-    /// hand is told it is a session, which is the only doubt it leaves. The
-    /// discarded line is the same in both registers — there is no playful way
-    /// to say that nothing was kept without making light of it.
+    /// The screen's one sentence. Plain says the same words however the
+    /// session ended: the note under it states which, and a headline that
+    /// differed would grade the session. Playful keeps two, because a child is
+    /// spoken to rather than told. Discarded is one line in both — there is no
+    /// playful way to say nothing was kept.
     public static func headline(for outcome: Outcome, register: CopyRegister) -> String {
         guard case let .kept(record) = outcome else { return "Too short to keep." }
 
         return switch register {
-        case .plain: record.completed ? "Nicely done." : "That's a session."
+        case .plain: "All done."
         case .playful: record.completed ? "You did it." : "That was breathing."
         }
     }
