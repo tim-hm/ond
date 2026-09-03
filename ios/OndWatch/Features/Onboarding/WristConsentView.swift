@@ -25,13 +25,7 @@ struct WristConsentView: View {
 
     private func header(_ terms: SafetyConsent) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-            // One mark, not one per hazard: five identical triangles read as
-            // decoration by the third. Hidden from VoiceOver because it says
-            // nothing the title does not.
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.footnote)
-                .foregroundStyle(Theme.Accent.caution)
-                .accessibilityHidden(true)
+            CautionRule().padding(.bottom, 2)
 
             Text(terms.title)
                 .displaySerif(size: Theme.Metrics.wristDisplaySize)
@@ -66,17 +60,12 @@ struct WristConsentView: View {
 
     /// After the last hazard rather than pinned to the bottom edge: a button
     /// standing over the terms from the first frame is one offered before
-    /// anything has been read.
+    /// anything has been read. `.inkAction` because the app has one primary
+    /// button, and the wrist is not exempt from it.
     private func agreement(_ word: String) -> some View {
-        Button {
+        Button(word) {
             store.record()
-        } label: {
-            Text(word)
-                .brandActionLabel()
-                .padding(.vertical, Theme.Metrics.primaryActionInset)
-                .background(Theme.Accent.brand, in: Capsule())
-                .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.inkAction)
     }
 }

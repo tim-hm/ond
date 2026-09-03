@@ -21,6 +21,9 @@ struct MomentsView: View {
 
     @Environment(WatchSettings.self) private var settings
 
+    /// Read for the tier alone, as the carousel and the front door read it.
+    @Environment(WatchHandoffInbox.self) private var phone
+
     var body: some View {
         content
             .navigationTitle("Moments")
@@ -71,7 +74,7 @@ struct MomentsView: View {
                 Text("They download with the catalogue, the first time this watch can reach it.")
             }
         } else {
-            ProgressView()
+            WristLoadingView()
         }
     }
 
@@ -99,15 +102,17 @@ struct MomentsView: View {
         .accessibilityHint("Taps the rhythm quietly, with nothing on screen and no sound.")
     }
 
-    /// The discreet moments the catalogue can resolve.
-    ///
-    /// Rebuilt per pass rather than held, unlike the phone's: the wrist has no
-    /// dials to fold in and no pills to re-filter, so this is a `compactMap` over
-    /// a few dozen occasions and nothing more.
+    /// The discreet moments the catalogue can resolve. Rebuilt per pass rather
+    /// than held, unlike the phone's: the wrist has no dials to fold in and no
+    /// pills to re-filter. Locked exercises leave before the join, so a moment
+    /// naming one drops the way a moment naming a missing one already does.
     private var discreet: [DialStop] {
         guard case let .loaded(techniques) = catalogue.state else { return [] }
 
-        return MomentsBoard(techniques: techniques, occasions: occasions.available)
-            .delivered(on: .discreet)
+        return MomentsBoard(
+            techniques: techniques.unlocked(for: phone.entitledTier),
+            occasions: occasions.available
+        )
+        .delivered(on: .discreet)
     }
 }
