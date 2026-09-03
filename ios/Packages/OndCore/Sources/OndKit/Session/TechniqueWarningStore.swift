@@ -16,6 +16,23 @@ public struct SessionWarning: Sendable, Equatable {
         self.title = title
         self.text = text
     }
+
+    /// What the screen is headed. Here rather than in either view, on
+    /// `SafetyConsent.agreement`'s reasoning: what a person was asked is part
+    /// of what `accept` records they answered, and the phone and the wrist
+    /// must not ask it differently.
+    public var heading: String {
+        "Before \(title)"
+    }
+
+    /// What each answer is called. Accepting covers this session; silencing
+    /// also keeps the note away until its wording changes; declining refuses
+    /// the session, not just the warning. `silence` is the phone's tick, whose
+    /// label describes the tick alone — a wrist that spends it as a button has
+    /// to say that it starts the session too, so it words its own.
+    public static let acceptance = "I understand"
+    public static let silence = "Don't show this again"
+    public static let refusal = "Not now"
 }
 
 /// One session caution as somebody accepted it. The words are kept, not a
