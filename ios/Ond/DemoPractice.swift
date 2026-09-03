@@ -13,7 +13,7 @@
         ///
         /// Six weeks is chosen against the journal rather than Home: it is long
         /// enough to hold more than one page, so the "show earlier" button
-        /// behind the All history door appears in shot.
+        /// behind the heading's See all appears in shot.
         private static let span = 42
 
         /// Days at the end with no gap in them.
