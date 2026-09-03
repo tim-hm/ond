@@ -240,11 +240,11 @@ struct HomeView: View {
                 // Lowercase, and never uppercased: the name is önd, and ÖND is
                 // a different word wearing its hat.
                 Text("önd")
-                    .displaySerif(size: 26)
+                    .displaySerif(size: 30)
                     .foregroundStyle(Theme.Ink.primary)
 
                 Text("breathe")
-                    .displaySerif(size: 15)
+                    .displaySerif(size: 17)
                     .foregroundStyle(Theme.Ink.secondary)
             }
             .accessibilityElement(children: .combine)
@@ -302,7 +302,7 @@ struct HomeView: View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
             if let line = HomeStateLine.line(history: journey.history, now: context.date) {
                 Text(line)
-                    .displaySerif(size: 27)
+                    .displaySerif(size: 31)
                     .foregroundStyle(Theme.Ink.secondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: Self.sentenceWidth)

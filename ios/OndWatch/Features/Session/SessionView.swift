@@ -24,7 +24,7 @@ struct SessionView: View {
 
     /// The two lines under the orb, at §7's own sizes. The display cut
     /// shimmers small, which is what holds the word at 22 rather than lower.
-    private static let phaseWordSize: CGFloat = 22
+    private static let phaseWordSize: CGFloat = 26
     private static let countSize: CGFloat = 13
 
     /// How long the count's presence takes to travel — the second it is

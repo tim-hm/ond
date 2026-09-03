@@ -36,7 +36,7 @@ struct SessionSlots: View {
     static let qualifierHeight: CGFloat = 26
     static let countHeight: CGFloat = 22
 
-    static let actionSize: CGFloat = 42
+    static let actionSize: CGFloat = 49
     private static let countSize: CGFloat = 14
     private static let dotSize: CGFloat = 6
 

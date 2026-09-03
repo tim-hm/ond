@@ -39,11 +39,11 @@ struct SubscriptionPitch: View {
     private var wordmark: some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             Text("önd")
-                .displaySerif(size: 52)
+                .displaySerif(size: 60)
                 .foregroundStyle(Theme.Ink.primary)
 
             Text("+")
-                .displaySerif(size: 26)
+                .displaySerif(size: 30)
                 .foregroundStyle(Theme.Breath.inhale)
                 .baselineOffset(12)
         }
@@ -55,7 +55,7 @@ struct SubscriptionPitch: View {
     private var boundary: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
             Text("Everything that works offline stays free. Forever.")
-                .displaySerif(size: 30)
+                .displaySerif(size: 35)
                 .foregroundStyle(Theme.Ink.primary)
                 .accessibilityAddTraits(.isHeader)
 

@@ -4,14 +4,14 @@ import SwiftUI
 public extension Theme {
     /// The display face — Newsreader Light, bundled here so every process ships
     /// the same serif. Display only: the wordmark, a screen's one headline, the
-    /// phase word — never a control label or body copy. The 72pt optical cut
-    /// (opsz 72, wght 300); the 16pt text cut read a step heavier at 40pt. A
-    /// display cut shimmers small, so the watch's 22pt phase word wants hardware.
+    /// phase word — never a control label or body copy. The 16pt text cut
+    /// (opsz 16, wght 300), drawn for the 22 to 49pt these roles use. Its
+    /// x-height is 0.86 of the 72pt cut's, so every display size is compensated.
     enum Typeface {
         /// The PostScript name registration makes resolvable.
         /// `TypefaceTests` pins it against the TTF on disk, because a font
         /// that fails to resolve falls back to SF silently.
-        static let postScriptName = "Newsreader72pt-Light"
+        static let postScriptName = "Newsreader16pt-Light"
 
         /// Makes the face resolvable in this process. Idempotent, and called
         /// by every composition root — the Live Activity extension is its own
@@ -40,8 +40,9 @@ public extension Theme {
         /// every accessor without re-registering.
         private static let registration: Void = {
             let fonts = Bundle.module.url(forResource: "Fonts", withExtension: nil)
+
             guard
-                let url = fonts?.appending(path: "Newsreader72pt-Light.ttf"),
+                let url = fonts?.appending(path: "Newsreader16pt-Light.ttf"),
                 CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
             else {
                 // Nothing to throw to: a failed registration falls back to

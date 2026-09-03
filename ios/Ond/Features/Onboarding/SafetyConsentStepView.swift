@@ -19,7 +19,7 @@ struct SafetyConsentStepView: View {
                     .padding(.bottom, 4)
 
                 Text(terms.title)
-                    .displaySerif(size: 36)
+                    .displaySerif(size: 42)
                     .foregroundStyle(Theme.Ink.primary)
 
                 Text(terms.intro)
