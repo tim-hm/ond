@@ -242,6 +242,10 @@ targets:
         product: OndUI
       - package: OndCore
         product: OndStyle
+      # Embeds the complication in the watch bundle, the same mechanism the
+      # phone target uses for OndActivity: XcodeGen reads the dependency's
+      # type and emits the copy phase itself.
+      - target: OndWatchComplication
     settings:
       base:
         # A companion watch app's bundle id must be the phone app's with one
@@ -302,6 +306,36 @@ targets:
           önd reads your heart rate while you practise, so your iPhone can show it during a session. It is never stored or shared.
         NSHealthUpdateUsageDescription: >-
           önd records each breathing session you keep in Health as Mindful Minutes.
+
+  OndWatchComplication:
+    # The wrist's complication, and an `app-extension` for the same reason
+    # OndActivity is one: a WidgetKit extension has no XcodeGen type of its
+    # own. It draws the app's mark and nothing else — no reading, no count.
+    # LauncherComplication.swift says why.
+    type: app-extension
+    platform: watchOS
+    sources:
+      - path: OndWatchComplication
+    dependencies:
+      # OndUI alone. The mark is geometry and one token, so this extension
+      # names no domain type and reads no store — which is what lets it draw
+      # before the watch app has run at all.
+      - package: OndCore
+        product: OndUI
+    settings:
+      base:
+        # The watch app's bundle id with one component appended, exactly as
+        # the phone's extension appends to the phone app's.
+        PRODUCT_BUNDLE_IDENTIFIER: xyz.holmie.ond.watchkitapp.complication
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: önd
+    # Generated and gitignored like every other Info.plist here, and an `info:`
+    # block because NSExtension is a dictionary with no build-setting form.
+    info:
+      path: OndWatchComplication/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
 
   OndAppUITests:
     type: bundle.ui-testing
