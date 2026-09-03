@@ -13,12 +13,12 @@ public struct SessionDay: Sendable, Equatable, Identifiable {
     public let sessions: [SessionRecord]
 
     /// The day's practice in whole minutes, rounded to the nearest and never
-    /// below one: a header standing over rows that happened must not read zero.
-    /// Stored rather than computed, because a pinned header re-reads it
-    /// through every frame of a scroll.
+    /// below one: a title standing over rows that happened must not read zero.
+    /// Stored rather than computed, so it is folded once a day rather than
+    /// once a draw of the row it stands over.
     public let minutes: Int
 
-    /// The day as its header names it: `Today`, `Yesterday`, then the weekday,
+    /// The day as its title names it: `Today`, `Yesterday`, then the weekday,
     /// the date and the month — `Tuesday 26 Aug`. The two nearest days are
     /// named rather than dated, because somebody places them without a date.
     /// The month is named because the log pages over a whole history, and a
@@ -31,7 +31,7 @@ public struct SessionDay: Sendable, Equatable, Identifiable {
 
     /// The leading days holding `rows` sessions between them, in the order
     /// `records` arrives — newest first, where the caller hands them over that
-    /// way. A day is never cut at a page boundary: its header states that
+    /// way. A day is never cut at a page boundary: its title states that
     /// day's own total. Folded one record at a time and returned as soon as
     /// the page is full, so a whole history is never walked for one screen.
     public static func wholeDays(
@@ -80,8 +80,8 @@ public struct SessionDay: Sendable, Equatable, Identifiable {
     }
 
     /// What a day is called, resolved once per fold. The two calendar
-    /// computations and the format style behind a header are otherwise redone
-    /// for every day on screen, every frame of the scroll they are pinned to.
+    /// computations and the format style behind a title are otherwise redone
+    /// for every day on screen, every time the screen is drawn.
     private struct DayNames {
         let today: Date
         let yesterday: Date?
@@ -105,5 +105,14 @@ public struct SessionDay: Sendable, Equatable, Identifiable {
             }
             return date.formatted(style)
         }
+    }
+}
+
+public extension [SessionDay] {
+    /// How many sessions these days hold between them: what a log drawing them
+    /// is showing, against the history it was folded from. A day is never cut,
+    /// so this is the only honest way to ask whether earlier sessions remain.
+    var sessionCount: Int {
+        reduce(0) { $0 + $1.sessions.count }
     }
 }

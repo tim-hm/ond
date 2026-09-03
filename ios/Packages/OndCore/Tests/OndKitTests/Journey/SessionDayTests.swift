@@ -153,6 +153,30 @@ struct SessionDayTests {
         #expect(read == 3)
     }
 
+    /// What a screen compares against the history it folded, to know whether
+    /// there is more to show. The page rounds up to a whole day, so the answer
+    /// cannot be read off the number of rows that were asked for.
+    @Test("The days report the sessions they hold, not the page they filled")
+    func daysCountTheirSessions() {
+        let records = [
+            HomeFixtures.session("box-breathing", at: Self.moment(12, 9)),
+            HomeFixtures.session("box-breathing", at: Self.moment(12, 8)),
+            HomeFixtures.session("box-breathing", at: Self.moment(11, 9)),
+            HomeFixtures.session("box-breathing", at: Self.moment(11, 8)),
+            HomeFixtures.session("box-breathing", at: Self.moment(10, 8)),
+        ]
+
+        let page = SessionDay.wholeDays(
+            of: records,
+            coveringAtLeast: 3,
+            calendar: Self.calendar,
+            relativeTo: Self.now
+        )
+
+        #expect(page.sessionCount == 4)
+        #expect([SessionDay]().sessionCount == 0)
+    }
+
     @Test("Asking for more rows than there are yields every day")
     func awholePageIsEveryDay() {
         let records = [

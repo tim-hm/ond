@@ -12,8 +12,8 @@
         /// How far back the history runs.
         ///
         /// Six weeks is chosen against the journal rather than Home: it is long
-        /// enough that `hasEarlierSessions` is true and the "show earlier" affordance
-        /// appears in shot, which a fortnight would not do.
+        /// enough to hold more than one page, so the "show earlier" button
+        /// behind the All history door appears in shot.
         private static let span = 42
 
         /// Days at the end with no gap in them.
