@@ -63,6 +63,10 @@ struct DiscreetSessionView: View {
             }
         }
         .wristGround(model.technique.goal.accent)
+        // Here rather than at each presentation: `onDisappear` below ends the
+        // cadence, so a swipe would end half an hour of practice without
+        // asking. It cannot guard a push, so no caller may push this screen.
+        .interactiveDismissDisabled()
         .task {
             // Both hung on the model's own finish, not on the view callbacks
             // below: the normal posture is wrist down for half an hour, and
@@ -126,7 +130,8 @@ struct DiscreetSessionView: View {
                 }
             }
 
-            Button("End", role: .destructive) {
+            // No destructive role, for the reason the guided player states.
+            Button("End") {
                 model.end()
             }
             .accessibilityHint("Ends the session and records what you practised")

@@ -23,7 +23,8 @@ public enum Theme {
         public static let section: CGFloat = 40
     }
 
-    /// Sizes a control has to hit, as opposed to space it may take.
+    /// Fixed sizes — what a control has to hit, and what a face is set at —
+    /// as opposed to space a view may take.
     public enum Metrics {
         /// The space a large system button puts around its own label. System
         /// styles size themselves as label plus their control-size inset, so
@@ -42,6 +43,11 @@ public enum Theme {
         /// size, so that against the 44-point line under it the sizes say
         /// which is the action without a second colour.
         public static let leadActionHeight: CGFloat = 60
+
+        /// The one size the wrist sets its display face at. 26 rather than
+        /// the refresh spec's 22, to compensate the text cut's x-height as
+        /// `Typeface` describes.
+        public static let wristDisplaySize: CGFloat = 26
     }
 
     /// How often a drawing is redrawn, where the answer is not "as often as the
