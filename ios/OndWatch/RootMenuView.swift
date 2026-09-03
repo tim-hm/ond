@@ -15,6 +15,10 @@ struct RootMenuView: View {
 
     @Environment(WatchSettings.self) private var settings
 
+    /// Read for the tier alone: the shelf must not offer an exercise the phone
+    /// would put behind the paywall.
+    @Environment(WatchHandoffInbox.self) private var phone
+
     /// The exercise that was tapped, and what covers the door. Held rather than
     /// passed to a link so nothing downstream is composed until somebody has
     /// actually chosen — `TechniqueCarouselView`'s reasoning, and its
@@ -62,6 +66,9 @@ struct RootMenuView: View {
         // adding one still changes what this door offers.
         .onChange(of: journey.history, initial: true) { _, _ in fold() }
         .onChange(of: loaded.map(\.id)) { _, _ in fold() }
+        // A lapsed or renewed subscription changes what this door may offer,
+        // and it arrives from the phone rather than from anything tapped here.
+        .onChange(of: phone.entitledTier) { _, _ in fold() }
     }
 
     /// The catalogue, or nothing until it lands.
@@ -71,7 +78,11 @@ struct RootMenuView: View {
     }
 
     private func fold() {
-        shelf = WristShelf(techniques: loaded, history: journey.history).stops
+        shelf = WristShelf(
+            techniques: loaded,
+            history: journey.history,
+            tier: phone.entitledTier
+        ).stops
     }
 
     /// The wordmark, and the time beside it — the one number a watch face is

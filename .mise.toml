@@ -275,12 +275,19 @@ description = "The half of the gate that only a Mac can run"
 raw = true
 run = '''
 if [ "$(uname -s)" != Darwin ]; then
-  echo 'check:mac: not macOS — check:swift and test:swift were NOT run' >&2
+  echo 'check:mac: not macOS — the Swift checks and both app builds were NOT run' >&2
   exit 0
 fi
 
 mise run check:swift
 mise run test:swift
+
+# Last, because they are the slowest thing in the gate and a lint failure is
+# worth reporting in seconds rather than minutes. The wrist leads: the phone
+# scheme embeds the watch app, so a watch-only break reached first there would
+# be reported against a target nobody was editing.
+mise run ios:build:watch
+mise run ios:build:phone
 '''
 
 [tasks."check:rs"]

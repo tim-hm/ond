@@ -57,6 +57,11 @@ struct OndWatchApp: App {
     /// kept. Nothing else in this app is reachable while the terms are owed.
     @State private var safety: SafetyConsentStore
 
+    /// The exercise cautions this person has answered. Its own store beside
+    /// `safety`, on that type's reasoning: silencing one exercise's hazard
+    /// must never touch the agreement to breathwork at all.
+    @State private var warnings: TechniqueWarningStore
+
     /// Held only so the system installs it: the delegate answers the phone's
     /// launch, and nothing here reads it.
     @WKApplicationDelegateAdaptor(WatchAppDelegate.self) private var delegate
@@ -109,6 +114,7 @@ struct OndWatchApp: App {
         )
 
         let safety = SafetyConsentStore()
+        let warnings = TechniqueWarningStore()
 
         // Everything on this wrist that is about the person rather than the
         // app: the sessions breathed here, the empty check-in files beside
@@ -121,7 +127,7 @@ struct OndWatchApp: App {
             // nothing of that person is left, and a dated statement that they
             // agreed to something is exactly that, so the next wrist raised on
             // this watch is asked again.
-            stores: [queue, sessions, scores, rates, safety],
+            stores: [queue, sessions, scores, rates, safety, warnings],
             // Named here rather than defaulted inside the inbox: it is a fourth
             // thing this wrist persists, and this list is where those are said
             // out loud.
@@ -129,28 +135,41 @@ struct OndWatchApp: App {
         )
         _phone = State(wrappedValue: inbox)
         _safety = State(wrappedValue: safety)
+        _warnings = State(wrappedValue: warnings)
         let link = PhoneLink(inbox: inbox)
         self.link = link
 
-        _orders = State(
-            wrappedValue: WristOrderModel(
-                catalogue: catalogue,
-                occasions: occasions,
-                // A *claimed* budget is the honest answer to "is this wrist
-                // mid-cadence" — every cadence long enough to need one takes
-                // it. Not a merely running workout: the launch itself takes
-                // one before there is anything to spend it on, so that
-                // question declines every order.
-                isBusy: { WorkoutRuntime.shared.isClaimed },
-                // The other way to a session, and the one the front door does
-                // not cover. Read at the order rather than captured, so a wrist
-                // that agrees while a context is in flight is not still
-                // refusing.
-                needsConsent: {
-                    safety.needsConsent(whenAnotherDeviceAgreedTo: inbox.agreedConsentVersion)
-                },
-                answer: { link.acknowledge($0) }
-            )
+        _orders = State(wrappedValue: Self.orders(
+            catalogue: catalogue, occasions: occasions,
+            safety: safety, inbox: inbox, link: link
+        ))
+    }
+
+    /// What the phone's orders are answered with. Lifted out of `init` only
+    /// for its length; nothing here is reusable.
+    private static func orders(
+        catalogue: TechniqueListModel,
+        occasions: OccasionCatalogueModel,
+        safety: SafetyConsentStore,
+        inbox: WatchHandoffInbox,
+        link: PhoneLink
+    ) -> WristOrderModel {
+        WristOrderModel(
+            catalogue: catalogue,
+            occasions: occasions,
+            // A *claimed* budget is the honest answer to "is this wrist
+            // mid-cadence" — every cadence long enough to need one takes it.
+            // Not a merely running workout: the launch itself takes one before
+            // there is anything to spend it on, so that question declines
+            // every order.
+            isBusy: { WorkoutRuntime.shared.isClaimed },
+            // The other way to a session, and the one the front door does not
+            // cover. Read at the order rather than captured, so a wrist that
+            // agrees while a context is in flight is not still refusing.
+            needsConsent: {
+                safety.needsConsent(whenAnotherDeviceAgreedTo: inbox.agreedConsentVersion)
+            },
+            answer: { link.acknowledge($0) }
         )
     }
 
@@ -176,6 +195,7 @@ struct OndWatchApp: App {
             // has no use for either.
             .environment(phone)
             .environment(settings)
+            .environment(warnings)
             .task {
                 link.activate()
                 // Started here so both are in hand by the time somebody taps

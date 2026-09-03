@@ -3,16 +3,22 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The session on the wrist: one breathing shape filling the face, and as
-/// close to nothing else as the session allows — the phase word, a small
-/// count, the remaining time. Two deliberate differences from the phone: no
-/// countdown, since a wrist session begins from an explicit tap; and leaving
-/// the app does not pause — extended runtime keeps the cues firing wrist down.
+/// The session on the wrist: one breathing shape filling the face, the phase
+/// word, a small count, the remaining time. A caution is gated here, where the
+/// shelf and the carousel both arrive. Two differences from the phone: no
+/// countdown, since a wrist session begins from a tap; and leaving does not
+/// pause — extended runtime keeps the cues firing wrist down.
 struct SessionView: View {
     @State private var model: SessionModel
     @State private var runtime = ExtendedRuntime()
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(TechniqueWarningStore.self) private var warnings
+
+    /// Whether the caution was answered on this run. Separate from the store,
+    /// which only remembers a silence: an acceptance without one covers this
+    /// session, and re-reading the store would put the screen straight back.
+    @State private var hasAcceptedWarning = false
 
     /// Called once a finished session has been read and acknowledged, which is
     /// where the wrist's recordings get their chance to reach the server. Here
@@ -36,7 +42,14 @@ struct SessionView: View {
 
     var body: some View {
         Group {
-            if model.status == .finished, let record = model.record {
+            if let warning = pendingWarning {
+                WristWarningView(warning: warning) { silenced in
+                    warnings.accept(warning, silenced: silenced)
+                    hasAcceptedWarning = true
+                } onDeclined: {
+                    dismiss()
+                }
+            } else if model.status == .finished, let record = model.record {
                 SessionSummaryView(
                     outcome: model.wasDiscarded ? .discarded : .kept(record),
                     technique: model.technique,
@@ -55,10 +68,9 @@ struct SessionView: View {
         // No title. The bar it would sit in is the tallest thing competing with
         // the breath for this screen, and the technique was named on the page
         // the person tapped to get here.
-        .task {
-            runtime.start()
-            model.start()
-        }
+        // Keyed on the caution rather than fired once: answering it is what
+        // releases the breath, and the task is what notices.
+        .task(id: pendingWarning) { begin() }
         .onDisappear {
             runtime.invalidate()
             model.dismiss()
@@ -70,6 +82,27 @@ struct SessionView: View {
             runtime.invalidate()
         }
         .onChange(of: model.currentBeat?.id) { _, _ in announceCurrentPhase() }
+    }
+
+    /// The caution this session still owes, or nil to breathe. The wrist has
+    /// no countdown to hold a session behind, so this is the only thing
+    /// standing between the tap and the first cue. The clause order is
+    /// load-bearing: reaching `warnings` last means a session that carries no
+    /// caution never observes the store, and so never redraws for it.
+    private var pendingWarning: SessionWarning? {
+        guard !hasAcceptedWarning,
+              let warning = model.warning,
+              warnings.needsWarning(for: warning)
+        else { return nil }
+        return warning
+    }
+
+    /// Takes the runtime and starts the breath, unless a caution is still on
+    /// screen.
+    private func begin() {
+        guard pendingWarning == nil else { return }
+        runtime.start()
+        model.start()
     }
 
     /// Black air for the live breath, the session's wash for the summary. Black

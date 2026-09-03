@@ -201,9 +201,9 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
     public private(set) var recommendedRounds: Int
     /// The caution this technique carries, or nil where it carries none —
     /// curated copy for the two exercises that can make somebody faint. A note
-    /// here stands a full-screen warning (`TechniqueWarningView`) between the
-    /// phone's Begin and its countdown, accepted and silenced explicitly. The
-    /// watch has no pre-start sequence to hang it on: a gap, not a decision.
+    /// here stands a full-screen warning between Begin and the first breath on
+    /// both devices, accepted and silenced explicitly. A discreet session is
+    /// the exception, and `docs/follow-ups.md` says why.
     public let safetyNote: String?
 
     /// What to do with your body before the first breath, or nil where the

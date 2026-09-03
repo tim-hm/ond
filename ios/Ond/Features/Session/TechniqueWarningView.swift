@@ -26,7 +26,7 @@ struct TechniqueWarningView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.standard) {
-                Text("Before \(warning.title)")
+                Text(warning.heading)
                     .font(.largeTitle.weight(.medium))
                     .multilineTextAlignment(.center)
 
@@ -43,7 +43,7 @@ struct TechniqueWarningView: View {
                     silence.toggle()
                 } label: {
                     Label(
-                        "Don't show this again",
+                        SessionWarning.silence,
                         systemImage: silence ? "checkmark.square.fill" : "square"
                     )
                     .font(.subheadline)
@@ -55,12 +55,12 @@ struct TechniqueWarningView: View {
                 .accessibilityAddTraits(.isToggle)
                 .accessibilityValue(silence ? "On" : "Off")
 
-                Button("I understand") {
+                Button(SessionWarning.acceptance) {
                     onAccepted(silence)
                 }
                 .buttonStyle(.capsuleAction(Theme.Accent.brand))
 
-                Button("Not now") {
+                Button(SessionWarning.refusal) {
                     onDeclined()
                 }
                 .font(.subheadline)

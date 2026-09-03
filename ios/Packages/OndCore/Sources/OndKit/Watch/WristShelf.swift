@@ -15,13 +15,13 @@ public struct WristShelf: Sendable, Hashable {
     /// ``capacity``, and empty only when the catalogue itself is.
     public let stops: [DialStop]
 
-    /// - Parameters:
-    ///   - techniques: the catalogue, in its own order.
-    ///   - history: every session recorded on this device, in any order.
     /// No dials parameter, unlike `HomeOffer`: the wrist has no screen that
-    /// sets them, so a card states the exercise's own length.
-    public init(techniques: [Technique], history: [SessionRecord]) {
-        let bySlug = DialStop.indexed(techniques)
+    /// sets them, so a card states the exercise's own length. `tier` is applied
+    /// by `unlocked(for:)` to both sources at once, so a locked exercise drops
+    /// out of the history as well as the catalogue.
+    public init(techniques: [Technique], history: [SessionRecord], tier: SubscriptionTier) {
+        let offered = techniques.unlocked(for: tier)
+        let bySlug = DialStop.indexed(offered)
 
         // Newest first, then the catalogue's own order behind it, then each
         // slug taken once and the rest cut. A session whose exercise has left
@@ -29,7 +29,7 @@ public struct WristShelf: Sendable, Hashable {
         // becoming a card that could not be started.
         var seen: Set<TechniqueSlug> = []
         stops = (history.sorted { $0.startedAt > $1.startedAt }.map(\.techniqueSlug)
-            + techniques.map(\.slug))
+            + offered.map(\.slug))
             .filter { bySlug[$0] != nil && seen.insert($0).inserted }
             .prefix(Self.capacity)
             .compactMap { bySlug[$0] }

@@ -117,7 +117,12 @@ public final class WatchHandoffInbox {
         agreedConsentVersion = handoff.agreedConsentVersion
 
         // Before the order, because it decides whether there is one to admit.
-        entitledTier = handoff.entitledTier
+        // Guarded, unlike the two above: the wrist's screens read this one, and
+        // Observation publishes every assignment — an unguarded write would
+        // invalidate them on each of the phone's foregrounds.
+        if entitledTier != handoff.entitledTier {
+            entitledTier = handoff.entitledTier
+        }
 
         // The erasure before the order, and both after the identity. One context
         // can carry all three — a deletion's fresh id, its erase flag, and an

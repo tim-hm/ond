@@ -19,6 +19,10 @@ struct TechniqueCarouselView: View {
     @State private var chosen: Technique?
 
     @Environment(WatchSettings.self) private var settings
+
+    /// Read for the tier alone, on `RootMenuView`'s reasoning: a page the wrist
+    /// cannot start and cannot sell is one nobody should be able to turn to.
+    @Environment(WatchHandoffInbox.self) private var phone
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
@@ -42,11 +46,11 @@ struct TechniqueCarouselView: View {
     private var content: some View {
         switch model.state {
         case .loading:
-            ProgressView()
+            WristLoadingView()
 
         case let .loaded(techniques):
             TabView {
-                ForEach(techniques) { technique in
+                ForEach(techniques.unlocked(for: phone.entitledTier)) { technique in
                     page(technique)
                 }
             }
