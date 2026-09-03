@@ -78,7 +78,7 @@ struct MomentListView: View {
                 }
             }
         } else {
-            ProgressView()
+            ReferenceLoadingView(.titled)
         }
     }
 

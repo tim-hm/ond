@@ -159,7 +159,7 @@ struct TechniqueListView: View {
     private var content: some View {
         switch model.state {
         case .loading:
-            ProgressView()
+            ReferenceLoadingView(.titled)
 
         // Same guard as home: an empty catalogue is an answer worth naming,
         // not a blank list.

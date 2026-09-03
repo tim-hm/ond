@@ -50,7 +50,7 @@ struct FoundationsView: View {
     private var content: some View {
         switch model.state {
         case .loading:
-            ProgressView()
+            ReferenceLoadingView(.titled)
 
         case let .loaded(topics):
             foundations(topics)

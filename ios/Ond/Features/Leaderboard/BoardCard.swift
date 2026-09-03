@@ -49,19 +49,22 @@ struct BoardCard: View {
 
             entries
 
-            Text(caption)
-                .font(.caption)
-                .foregroundStyle(Theme.Ink.tertiary)
+            if let caption {
+                Text(caption)
+                    .font(.caption)
+                    .foregroundStyle(Theme.Ink.tertiary)
+            }
         }
         .padding(Theme.Spacing.standard)
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard(interactive: true)
     }
 
-    /// The top of the board, where there is a loaded one to draw. Silent
-    /// otherwise — a spinner or a failure notice inside a card on a screen full
-    /// of local numbers would make the whole tab look as though it were waiting
-    /// on the network, which nothing else here does.
+    /// The top of the board, where there is a loaded one to draw. No spinner
+    /// and no failure notice otherwise: rows are the one part of this card
+    /// that needs the network, and a card on a screen full of local numbers
+    /// must not make the whole tab look as though it were waiting. The caption
+    /// carries whatever the state is worth saying.
     @ViewBuilder
     private var entries: some View {
         if case let .loaded(leaderboard) = model.leaderboard, !leaderboard.entries.isEmpty {
@@ -92,24 +95,15 @@ struct BoardCard: View {
         return "You're \(rank) on \(model.board.title.lowercased())"
     }
 
-    /// What sits under the rows: the offer below the tier, the opt-in while the
-    /// name is unset, and what the board measures once both are settled.
-    private var caption: String {
-        guard isUnlocked else {
-            return "Streaks, comfortable pauses, resting breathing and minutes, ranked against "
-                + "everybody practising. Part of \(SubscriptionTier.leaderboards.title)."
-        }
-
-        guard case let .loaded(leaderboard) = model.leaderboard,
-              leaderboard.standing.listed
-        else { return unlisted }
-
-        return model.board.detail
+    /// What sits under the rows: the offer below the tier, and whatever the
+    /// board itself can honestly say above it.
+    private var caption: String? {
+        isUnlocked ? LeaderboardLines.cardCaption(for: model.leaderboard) : Self.offer
     }
 
-    /// The opt-in, in the words the whole feature is bound by.
-    private var unlisted: String {
-        "Off until you put a name to it. "
-            + "It ranks streaks, comfortable pauses, resting breathing and minutes."
-    }
+    /// Named here rather than in `LeaderboardLines`, because the tier's name
+    /// is an app-local extension that package cannot see.
+    private static let offer =
+        "Streaks, comfortable pauses, resting breathing and minutes, ranked against "
+            + "everybody practising. Part of \(SubscriptionTier.leaderboards.title)."
 }
