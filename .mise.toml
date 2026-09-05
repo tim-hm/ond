@@ -488,6 +488,50 @@ arg "<output>" help="New output directory"
 '''
 run = 'xcrun xcresulttool export attachments --path "$usage_result" --output-path "$usage_output"'
 
+[tasks."release:devices"]
+description = "List available simulators and connected devices for release checks"
+run = ["xcrun simctl list devices available", "xcrun devicectl list devices"]
+
+[tasks."release:privacy:aws"]
+description = "Read deployed model logging and storage retention settings"
+dir = "{{config_root}}/infra"
+env = { AWS_PROFILE = "ond", AWS_PAGER = "" }
+run = '''
+set -eu
+aws bedrock get-model-invocation-logging-configuration --region eu-west-2 --query '{configuration:loggingConfig}' --output json
+for output in backup_bucket logs_bucket; do
+  release_bucket=$(tofu output -raw "$output")
+  aws s3api get-bucket-lifecycle-configuration --bucket "$release_bucket"
+  aws s3api get-bucket-versioning --bucket "$release_bucket"
+done
+aws dlm get-lifecycle-policies --region eu-west-2
+for release_policy in $(aws dlm get-lifecycle-policies --region eu-west-2 --query 'Policies[].PolicyId' --output text); do
+  aws dlm get-lifecycle-policy --region eu-west-2 --policy-id "$release_policy" --query 'Policy.{State:State,Schedules:PolicyDetails.Schedules}'
+done
+'''
+
+[tasks."release:privacy:ssm"]
+description = "Find the Ond server and read its SSM connection state"
+env = { AWS_PROFILE = "ond", AWS_PAGER = "" }
+run = '''
+aws ec2 describe-instances --region eu-west-2 --filters Name=tag:Name,Values=ond-api Name=instance-state-name,Values=running --query 'Reservations[].Instances[].{Id:InstanceId,State:State.Name}'
+aws ssm describe-instance-information --region eu-west-2 --query 'InstanceInformationList[].{Id:InstanceId,Status:PingStatus,LastPing:LastPingDateTime}'
+'''
+
+[tasks."release:privacy:remote"]
+description = "Read deployed release and retention evidence through SSM"
+env = { AWS_PROFILE = "ond", AWS_PAGER = "" }
+run = '''
+set -eu
+release_instance=$(aws ec2 describe-instances --region eu-west-2 --filters Name=tag:Name,Values=ond-api Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId' --output text)
+test -n "$release_instance"
+release_command=$(aws ssm send-command --region eu-west-2 --instance-ids "$release_instance" --document-name AWS-RunShellScript --parameters '{"commands":["set -eu","docker compose -f /srv/ond/compose.yaml exec -T caddy wget -qO- http://api:29100/about || docker compose -f /srv/ond/compose.yaml exec -T caddy wget -qO- http://api:18100/about","curl --fail --silent --get http://localhost:9090/api/v1/query --data-urlencode query=ond_build_info","sha256sum /srv/ond/web/privacy.html /srv/ond/web/support.html /srv/ond/web/index.html","grep -n -e retention_period -e retention_enabled /srv/ond/loki.yaml","docker compose -f /srv/ond/compose.yaml ps --format table"]}' --query 'Command.CommandId' --output text)
+aws ssm wait command-executed --region eu-west-2 --command-id "$release_command" --instance-id "$release_instance" || true
+aws ssm get-command-invocation --region eu-west-2 --command-id "$release_command" --instance-id "$release_instance" --query '{Status:Status,ExitCode:ResponseCode,Output:StandardOutputContent,Error:StandardErrorContent}'
+release_exit=$(aws ssm get-command-invocation --region eu-west-2 --command-id "$release_command" --instance-id "$release_instance" --query ResponseCode --output text)
+test "$release_exit" = 0
+'''
+
 [tasks."ios:screenshots"]
 description = "Capture the App Store screenshot set into ios/build/screenshots"
 depends = ["ios:gen"]

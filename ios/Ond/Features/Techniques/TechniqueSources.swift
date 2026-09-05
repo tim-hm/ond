@@ -47,15 +47,29 @@ struct TechniqueSources: View {
         if let specific {
             sources.insert(specific, at: 0)
         }
+        if technique.slug.rawValue == "extended-exhale" {
+            sources.insert(Source(
+                title: "Slow breathing for reducing stress: the effect of extending exhale (2023)",
+                scope: "A 12-week trial in 100 adults found no clear advantage for longer exhales over equal counts.",
+                address: "https://pubmed.ncbi.nlm.nih.gov/36871835/"
+            ), at: 1)
+        }
+        if technique.slug.rawValue == "alternate-nostril" {
+            sources.insert(Source(
+                title: "Alternate-nostril breathing before public speaking (2017)",
+                scope: "A small study found no clear anxiety benefit after a brief practice.",
+                address: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5660749/"
+            ), at: 1)
+        }
         return sources
     }
 
     private var specific: Source? {
         switch technique.slug.rawValue {
-        case "box-breathing", "cyclic-sighing", "physiological-sigh":
+        case "box-breathing", "long-box-breathing", "cyclic-sighing", "physiological-sigh":
             Source(
                 title: "Brief structured respiration practices enhance mood and reduce physiological arousal (2023)",
-                scope: "Compared daily five-minute practices. This is not a trial of just one or two sighs.",
+                scope: "Compared daily five-minute practices. It does not test two sighs, six-count boxes or every timing used in önd.",
                 address: "https://pmc.ncbi.nlm.nih.gov/articles/PMC9873947/"
             )
         case "coherent-breathing":
@@ -93,6 +107,24 @@ struct TechniqueSources: View {
                 title: "Breathing techniques in serious respiratory illness (2024)",
                 scope: "A review of 73 trials in respiratory illness; general calm in healthy people was not established.",
                 address: "https://publications.ersnet.org/content/errev/33/174/240012"
+            )
+        case "cooling-breath":
+            Source(
+                title: "Sheetali breathing in people with hypertension (2020)",
+                scope: "A three-month trial in 100 people with high blood pressure; not a study of whole-body cooling.",
+                address: "https://pubmed.ncbi.nlm.nih.gov/32379673/"
+            )
+        case "bellows-breath":
+            Source(
+                title: "Reaction time after yoga bellows-type breathing (2018)",
+                scope: "Studied 25 healthy women in 18-minute sessions. It does not validate önd's brief round.",
+                address: "https://pubmed.ncbi.nlm.nih.gov/30233116/"
+            )
+        case "alternate-nostril":
+            Source(
+                title: "Alternate-nostril breathing and blood pressure (2024)",
+                scope: "A review found lower blood pressure, with large differences between studies. It does not establish a focus benefit.",
+                address: "https://pubmed.ncbi.nlm.nih.gov/39008954/"
             )
         default: nil
         }

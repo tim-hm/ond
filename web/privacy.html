@@ -243,7 +243,7 @@
         <h2>Where your data lives</h2>
         <p>
           Your stored data lives on one server in Amazon Web Services' London region (eu-west-2), in the United Kingdom. Each night, we make an encrypted database backup in Amazon's storage service in
-          the same region. The backup is deleted automatically after 30 days.
+          the same region. Database backups are scheduled to expire after 30 days. We also retain the seven most recent daily snapshots of the server's data volume.
         </p>
         <p>
           Coach requests are the one exception. We send them to Bedrock's London endpoint. When it needs more capacity, Bedrock may process a request in Ireland, Frankfurt, Paris, Stockholm, Milan, or
@@ -259,8 +259,12 @@
           remain on your iPhone until you delete them or clear your account and app data.
         </p>
         <p>
-          There are two exceptions. A nightly database backup contains whatever was stored when it ran and is deleted after 30 days. Server logs contain only the request details described above and
-          are removed as newer entries reach the size limit, not on a fixed date.
+          Backups and volume snapshots contain data held when they were created. Database backups expire on a 30-day schedule; previous object versions expire one day after becoming noncurrent. Volume
+          snapshots are replaced as new daily snapshots are created, keeping the latest seven. Storage deletion can finish after the scheduled expiry.
+        </p>
+        <p>
+          Server logs contain only the request details described above. Local logs rotate at a size limit. Searchable log archives have a 30-day retention setting, with a separate storage expiry rule
+          of 35 days. These rules schedule removal; they do not guarantee deletion at an exact time.
         </p>
       </section>
 
@@ -277,8 +281,8 @@
           </li>
         </ul>
         <p>
-          This is a deletion, not a hidden account state. Nothing in the app or live server can restore it. A nightly backup may still contain the data until it expires within 30 days. We open a
-          backup only to restore the whole database after a failure.
+          This removes your account from the active database. Backups and snapshots may still contain earlier copies until the retention rules above remove them. We use these copies for recovery after
+          a failure, not to restore an account at your request.
         </p>
         <p>
           Entries already saved to Apple Health remain there; manage them in the Health app. Deleting your account does not cancel your subscription. Use Manage subscription in önd to cancel with

@@ -180,7 +180,7 @@ struct AccountSection: View {
 
         return "This removes your account and app data from this iPhone and our active server. "
             + "Your Watch clears its copy when it next connects. This cannot be undone. "
-            + "Backups expire within 30 days.\n\n"
+            + "Backup copies remain until our retention rules remove them. See the Privacy policy for details.\n\n"
             + confirmation
             + "Apple Health entries remain. Deleting your account does not cancel "
             + "your subscription. Use Manage subscription to cancel with Apple."

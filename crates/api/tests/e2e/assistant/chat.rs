@@ -573,13 +573,9 @@ async fn a_broken_chat_stream_keeps_arrived_text() {
 // is not a smoke test.
 #[allow(clippy::print_stdout)]
 async fn smoke_the_real_model_chats() {
-    let client = match api::assistant::BedrockClient::connect().await {
-        Ok(client) => client,
-        Err(error) => {
-            println!("no AWS credentials — nothing to smoke-test ({error})");
-            return;
-        }
-    };
+    let client = api::assistant::BedrockClient::connect()
+        .await
+        .expect("AWS credentials are required for explicit model smoke tests");
 
     let db = TestDatabase::create("assistant_smoke_chat").await;
     set_goals(&db, USER, &[pb::TechniqueGoal::Sleep]).await;
@@ -588,7 +584,7 @@ async fn smoke_the_real_model_chats() {
         chat_turn(pb::ChatRole::Person, "I keep waking up around 3am."),
         chat_turn(
             pb::ChatRole::Coach,
-            "A longer exhale before bed can help — it lengthens the parasympathetic phase.",
+            "We can look for a comfortable breathing practice to try before bed.",
         ),
     ];
     let chunks = chat(

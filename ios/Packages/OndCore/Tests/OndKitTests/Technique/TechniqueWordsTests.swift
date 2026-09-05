@@ -114,13 +114,13 @@ struct TechniqueWordsTests {
         #expect(steps.map(\.count) == ["4s", "7s", "8s"])
     }
 
-    @Test("Sigh copy treats a mouth exhale as optional")
-    func sighCopyMakesTheMouthOptional() {
+    @Test("Sigh copy distinguishes comfortable options from the studied passage")
+    func sighCopyDistinguishesTheStudiedPassage() {
         let physiological = technique("physiological-sigh").mechanismContent?.plainText ?? ""
         let cyclic = technique("cyclic-sighing").mechanismContent?.plainText ?? ""
 
-        #expect(physiological.contains("using the nose works too"))
-        #expect(cyclic.contains("using the nose works too"))
+        #expect(physiological.contains("nose or mouth"))
+        #expect(cyclic.contains("The trial used a mouth exhale; this app defaults to the nose"))
     }
 
     /// The case the single `passageNote` sentence this replaced gave up on. It went

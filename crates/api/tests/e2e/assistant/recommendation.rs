@@ -383,24 +383,17 @@ async fn callers_do_not_share_guidance() {
     );
 }
 
-/// The one test that spends money. `#[ignore]` and named `smoke_*`, the
-/// category `mise run assistant:smoke` runs and nothing else does. It is the
-/// only way to find out whether the model id, request body and parser agree
-/// with a provider that is not a test double. Skips rather than fails without
-/// AWS credentials — a machine that cannot sign for Bedrock is a supported state.
+/// Calls the real provider only through `mise run assistant:smoke`.
+/// An explicit smoke run requires AWS credentials and a model-sourced reply.
 #[tokio::test]
 #[ignore = "calls the real model provider; run it with `mise run assistant:smoke`"]
 // The whole output of this test is what it printed — a status line nobody reads
 // is not a smoke test.
 #[allow(clippy::print_stdout)]
 async fn smoke_the_real_model_answers() {
-    let client = match api::assistant::BedrockClient::connect().await {
-        Ok(client) => client,
-        Err(error) => {
-            println!("no AWS credentials — nothing to smoke-test ({error})");
-            return;
-        }
-    };
+    let client = api::assistant::BedrockClient::connect()
+        .await
+        .expect("AWS credentials are required for explicit model smoke tests");
 
     let db = TestDatabase::create("assistant_smoke").await;
     set_goals(&db, USER, &[pb::TechniqueGoal::Sleep]).await;

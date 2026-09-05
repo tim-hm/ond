@@ -498,13 +498,8 @@ mod tests {
         assert!(lines.contains("Comfortable pause: best 32 seconds, latest 28 seconds"));
     }
 
-    /// The briefing carries the figures and the cached prefix carries the
-    /// fixed range they are read against — a per-request copy would be the
-    /// same sentence bought at full price on every question. The rate leads
-    /// the pause because the prefix weighs it that way, and the two halves of
-    /// one briefing must not disagree.
     #[test]
-    fn the_resting_rate_leads_the_briefing_and_the_prefix_holds_its_range() {
+    fn measurements_carry_observations_without_a_health_target() {
         let practice = PracticeSnapshot {
             resting_rate: Some(RestingRateSnapshot {
                 lowest: 9,
@@ -528,7 +523,7 @@ mod tests {
         );
         assert!(
             !lines.contains("usual adult resting range"),
-            "the range belongs to the cached prefix, not to every request"
+            "measurements do not prescribe a resting-rate target"
         );
 
         // The routes play no part in the briefing, so an empty reference is
@@ -539,8 +534,9 @@ mod tests {
             foundations: vec![],
         };
         let prefix = catalogue_prefix(&catalogue(), &empty);
-        assert!(prefix.contains("usual adult resting range is 12–20 breaths per minute"));
-        assert!(prefix.contains("around 6 is the direction slow breathing aims towards"));
+        assert!(prefix.contains("Do not prescribe a lower target"));
+        assert!(prefix.contains("Do not invent reference ranges based on age or gender"));
+        assert!(!prefix.contains("around 6 is the direction"));
     }
 
     /// Nobody's first day reads as an error: an empty history is one honest

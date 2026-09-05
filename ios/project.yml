@@ -342,6 +342,8 @@ targets:
     platform: iOS
     sources:
       - path: OndAppUITests
+      - path: Ond/Ond.storekit
+        buildPhase: resources
     dependencies:
       - target: Ond
     settings:

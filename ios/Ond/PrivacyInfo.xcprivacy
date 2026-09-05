@@ -1,35 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!--
-  The phone app's privacy manifest, and the source the App Store Connect
-  nutrition label is answered from.
-
-  Every entry below names the fields it covers and the section of
-  web/privacy.html that describes them, because the label and the published
-  policy disagreeing is a rejection that says the developer does not know what
-  their own app does. Sections rather than line numbers: the page is edited far
-  more often than this file.
-
-  What is deliberately absent is as load-bearing as what is here. Apple counts
-  data as collected only when it is transmitted off the device and held longer
-  than servicing the request in real time, so three things the app sends are
-  not declared:
-
-  - Coach prompts, replies and conversation history. crates/migrate holds no
-    column for them (0006_assistant_quota.sql stores a per-day call count and
-    nothing else), and Bedrock account retention and model-invocation logging
-    are both `none`.
-  - The heart summary a coach request may carry — whole-number seven-day means
-    and trends folded from HealthKit by HealthSummaryBuilder. It rides the same
-    request and is retained by nobody. Nothing else read from HealthKit leaves
-    the device, and what the app writes back — Mindful Minutes, and the State of
-    Mind entries a session's mood check records — stays on it too.
-  - `utc_offset_minutes`, sent per request so a streak can be counted in the
-    caller's day and never stored.
-
-  Persisting coach conversations would move the first two into
-  NSPrivacyCollectedDataTypes and change the nutrition label with them.
--->
+<!-- Collection excludes data used only to serve a request in real time.
+     Review the deployed provider and logging settings before submission.
+     See docs/audits/2026-09-05-release-trust-validation.md. -->
 <plist version="1.0">
 <dict>
 	<key>NSPrivacyTracking</key>
@@ -41,6 +14,31 @@
 	<array/>
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherDiagnosticData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeName</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeProductPersonalization</string>
+			</array>
+		</dict>
 		<dict>
 			<!-- The random identifier the app mints into the Keychain, the
 			     display name a leaderboard shows, and the Apple account the
@@ -71,6 +69,7 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeProductPersonalization</string>
 			</array>
 		</dict>
 		<dict>
@@ -86,6 +85,7 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeProductPersonalization</string>
 			</array>
 		</dict>
 		<dict>
@@ -102,6 +102,7 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeProductPersonalization</string>
 			</array>
 		</dict>
 		<dict>
@@ -151,6 +152,7 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeProductPersonalization</string>
 			</array>
 		</dict>
 	</array>

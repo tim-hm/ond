@@ -188,7 +188,7 @@ fn assert_known_techniques(response: &pb::ListTechniquesResponse) {
     // sitting under it, so a service that never read it would still return a
     // plausible catalogue. Two techniques differing by an order of magnitude are
     // what prove the curated value made the trip.
-    assert_eq!(find(response, "physiological-sigh").stages[0].cycles, 3);
+    assert_eq!(find(response, "physiological-sigh").stages[0].cycles, 2);
     assert_eq!(find(response, "bellows-breath").stages[0].cycles, 20);
 }
 
@@ -604,10 +604,8 @@ async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
     assert!(child.safety_note.contains("hold"));
     assert!(child.safety_note.contains("fast"));
 
-    // The two breathlessness-shaped routes, over the wire for the same reason:
-    // the red-flag triage is carried by the route rather than by the exercise
-    // it borrows, so a client that dropped the occasion's note would show
-    // nothing at all where the note is the point.
+    // Each breathlessness route must carry triage even when its underlying
+    // exercise serves other purposes without a breathlessness warning.
     let winded = prescription(occasion(&routes, "when-youre-winded"));
     let unsatisfying = prescription(occasion(&routes, "when-you-cant-get-a-satisfying-breath"));
 
@@ -617,20 +615,17 @@ async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
         ("when-youre-winded", winded),
         ("when-you-cant-get-a-satisfying-breath", unsatisfying),
     ] {
-        for phrase in ["doctor", "severe", "emergency"] {
+        for phrase in ["medical", "severe", "urgent"] {
             assert!(
                 triaged.safety_note.contains(phrase),
                 "`{slug}` no longer warns about `{phrase}`"
             );
         }
     }
-    assert!(
-        catalogue
-            .techniques
-            .iter()
-            .any(|technique| technique.slug == "pursed-lip-breathing"
-                && technique.safety_note.is_empty()),
-        "the triage belongs to the route, not to the exercise"
+    assert_eq!(
+        find(&catalogue, "pursed-lip-breathing").safety_note,
+        winded.safety_note,
+        "direct pursed-lip practice must carry the same triage as its route"
     );
     assert!(
         !catalogue

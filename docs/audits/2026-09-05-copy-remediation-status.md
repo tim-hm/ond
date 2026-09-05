@@ -2,6 +2,8 @@
 
 Implementation follow-up to the [complete source-copy audit](2026-09-05-complete-copy-audit.md). The audit records the starting state; this document records the changes and the remaining acceptance work. Changes are local and have not been deployed or submitted to the App Store.
 
+The [release trust validation](2026-09-05-release-trust-validation.md) supersedes this document's research-link and retention status. It records additional claim corrections, privacy-manifest fixes and live AWS evidence, including previously omitted log archives and volume snapshots.
+
 ## Changes by finding
 
 | Finding | Implementation | Remaining verification |

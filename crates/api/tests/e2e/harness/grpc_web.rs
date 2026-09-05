@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use axum::Router;
 use axum::body::{Body, Bytes};
-use axum::http::{Request, StatusCode, header};
+use axum::http::{HeaderMap, HeaderName, HeaderValue, Request, StatusCode, header};
 use prost::Message;
 use tower::ServiceExt;
 
@@ -164,15 +164,22 @@ where
 
     let messages = deframe(&body, &mut trailers);
 
-    let status = trailers
-        .get("grpc-status")
-        .and_then(|value| value.parse().ok())
+    let status_headers: HeaderMap = trailers
+        .iter()
+        .map(|(name, value)| {
+            (
+                HeaderName::from_bytes(name.as_bytes()).expect("a valid trailer name"),
+                HeaderValue::from_str(value).expect("a valid trailer value"),
+            )
+        })
+        .collect();
+    let status = tonic::Status::from_header_map(&status_headers)
         .expect("the response carries a grpc-status, in a header or a trailer frame");
 
     GrpcWebStream {
         messages,
-        status,
-        status_message: trailers.get("grpc-message").cloned().unwrap_or_default(),
+        status: i32::from(status.code()),
+        status_message: status.message().to_owned(),
     }
 }
 

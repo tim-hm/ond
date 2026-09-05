@@ -1,21 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!--
-  The watch app's privacy manifest.
-
-  A second file rather than a copy of the phone's, because the watch bundle is
-  validated on its own inside the submission and because it collects strictly
-  less: its composition root wires no onboarding, no coach, no StoreKit and no
-  leaderboard name, so the only things that leave the wrist are the identity
-  the phone handed it and the sessions breathed on it. Declaring the phone's
-  full set here would describe a bundle that does not exist.
-
-  Health looks omitted and is not. The wrist writes Mindful Minutes and reads
-  heart rate for PulseRelay, but a write to the device's own store is not
-  collection, and a reading answers one phone session in real time and reaches
-  no server. The phone declares Health for its stored breath-hold scores; the
-  wrist records none, so neither reason applies here.
--->
+<!-- Collection excludes data used only to serve a request in real time.
+     Review the deployed provider and logging settings before submission.
+     See docs/audits/2026-09-05-release-trust-validation.md. -->
 <plist version="1.0">
 <dict>
 	<key>NSPrivacyTracking</key>
@@ -24,6 +11,18 @@
 	<array/>
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherDiagnosticData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
 		<dict>
 			<!-- The identity the phone hands over the pairing. The watch never
 			     mints one, so this is the phone's identifier arriving rather
@@ -52,6 +51,7 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeProductPersonalization</string>
 			</array>
 		</dict>
 	</array>
