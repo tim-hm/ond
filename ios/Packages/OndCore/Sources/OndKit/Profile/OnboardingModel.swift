@@ -35,12 +35,7 @@ public final class OnboardingModel {
     public private(set) var goals: [TechniqueGoal] = []
     public var experienceLevel: ExperienceLevel?
 
-    /// Where the reminder dial arrives: `daily`, not `never`. The row states
-    /// its own position, so somebody who wants no reminder is one tap from
-    /// saying so. It is the one default in this flow that asks iOS for
-    /// something, and the notification prompt is raised on the way out of the
-    /// screen that shows it.
-    public var reminderIntensity: ReminderIntensity = .daily {
+    public var reminderIntensity: ReminderIntensity = .never {
         didSet { hasMovedDial = true }
     }
 
@@ -243,12 +238,13 @@ public final class OnboardingModel {
         }
     }
 
-    /// Passes a step by. The answers given so far are kept, and the side
-    /// effects of leaving a step happen either way. Guarded rather than left
-    /// to the view, because the safety wall having no way around it is a rule,
-    /// and a rule held up by an undrawn button is one refactor from gone.
+    /// Skipping optional permissions discards changes made on that step.
     public func skip() {
         guard canSkip else { return }
+        if step == .optIns {
+            optIns = arrived
+            reminderIntensity = .never
+        }
         advance()
     }
 

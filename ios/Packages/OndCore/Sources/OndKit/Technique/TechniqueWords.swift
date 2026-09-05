@@ -13,7 +13,7 @@ public extension EvidenceGrade {
     /// call sites so the three surfaces that draw one cannot disagree.
     var title: String {
         switch self {
-        case .moderate: "Well studied"
+        case .moderate: "Moderate evidence"
         case .limited: "Early research"
         }
     }

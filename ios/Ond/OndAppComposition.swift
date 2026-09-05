@@ -115,6 +115,7 @@ extension OndApp {
         // captured now, so a subscription that lapses stops the reads on the
         // next question rather than on the next launch.
         let heart = HealthContextModel(store: health, entitledTier: { plus.tier })
+        let consent = AssistantConsentStore()
         let assistant = AssistantRepository(
             baseURL: baseURL,
             identity: identity,
@@ -122,7 +123,12 @@ extension OndApp {
             // effect on the very next question with no restart.
             healthContext: { await heart.context() }
         )
-        return Coach(plus: plus, heart: heart, assistant: assistant)
+        return Coach(
+            plus: plus,
+            heart: heart,
+            assistant: ConsentedAssistant(assistant, consent: consent),
+            consent: consent
+        )
     }
 
     /// The three [`coach(baseURL:identity:health:)`] hands back. Named rather
@@ -132,6 +138,7 @@ extension OndApp {
         let plus: SubscriptionStore
         let heart: HealthContextModel
         let assistant: any AssistantReading
+        let consent: AssistantConsentStore
     }
 
     /// The practice model shared by Home, Progress, and the sync queue. Built

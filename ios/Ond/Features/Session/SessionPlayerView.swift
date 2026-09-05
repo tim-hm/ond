@@ -14,16 +14,39 @@ struct SessionPlayerView: View {
     @Environment(SessionSettings.self) private var settings
     @Environment(PulseMonitor.self) private var pulse
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                ScrollView {
+                    VStack(spacing: Theme.Spacing.standard) {
+                        header
+                        SessionWords(model: model)
+                        if !SessionWords.speak(for: model, under: settings.guidance) {
+                            breathGuide
+                        }
+                        if pulse.expectsReadings {
+                            PulseBadge()
+                        }
+                    }
+                    .padding(Theme.Spacing.standard)
+                }
+                .safeAreaInset(edge: .bottom) { controls }
+            } else {
+                standardPlayer
+            }
+        }
+        .foregroundStyle(Theme.Ink.primary)
+        .sessionGround()
+    }
+
+    private var standardPlayer: some View {
         VStack(spacing: Theme.Spacing.loose) {
             // The two flexible bands take an equal share of the slack, which
             // puts the guide between them at the screen's centre whatever the
             // header and the transport controls measure.
             header
-                // Capped with the words below, and for their reason: this row
-                // sits above three slots of reserved height.
-                .dynamicTypeSize(...SessionWords.mostGrowth)
                 .padding(.top, Theme.Spacing.loose)
                 .frame(maxHeight: .infinity, alignment: .top)
 
@@ -43,10 +66,6 @@ struct SessionPlayerView: View {
                 .frame(maxHeight: .infinity, alignment: .bottom)
         }
         .padding(Theme.Spacing.loose)
-        // Set once for the screen: everything under here is text on the deep
-        // ground, and the buttons carry their own tint over it.
-        .foregroundStyle(Theme.Ink.primary)
-        .sessionGround(stilled: model.status != .running)
     }
 
     /// How slowly the guide may redraw, or nil where it is the breath itself

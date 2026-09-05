@@ -134,13 +134,13 @@ public final class HealthContextModel: PersonalStore {
     }
 
     /// Withdraws the read opt-in and returns the Mindful Minutes write to its
-    /// default of on — the only state this model owns; nothing read from
+    /// default of off — the only state this model owns; nothing read from
     /// Health is ever stored. Erasing revokes nothing at HealthKit, whose
     /// grants are the person's to withdraw in Health; it stops this app
     /// asking, and a request made after this carries no heart context at all.
     public func erase() async {
         coachReadsHealthTrends = false
-        writesMindfulMinutes = true
+        writesMindfulMinutes = false
         defaults.removeObject(forKey: Self.optInKey)
         defaults.removeObject(forKey: MindfulMinutesRecorder.preferenceKey)
     }

@@ -9,6 +9,15 @@ import Testing
 /// is made here where it can be asserted.
 @Suite("Pulse trace")
 struct PulseTraceTests {
+    @Test("A one bpm fluctuation occupies one tenth of the plot height")
+    func smallChangesStaySmall() throws {
+        let trace = trace([71, 72, 71, 72, 71])
+        #expect(trace.range == 71 ... 72)
+        #expect(trace.plotRange == 66 ... 76)
+        let points = try #require(trace.runs().first)
+        #expect(abs(points[1].y - points[0].y - 0.1) < 0.0001)
+    }
+
     private func trace(_ rates: [Int], everySeconds seconds: Int = 8) -> PulseTrace {
         PulseTrace(
             readings: rates.enumerated().map { index, rate in

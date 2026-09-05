@@ -48,6 +48,7 @@ struct SettingsView: View {
     @Environment(SubscriptionStore.self) private var plus
     @Environment(AccountModel.self) private var account
     @Environment(HealthContextModel.self) private var health
+    @Environment(AssistantConsentStore.self) private var assistantConsent
     /// Only to ask for the grant the wrist switch needs — see the row itself.
     @Environment(PulseMonitor.self) private var pulse
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -110,6 +111,19 @@ struct SettingsView: View {
                 preparePulse: { await pulse.prepare() },
                 requestReadAccess: { health.requestReadAccess() }
             )
+
+            Section("Coach privacy") {
+                if assistantConsent.isAllowed {
+                    Text("AI sharing is allowed for the coach.")
+                    Button("Withdraw AI sharing") { assistantConsent.withdraw() }
+                } else {
+                    NavigationLink("Review AI sharing") { AssistantConsentView() }
+                }
+                Text(
+                    "Messages and relevant practice context go through önd's server to Amazon Bedrock. Heart and sleep data is a separate choice."
+                )
+                .font(.caption)
+            }
 
             Section {
                 settingsPicker("Reminders", selection: reminderIntensity, stacks: stacksPickers) {

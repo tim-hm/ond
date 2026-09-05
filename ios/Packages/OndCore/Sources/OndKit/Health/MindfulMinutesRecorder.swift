@@ -10,10 +10,9 @@ public struct MindfulMinutesRecorder: SessionRecording {
     /// which owns the switch the settings screen binds to.
     public static let preferenceKey = "health.writesMindfulMinutes"
 
-    /// The stored preference, read from `defaults`. An absent key reads as
-    /// true — the write is on until somebody switches it off.
+    /// Health writes require an explicit in-app choice as well as the system grant.
     public static func writesToHealth(in defaults: UserDefaults) -> Bool {
-        defaults.flag(forKey: preferenceKey, default: true)
+        defaults.flag(forKey: preferenceKey, default: false)
     }
 
     private let store: any SessionRecording

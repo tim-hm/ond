@@ -222,13 +222,13 @@ struct HealthContextModelTests {
         #expect(await store.queries == 0)
     }
 
-    @Test("The Mindful Minutes write is on until somebody switches it off")
-    func mindfulMinutesWriteDefaultsOn() throws {
+    @Test("Mindful Minutes stays off until somebody chooses it")
+    func mindfulMinutesWriteDefaultsOff() throws {
         let defaults = try defaults()
         let model = model(store: ScriptedHealthStore(), defaults: defaults)
 
-        #expect(model.writesMindfulMinutes)
-        #expect(MindfulMinutesRecorder.writesToHealth(in: defaults))
+        #expect(!model.writesMindfulMinutes)
+        #expect(!MindfulMinutesRecorder.writesToHealth(in: defaults))
     }
 
     @Test("Switching the write off survives a relaunch and reaches the recorder")
@@ -245,7 +245,7 @@ struct HealthContextModelTests {
         )
     }
 
-    @Test("Erasing returns the write to its default of on")
+    @Test("Erasing returns the write to its default of off")
     func eraseRestoresTheWrite() async throws {
         let defaults = try defaults()
         let model = model(store: ScriptedHealthStore(), defaults: defaults)
@@ -253,7 +253,7 @@ struct HealthContextModelTests {
 
         await model.erase()
 
-        #expect(model.writesMindfulMinutes)
+        #expect(!model.writesMindfulMinutes)
         #expect(
             defaults.object(forKey: MindfulMinutesRecorder.preferenceKey) == nil,
             "erased means forgotten, not re-stated"

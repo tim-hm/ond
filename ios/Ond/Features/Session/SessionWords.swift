@@ -11,12 +11,7 @@ struct SessionWords: View {
     let model: SessionModel
 
     @Environment(SessionSettings.self) private var settings
-
-    /// The largest text these words are drawn at. The reserved slot heights
-    /// are what keep phases crossfading in place, and an accessibility size
-    /// would break them. The session header caps with them; everything else on
-    /// the screen scales the whole way.
-    static let mostGrowth = DynamicTypeSize.xxLarge
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// Whether the words are the session's one spoken element. Under Just the
     /// visuals they are not and the guide carries the phase itself — except
@@ -36,12 +31,26 @@ struct SessionWords: View {
             let spoken = spoken(at: moment)
 
             VStack(spacing: Theme.Spacing.loose) {
-                SessionSlots(
-                    action: action(at: moment),
-                    qualifier: qualifier(at: moment),
-                    count: count(at: moment)
-                )
-                .dynamicTypeSize(...Self.mostGrowth)
+                Group {
+                    if dynamicTypeSize.isAccessibilitySize {
+                        VStack(spacing: Theme.Spacing.close) {
+                            Text(action(at: moment)).font(.largeTitle)
+                            if let qualifier = qualifier(at: moment) {
+                                Text(qualifier.line).font(.body)
+                            }
+                            if let count = count(at: moment), count.presence > 0 {
+                                Text(count.text).font(.title2).monospacedDigit()
+                            }
+                        }
+                        .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        SessionSlots(
+                            action: action(at: moment),
+                            qualifier: qualifier(at: moment),
+                            count: count(at: moment)
+                        )
+                    }
+                }
                 // One element wearing two strings rather than a branch per
                 // state: a branch gives the slots a second identity, and
                 // SwiftUI then replaces them where they were to crossfade.

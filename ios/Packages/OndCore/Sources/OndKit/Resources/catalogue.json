@@ -1166,14 +1166,14 @@
     },
     {
       "slug": "why-no-scores",
-      "question": "Why doesn't önd score you?",
-      "answer": "A breathing number describes one measurement, taken once.\n\n• Comfortable-pause targets, coherence scores and breathing ages are not established measures of improvement.\n• önd records what you practised, for how long, and how it felt.\n• Your resting breathing rate is compared only with your own earlier measurements.",
+      "question": "What do breathing numbers mean?",
+      "answer": "A breathing number describes one measurement, taken once.\n\n• Comfortable-pause targets, coherence scores and breathing ages are not established measures of improvement.\n• önd records what you practised, for how long, and how it felt.\n• Optional leaderboards compare resting-rate results with other people; a ranking is not a measure of improvement.",
       "answerContent": {
         "lead": "A breathing number describes one measurement, taken once.",
         "items": [
           "Comfortable-pause targets, coherence scores and breathing ages are not established measures of improvement.",
           "önd records what you practised, for how long, and how it felt.",
-          "Your resting breathing rate is compared only with your own earlier measurements."
+          "Optional leaderboards compare resting-rate results with other people; a ranking is not a measure of improvement."
         ],
         "listStyle": "BULLETS"
       }

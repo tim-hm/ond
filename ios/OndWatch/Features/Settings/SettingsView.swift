@@ -1,13 +1,9 @@
 import OndKit
 import SwiftUI
 
-/// One switch, and deliberately nothing else. Everything else the phone lets
-/// somebody set is a decision made sitting down, and the wrist plays what was
-/// decided there; haptics are the exception because the answer changes with
-/// the room you are in. No About row, no version string: a screen padded out
-/// with things that are not settings is worse than a short one.
 struct SettingsView: View {
     @Environment(WatchSettings.self) private var settings
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         @Bindable var settings = settings
@@ -15,6 +11,17 @@ struct SettingsView: View {
         List {
             Toggle("Haptics", isOn: $settings.playsHaptics)
                 .accessibilityHint("Vibrates with each phase of the breath")
+            NavigationLink("Try the cues") { WristCuePreviewView() }
+            Picker(
+                "Breath",
+                selection: reduceMotion ? .constant(.sweeping) : $settings.breathVisual
+            ) {
+                ForEach(BreathVisualStyle.allCases) { style in Text(style.title).tag(style) }
+            }
+            .disabled(reduceMotion)
+            Text(reduceMotion ? "Reduce Motion uses the sweeping guide." :
+                "This guide setting applies to this watch.")
+                .font(.caption2)
         }
         .navigationTitle("Settings")
     }

@@ -27,6 +27,19 @@ public struct SessionHapticShape: Sendable, Equatable {
         /// room, and stopping before the silence that closes the phase. Decided
         /// once, here, so the two renderers cannot each derive their own.
         public let span: Range<Duration>
+
+        public func remaining(after elapsed: Duration) -> Self? {
+            let elapsed = max(.zero, elapsed)
+            let start = max(span.lowerBound, elapsed)
+            guard start < span.upperBound else { return nil }
+            let fraction = Float((start - span.lowerBound) / (span.upperBound - span.lowerBound))
+            return Self(
+                startIntensity: startIntensity + (endIntensity - startIntensity) * fraction,
+                endIntensity: endIntensity,
+                sharpness: sharpness,
+                span: (start - elapsed) ..< (span.upperBound - elapsed)
+            )
+        }
     }
 
     /// A tap repeated while the phase runs, saying it is still running.

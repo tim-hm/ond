@@ -19,7 +19,7 @@ struct OndApp: App {
     /// the journey's sync has one place to drain. Concrete rather than `any
     /// SessionRecording`, because the sync queue also needs its other face —
     /// the tombstones deletions wait in until the server confirms them.
-    let sessions = FileSessionStore()
+    let sessions = FileSessionStore(directory: Self.practiceDirectory)
 
     /// What the screens record through: the same file, with each kept session
     /// also credited to Health as Mindful Minutes. The journey's sync below
@@ -30,11 +30,11 @@ struct OndApp: App {
     /// Controlled-pause scores, kept beside the sessions and for the same
     /// reason — Coach reads them with no network at all. Concrete for
     /// the reason the sessions are: a deletion has to be able to empty it.
-    let scores = FileBoltScoreStore()
+    let scores = FileBoltScoreStore(directory: Self.practiceDirectory)
 
     /// Resting rates, beside the pauses and on the same terms. The second
     /// check-in, and the second store a deletion has to empty.
-    let rates = FileRestingRateStore()
+    let rates = FileRestingRateStore(directory: Self.practiceDirectory)
 
     /// The coach conversations, on this device only — the server keeps no
     /// transcript. Concrete for the reason the sessions are: a deletion has to
@@ -93,6 +93,7 @@ struct OndApp: App {
     /// here, and threading a parameter through every screen between would touch
     /// every one of them.
     @State var plus: SubscriptionStore
+    @State var assistantConsent: AssistantConsentStore
 
     /// Whether the safety terms have been agreed to, and the record of it. Held
     /// here rather than passed into onboarding alone because it is also what
@@ -196,6 +197,7 @@ struct OndApp: App {
         // early; the ordering is the dependency.
         let coach = Self.coach(baseURL: baseURL, identity: identity, health: health)
         _plus = State(wrappedValue: coach.plus)
+        _assistantConsent = State(wrappedValue: coach.consent)
         _heart = State(wrappedValue: coach.heart)
         _assistant = State(wrappedValue: coach.assistant)
 
@@ -252,7 +254,8 @@ struct OndApp: App {
             identity: identity,
             emptying: [
                 queue, sessions, scores, rates, chats, records.profiles, records.consent,
-                warnings, schedules, coach.plus, coach.heart, outbox, stars, choice, settings,
+                warnings, schedules, coach.plus, coach.heart, coach.consent, outbox, stars, choice,
+                settings,
             ],
             onIdentityChange: Self.identityChange(telling: watch, and: journey, reloading: own)
         ))

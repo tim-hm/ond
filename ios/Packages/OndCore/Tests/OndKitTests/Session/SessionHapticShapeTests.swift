@@ -21,6 +21,20 @@ private let wholeCycle = [
 /// The authored phase shapes both device renderers promise to preserve.
 @Suite("Session haptic shapes")
 struct SessionHapticShapeTests {
+    @Test("A resumed envelope preserves its intensity and original ending")
+    func resumesRemainingEnvelope() throws {
+        let shape = try #require(SessionHapticShape(beat: beats(wholeCycle)[0]).envelope)
+        let middle = (shape.span.lowerBound + shape.span.upperBound) / 2
+        let restored = try #require(shape.remaining(after: middle))
+        #expect(restored.span.lowerBound == .zero)
+        #expect(restored.span.upperBound == shape.span.upperBound - middle)
+        #expect(abs(restored.startIntensity - (shape.startIntensity + shape.endIntensity) / 2) <
+            0.001)
+        #expect(restored.endIntensity == shape.endIntensity)
+        #expect(shape.remaining(after: .milliseconds(3800)) == nil)
+        #expect(shape.remaining(after: .milliseconds(100))?.span.lowerBound == .milliseconds(200))
+    }
+
     @Test("A full breath keeps the phone's tuned envelope endpoints")
     func fullBreathEndpoints() throws {
         let cycle = beats(wholeCycle)

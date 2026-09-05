@@ -234,9 +234,13 @@ The tightening path, once a beta window closes, is to refuse `Sandbox` when `con
 
 **The break threshold.** A run ends at `PulseMonitor.staleness`, which is already this feature's answer to "the readings have stopped" — the same silence that blanks the badge mid-session ends a run here. A lost message or two falls under it and stays joined, which is what that threshold was chosen for.
 
-**Both axes normalised to this session.** A fixed axis — nought to two hundred — draws every settling as the same flat line, and the whole reason to show this is that the shape is legible. The cost is that the drawing says nothing about magnitude on its own, which is what `range` is for beside it.
+**Visible vertical scale.** `plotRange` uses a minimum span of 10 bpm so a 1 bpm fluctuation occupies one tenth of the height. Wider measured ranges retain their full span. The labels show this drawing range; `range` remains the actual observed minimum and maximum. Horizontal labels mark the first reading and elapsed time to the session endpoint.
 
 **A flat heart draws down the middle.** A heart that held one rate the whole way through has no spread to divide by and comes back level. That is the honest drawing of it: it neither fell nor rose.
+
+## AI sharing permission
+
+The phone composes `AssistantRepository` through `ConsentedAssistant`. Both recommendations and chat require the versioned local `AssistantConsentStore` agreement before calling the repository, including before reading optional Health context. `CoachChatView` presents the shared disclosure before it mounts any automatic opening question or composer. Settings allows withdrawal; account deletion erases the agreement. Health summaries remain controlled by their separate opt-in. Permission is local to the install, and withdrawal prevents subsequent requests; it cannot retract information already sent.
 
 ## What runs where
 

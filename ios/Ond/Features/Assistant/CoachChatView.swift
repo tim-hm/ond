@@ -21,6 +21,7 @@ struct CoachChatView: View {
     /// The person's own exercises, which a save-this-pattern card writes into.
     /// From the environment for the same reason the journey is.
     @Environment(UserTechniqueModel.self) private var own
+    @Environment(AssistantConsentStore.self) private var consent
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var model: CoachChatModel
@@ -74,6 +75,21 @@ struct CoachChatView: View {
         // `VStack`, so the transcript keeps the whole screen and scrolls under
         // both it and the tab bar. Stacked, the two chrome bars ate the bottom
         // of every conversation and the newest turn was the one they hid.
+        Group {
+            if consent.isAllowed {
+                permittedConversation
+            } else {
+                AssistantConsentView()
+            }
+        }
+        .onChange(of: consent.isAllowed) { _, allowed in
+            if !allowed {
+                model.cancel()
+            }
+        }
+    }
+
+    private var permittedConversation: some View {
         conversation
             .safeAreaInset(edge: .bottom) {
                 CoachComposer(

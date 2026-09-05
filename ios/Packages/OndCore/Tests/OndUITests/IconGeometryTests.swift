@@ -1,4 +1,5 @@
 import Foundation
+import OndUI
 import Testing
 
 /// The open mark's dash pattern and rotation are worked out by hand from its
@@ -9,11 +10,11 @@ import Testing
 @Suite("Icon ring geometry")
 struct IconGeometryTests {
     /// The gap between the round cap ends, in degrees.
-    private static let gap = 60.0
+    private static let gap = OpenRingGeometry.gap
 
     /// Where that gap centres, clockwise from three o'clock — the point an SVG
     /// circle's path starts at. Lower left, where the breath leaves.
-    private static let opening = 135.0
+    private static let opening = OpenRingGeometry.opening
 
     /// A number rounded to one decimal sits up to half of that from the value
     /// it states.
@@ -23,6 +24,25 @@ struct IconGeometryTests {
 
     private static let assets = ColorSet.iosDirectory
         .appending(path: "Ond/AppIcon.icon/Assets")
+
+    @Test("The browser favicon uses the app's ring geometry")
+    func faviconMatchesIcon() throws {
+        let icon = try Ring(in: Self.assets.appending(path: "RingDark.svg"))
+        let favicon = try Ring(in: ColorSet.iosDirectory.deletingLastPathComponent()
+            .appending(path: "web/favicon.svg"))
+        #expect(favicon.radius == icon.radius)
+        #expect(favicon.strokeWidth == icon.strokeWidth)
+        #expect(favicon.dash == icon.dash)
+        #expect(favicon.gap == icon.gap)
+        #expect(favicon.rotation == icon.rotation)
+    }
+
+    @Test("The complication and phone icon share their dimensions", arguments: files)
+    func complicationMatchesIcon(file: String) throws {
+        let ring = try Ring(in: Self.assets.appending(path: file))
+        #expect(ring.radius / 1024 == OpenRingGeometry.radius)
+        #expect(ring.strokeWidth / 1024 == OpenRingGeometry.stroke)
+    }
 
     @Test("each ring's dash pattern follows its own radius", arguments: files)
     func dashPatternFollowsTheRadius(file: String) throws {
@@ -60,9 +80,8 @@ struct IconGeometryTests {
         #expect(!svg.contains("Gradient"), "\(file) states a gradient")
     }
 
-    /// Icon Composer takes one file per appearance, so the drawing is written
-    /// twice. Only the stroke may differ between them.
-    @Test("the two rings are one drawing in two colours")
+    /// Appearance layers must retain the same outline.
+    @Test("the two appearances use one ring drawing")
     func bothRingsDrawTheSameMark() throws {
         let drawings = try Self.files.map { file in
             try String(contentsOf: Self.assets.appending(path: file), encoding: .utf8)

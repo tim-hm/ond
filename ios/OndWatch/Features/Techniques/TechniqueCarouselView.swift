@@ -3,11 +3,6 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The catalogue: one technique to a page, turned with the Digital Crown.
-/// Shaped like a Fitness workout card, for the same reason — a wrist screen
-/// holds one picture, one name and one button before it stops being
-/// glanceable. The intent word, cadence and summary have gone: none is read
-/// while choosing on a watch, and all are a tap away in the hand.
 struct TechniqueCarouselView: View {
     let model: TechniqueListModel
     let sessions: any SessionRecording
@@ -105,14 +100,12 @@ struct TechniqueCarouselView: View {
                     .multilineTextAlignment(.center)
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
 
-                // The one number that survived the redesign, because it is the
-                // one that changes the answer: two minutes and nine minutes are
-                // different decisions, and the rest of what a card used to carry
-                // is not read on a wrist.
-                Text(technique.plannedDuration.formatted(.time(pattern: .minuteSecond)))
-                    .font(.caption2)
-                    .monospacedDigit()
-                    .foregroundStyle(Theme.Ink.tertiary)
+                Text(
+                    "\(technique.goal.title) · \(technique.plannedDuration.formatted(.time(pattern: .minuteSecond)))"
+                )
+                .font(.caption2)
+                .monospacedDigit()
+                .foregroundStyle(Theme.Ink.tertiary)
             }
             .accessibilityElement(children: .combine)
 

@@ -20,9 +20,6 @@ struct SessionHistoryRow: View {
     /// construct the style once a row.
     private static let clock = Date.FormatStyle(date: .omitted, time: .shortened)
 
-    /// The length beside it — minutes and seconds, as a stopwatch reads.
-    private static let length = Duration.TimeFormatStyle(pattern: .minuteSecond)
-
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.close) {
             dot
@@ -95,19 +92,13 @@ struct SessionHistoryRow: View {
             .foregroundStyle(Theme.Ink.secondary)
     }
 
-    /// `08:10 · 5:00`, and `08:10 · stopped 1:12` where the person ended it by
-    /// hand. The length is what was breathed either way: `SessionRecord` never
-    /// carries the plan it fell short of.
     private var stampLine: String {
         let ending = record.completed ? "" : "stopped "
         return "\(record.startedAt.formatted(Self.clock)) · \(ending)"
-            + record.duration.formatted(Self.length)
+            + record.duration.formatted(.units(allowed: [.minutes, .seconds], width: .abbreviated))
     }
 
-    /// The row as one sentence, in words rather than in the printed
-    /// separators, which read as punctuation nobody wrote. Both units are
-    /// spoken: `Duration.spelled` keeps one, which would say "1 minute" beside
-    /// a printed 1:12 — the drift the row's one format constant exists to stop.
+    /// Speak both duration units so partial minutes are not lost.
     private var spokenLabel: String {
         let ending = record.completed ? "" : "stopped after "
         let length = record.duration

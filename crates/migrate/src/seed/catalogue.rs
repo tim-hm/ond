@@ -792,13 +792,13 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
     },
     FoundationSeed {
         slug: "why-no-scores",
-        question: "Why doesn't önd score you?",
+        question: "What do breathing numbers mean?",
         answer: bullets(
             "A breathing number describes one measurement, taken once.",
             &[
                 "Comfortable-pause targets, coherence scores and breathing ages are not established measures of improvement.",
                 "önd records what you practised, for how long, and how it felt.",
-                "Your resting breathing rate is compared only with your own earlier measurements.",
+                "Optional leaderboards compare resting-rate results with other people; a ranking is not a measure of improvement.",
             ],
         ),
     },

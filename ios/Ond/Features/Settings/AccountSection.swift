@@ -146,7 +146,6 @@ struct AccountSection: View {
             }
             .tint(Theme.Accent.brand)
             .accessibilityIdentifier("settings-account-subscription")
-            .accessibilityLabel("Subscription")
             .accessibilityValue(subscriptionAccessibilityValue)
             .accessibilityHint(subscriptionAccessibilityHint)
         }

@@ -10,9 +10,17 @@ final class SessionCues: SessionCueing {
     private let haptics: HapticController?
     private let audio: SessionAudioPlayer?
 
-    init(mode: SessionCueMode, strength: HapticStrength) {
-        haptics = mode.playsHaptics ? HapticController(strength: strength) : nil
-        audio = mode.playsAudio ? SessionAudioPlayer() : nil
+    init(
+        mode: SessionCueMode,
+        strength: HapticStrength,
+        sound: SessionSoundStyle = .current,
+        simulatesEngineFailure: Bool = false
+    ) {
+        haptics = mode.playsHaptics ? HapticController(
+            strength: strength,
+            simulatesEngineFailure: simulatesEngineFailure
+        ) : nil
+        audio = mode.playsAudio ? SessionAudioPlayer(style: sound) : nil
     }
 
     /// Sound is the whole of the answer: background runtime is granted for
@@ -37,10 +45,13 @@ final class SessionCues: SessionCueing {
         audio?.pause()
     }
 
-    /// Only sound resumes. A swell the pause stopped stays stopped until the
-    /// next boundary, for the reason `HapticController.pause()` gives.
+    /// Restore the audio runtime before the model restores the remaining phase texture.
     func resume() {
         audio?.resume()
+    }
+
+    func restore(_ beat: SessionTimeline.Beat, at elapsed: Duration) {
+        haptics?.restore(beat, at: elapsed)
     }
 
     func play(_ beat: SessionTimeline.Beat) {

@@ -89,8 +89,16 @@ final class OndAppUITests: XCTestCase {
     /// button instead — which is where `tapSwitchControl` aims.
     private func reveal(_ element: XCUIElement) {
         let tabBar = app.tabBars.firstMatch
-        for _ in 0 ..< 8 where !element.isHittable || element.frame.intersects(tabBar.frame) {
-            app.swipeUp()
+        for _ in 0 ..< 24 where !element.isHittable || element.frame.intersects(tabBar.frame) {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+            let finish = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+            if element.exists, !element.frame.isEmpty,
+               element.frame.maxY < app.navigationBars["Settings"].frame.maxY + 48
+            {
+                finish.press(forDuration: 0.05, thenDragTo: start)
+            } else {
+                start.press(forDuration: 0.05, thenDragTo: finish)
+            }
         }
         XCTAssertTrue(element.isHittable, "\(element) should appear in Settings")
     }
@@ -101,7 +109,7 @@ final class OndAppUITests: XCTestCase {
 
     private func assertPaywallOpensAndCloses() {
         XCTAssertTrue(
-            app.staticTexts["Everything that works offline stays free. Forever."]
+            app.staticTexts["paywall-headline"]
                 .waitForExistence(timeout: 5)
         )
         app.buttons["Not now"].tap()
@@ -253,7 +261,7 @@ final class OndAppUITests: XCTestCase {
         // The empty journal this harness launches on: the chart draws its
         // baseline and says so, and nothing that needs a row draws at all.
         XCTAssertTrue(app.descendants(matching: .any)["practice-chart"].exists)
-        XCTAssertTrue(app.staticTexts["This chart fills in once you have practised."].exists)
+        XCTAssertTrue(app.staticTexts["Your practice minutes will appear here."].exists)
         XCTAssertFalse(app.buttons["leaderboards-door"].exists)
 
         try app.performAccessibilityAudit { issue in
@@ -451,8 +459,8 @@ final class OndAppUITests: XCTestCase {
         XCTAssertTrue(basics.waitForExistence(timeout: 10))
         basics.tap()
 
-        let lead = app.staticTexts["How exact does it need to be?"]
-        XCTAssertTrue(lead.waitForExistence(timeout: 10))
+        let lead = app.descendants(matching: .any)["reading-what-matters-most-heading"]
+        XCTAssertTrue(lead.waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertTrue(lead.isHittable, "the practice-first message should appear without scrolling")
 
         try app.performAccessibilityAudit { issue in

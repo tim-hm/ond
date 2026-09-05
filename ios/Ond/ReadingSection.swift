@@ -46,6 +46,7 @@ struct ReadingSection: View {
                                 .font(.headline)
                                 .foregroundStyle(Theme.Ink.primary)
                                 .accessibilityAddTraits(.isHeader)
+                                .accessibilityIdentifier("reading-\(topic.id)-heading")
 
                             if let grade = topic.grade {
                                 EvidenceChip(grade: grade, color: Theme.Ink.primary)

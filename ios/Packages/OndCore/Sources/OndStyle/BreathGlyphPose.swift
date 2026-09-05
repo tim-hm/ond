@@ -6,11 +6,7 @@ import SwiftUI
 /// shape — `OndUI` owns what the glyph *is*, this file owns where a breath
 /// puts it. The `BreathFigurePose` split, for the same reason.
 public extension BreathGlyph.Pose {
-    /// How long a hold's crossfade takes, straddling the phase boundary: it
-    /// starts before the hold begins and finishes after, so the core's hold
-    /// colour reads as the breath arriving at the top rather than as
-    /// something added. Linear, deliberately — an eased fade over eight
-    /// tenths of a second reads as a flicker.
+    /// The hold tint starts at the phase boundary, never before the hold instruction.
     static let holdCrossfade = Duration.milliseconds(800)
 
     /// The breath at one instant — a pure function of the frozen clock, so
@@ -78,12 +74,16 @@ public extension BreathGlyph.Pose {
     /// the shared component sweeps alike everywhere; the phone session is §6's
     /// derivative and parks in its own envelope. The hold arrives over the
     /// timeline's crossfade, which only a surface with a clock can measure.
-    static func sweeping(timeline: SessionTimeline, elapsed: Duration) -> BreathGlyph.Pose {
+    static func sweeping(
+        timeline: SessionTimeline,
+        elapsed: Duration,
+        level: Double = 1
+    ) -> BreathGlyph.Pose {
         let hold = timeline.beat(at: elapsed).map {
             holdPresence(near: $0, in: timeline, at: elapsed)
         }
 
-        return BreathGlyph.Pose(level: 1, holdPresence: hold ?? 0)
+        return BreathGlyph.Pose(level: level, holdPresence: hold ?? 0)
     }
 
     /// Whether a pushed frame is a hold on screen. Whole numbers only: an
@@ -110,75 +110,18 @@ public extension BreathGlyph.Pose {
         )
     }
 
-    /// How present the hold nearest `beat` is — a pure function of the
-    /// timeline, not a triggered animation, so scrubbing and pausing land on
-    /// the right frame with nothing to cancel. Each hold contributes a clamped
-    /// trapezoid. Boundaries are the beats' absolute edges on purpose: the turn
-    /// gap shaves the *breathing* sub-interval, and this fade is the boundary's.
+    /// Open holds freeze the plan clock, so their tint must arrive at the boundary.
     static func holdPresence(
         near beat: SessionTimeline.Beat,
-        in timeline: SessionTimeline,
+        in _: SessionTimeline,
         at elapsed: Duration
     ) -> Double {
-        // Only the current beat and its neighbours can overlap a crossfade
-        // window: the ramps are clamped to at most half a neighbour's span.
-        // A plain loop, not a filter/map chain — this runs every frame, and
-        // the chain's transient arrays were the pose's whole allocation cost.
-        var presence = 0.0
-        for index in (beat.id - 1) ... (beat.id + 1) {
-            guard let hold = Self.beat(index, in: timeline), hold.kind.isHold else { continue }
-            presence = max(presence, ramp(of: hold, in: timeline, at: elapsed))
+        guard beat.kind.isHold, elapsed >= beat.start else { return 0 }
+        if beat.isOpenEnded || beat.id == 0 {
+            return 1
         }
-        return presence
-    }
-
-    /// One hold's trapezoid at `elapsed`. An open-ended hold completes its
-    /// fade *at* the boundary: a retention freezes the plan clock on its
-    /// start, so a ramp still rising there would leave the count half-faded
-    /// all hold — and its fall is never scripted, since the release is the
-    /// person's. A hold with no beat before it arrives complete the same way.
-    private static func ramp(
-        of hold: SessionTimeline.Beat,
-        in timeline: SessionTimeline,
-        at elapsed: Duration
-    ) -> Double {
-        let previous = beat(hold.id - 1, in: timeline)
-        let next = beat(hold.id + 1, in: timeline)
-
-        let rise = window(hold.duration, beside: previous?.duration)
-        let riseStart = hold.isOpenEnded || previous == nil
-            ? hold.start - rise
-            : hold.start - rise / 2
-        // A final or open-ended hold has no scripted boundary to fade across:
-        // the count stays until the session leaves it.
-        let fall = hold.isOpenEnded ? nil : next.map { window(hold.duration, beside: $0.duration) }
-
-        let rising = fraction(of: elapsed, from: riseStart, over: rise)
-        let falling = fall.map { 1 - fraction(of: elapsed, from: hold.end - $0 / 2, over: $0) } ?? 1
-
-        return max(0, min(rising, falling))
-    }
-
-    /// The beat at `index`, or nil off either end of the plan.
-    private static func beat(_ index: Int, in timeline: SessionTimeline) -> SessionTimeline.Beat? {
-        timeline.beats.indices.contains(index) ? timeline.beats[index] : nil
-    }
-
-    /// A crossfade window clamped to what the hold and its neighbour afford:
-    /// half of each side's span at most, so the ramp never outlives the beat
-    /// it is straddling into.
-    private static func window(_ hold: Duration, beside neighbour: Duration?) -> Duration {
-        min(holdCrossfade, hold, neighbour ?? hold)
-    }
-
-    /// Linear progress of `elapsed` through a window, clamped 0...1.
-    private static func fraction(
-        of elapsed: Duration,
-        from start: Duration,
-        over span: Duration
-    ) -> Double {
-        guard span > .zero else { return elapsed >= start ? 1 : 0 }
-
-        return min(1, max(0, (elapsed - start) / span))
+        let rise = min(holdCrossfade, beat.duration / 2)
+        guard rise > .zero else { return 1 }
+        return min(1, max(0, (elapsed - beat.start) / rise))
     }
 }

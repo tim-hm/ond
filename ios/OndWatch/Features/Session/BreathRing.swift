@@ -3,16 +3,9 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The thing you breathe with, filling the face: the shared breath geometry
-/// at wrist size, every layer but the outermost ring, which a 132-point frame
-/// has no room for. Over it, the session's own arc. Under Reduce Motion the
-/// breath parks at the top of its travel and a phase-filling ring is wound
-/// around it — scaling is what that setting stops, not the shape itself.
 struct BreathRing: View {
     let beat: SessionTimeline.Beat?
     let elapsed: Duration
-    /// The whole plan, not just the beat: the session arc fills once over the
-    /// whole of it, which only the timeline can measure.
     let timeline: SessionTimeline
     let accent: Color
     /// The square the breath draws in, resolved by the caller once per layout
@@ -31,28 +24,26 @@ struct BreathRing: View {
     /// stops giving room back here and lets them overlap it instead.
     static let leastSide: CGFloat = designSide / 2
 
-    /// Where the session arc sits, as a fraction of the frame — §3's 96 points
-    /// on the 132-point face. A fraction so it follows the glyph down on a
-    /// case that cannot hold the whole of it. It cannot be read off the glyph:
-    /// the rings under it breathe between 0.62 and 1.06 of their size, so no
-    /// ring holds still long enough for a static mark to ride it.
-    private static let arcRatio = 96.0 / 132
-
     /// The phase ring's stroke. A fixed weight rather than a fraction of the
     /// frame: on the case that gives the breath room back, the ring is what
     /// still has to be read across a room.
     private static let phaseLineWidth: CGFloat = 8
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(WatchSettings.self) private var settings
+
+    private var drawsArc: Bool {
+        settings.breathVisual.drawn(underReduceMotion: reduceMotion) == .sweeping
+    }
 
     var body: some View {
         ZStack {
-            BreathGlyph(side: side, pose: pose, layers: .card)
+            BreathGlyph(side: side, pose: pose, layers: .core)
+            Circle()
+                .stroke(Theme.Breath.exhale.opacity(0.3), lineWidth: 1)
+                .frame(width: side, height: side)
 
-            SessionArc(fraction: timeline.progress(at: elapsed))
-                .frame(width: side * Self.arcRatio, height: side * Self.arcRatio)
-
-            if reduceMotion {
+            if drawsArc {
                 phaseRing
                     .animation(.easeInOut(duration: 0.4), value: isStill)
             }
@@ -64,8 +55,8 @@ struct BreathRing: View {
     /// parked while the ring around it carries the phase. Both mappings are
     /// `OndStyle`'s, so the wrist parks where the Dynamic Island parks.
     private var pose: BreathGlyph.Pose {
-        reduceMotion
-            ? .sweeping(timeline: timeline, elapsed: elapsed)
+        drawsArc
+            ? .sweeping(timeline: timeline, elapsed: elapsed, level: 0.5)
             : BreathGlyph.Pose(timeline: timeline, elapsed: elapsed)
     }
 

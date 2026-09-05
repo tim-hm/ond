@@ -69,6 +69,27 @@ struct OnboardingOptInsTests {
         }
     }
 
+    @Test("Skip discards optional choices and leaves fresh permissions unrequested")
+    func skippingDoesNotOptIn() async {
+        let preferences = defaults("skip-grants")
+        let spy = SpyHealthStore()
+        let health = healthContext(spy, defaults: preferences)
+        let settings = SessionSettings(defaults: preferences)
+        let model = model(settings: settings, health: health, named: "skip-grants")
+        openTheOptIns(model)
+        model.optIns.coachReadsHealthTrends = true
+        model.optIns.writesMindfulMinutes = true
+        model.optIns.showsWristPulse = true
+        model.reminderIntensity = .daily
+        model.skip()
+        await model.requestOptInGrants()
+        #expect(model.reminderIntensity == .never)
+        #expect(!health.coachReadsHealthTrends)
+        #expect(!health.writesMindfulMinutes)
+        #expect(!settings.showsWristPulse)
+        #expect(await spy.calls.isEmpty)
+    }
+
     /// The switches reach the stores that own them, and nothing on the way
     /// there asks the system for anything — which is what the step's own footer
     /// promises.
@@ -136,11 +157,11 @@ struct OnboardingOptInsTests {
 
         openTheOptIns(model)
         model.optIns.coachReadsHealthTrends = true
+        model.optIns.writesMindfulMinutes = true
         model.advance()
         await model.requestOptInGrants()
 
-        // Mindful Minutes is on by default, so both grants are owed — writes
-        // first, which is the one a straight-through install meets alone.
+        // Both choices were explicitly enabled.
         await #expect(spy.calls == [.requestedMindfulWrite, .requestedRead])
 
         // And the opt-in survives the launch the flow ran in.

@@ -32,7 +32,7 @@ public enum LeaderboardLines {
     /// it; the card says both as one sentence. One spelling, because two of
     /// them drift apart and only one of them is under test.
     public static let unreachable = "Leaderboards need a connection"
-    public static let unreachableDetail = "Everything else here is on your phone and stays there."
+    public static let unreachableDetail = "Your practice history is available offline. Sync resumes when you reconnect."
 
     /// The opt-in, in the words the whole feature is bound by.
     private static let unlisted =

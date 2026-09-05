@@ -10,6 +10,16 @@ import Testing
 @MainActor
 @Suite("Watch settings")
 struct WatchSettingsTests {
+    @Test("The wrist guide preference persists independently of the phone")
+    func remembersItsOwnGuide() throws {
+        let defaults = try emptyDefaults()
+        let watch = WatchSettings(defaults: defaults)
+        #expect(watch.breathVisual == .scaling)
+        watch.breathVisual = .sweeping
+        #expect(WatchSettings(defaults: defaults).breathVisual == .sweeping)
+        #expect(SessionSettings(defaults: defaults).breathVisual == .scaling)
+    }
+
     /// A suite nobody has written to, and a name nothing else uses — the shared
     /// default would carry state between these tests and into the next launch.
     private func emptyDefaults() throws -> UserDefaults {

@@ -1,11 +1,6 @@
 import OndKit
 import SwiftUI
 
-/// Why somebody is looking at the paywall. The presenting surface knows what
-/// the person ran into, and that decides which entitlement dismisses the
-/// sheet; the visible pitch stays identical because there is one subscription.
-/// A dedicated enum rather than a `SubscriptionTier`, which would let a
-/// caller pass `.free` — a context that means nothing.
 enum PaywallContext: Sendable, Equatable {
     /// The Coach tab, a coach door on a technique, or the suggestion strip.
     case coach
@@ -17,6 +12,26 @@ enum PaywallContext: Sendable, Equatable {
     case watch
     /// Settings, and anywhere else nobody ran into a wall to get here.
     case general
+
+    var headline: String {
+        switch self {
+        case .coach: "Find a breathing practice that fits your day."
+        case .watch: "Start on your phone. Follow on your wrist."
+        case .health: "Put your practice in context."
+        case .leaderboards: "Share your practice, on your terms."
+        case .general: "Make room for a regular breathing practice."
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .coach: "Ask for a comfortable pace or a short break, and get an exercise you can start."
+        case .watch: "Choose the session on your phone and follow its guidance on your Apple Watch."
+        case .health: "See Health trends alongside your practice and choose whether to share summaries with the coach."
+        case .leaderboards: "Choose whether to appear on the boards. Your name and participation are optional."
+        case .general: "Get help choosing a practice, connect your phone and watch, and explore your Health trends."
+        }
+    }
 
     /// What would open the thing they ran into, read from `SubscriptionTier`'s
     /// named lever rather than written as `.plus`: a feature repriced at its

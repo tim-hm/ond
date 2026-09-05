@@ -61,7 +61,10 @@ struct HealthSettingsSection: View {
             Toggle(isOn: $coachReadsHealthTrends) {
                 settingsLabel(
                     "Heart and sleep data",
-                    description: healthTrendsNeedsPlus ? SubscriptionTier.plusRequirementNote : nil
+                    description: "Summaries can be sent to Amazon Bedrock for coaching after AI sharing permission. "
+                        +
+                        (healthTrendsNeedsPlus ? SubscriptionTier
+                            .plusRequirementNote : "Raw readings stay on this device.")
                 )
             }
             .accessibilityIdentifier("settings-health-watch-trends")

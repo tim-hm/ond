@@ -12,11 +12,21 @@ public enum ToneSynthesizer {
         /// Offset from the start of the buffer, in seconds.
         let start: Double
         let duration: Double
+        let attack: Double
+        let gain: Double
 
-        public init(_ frequency: Double, start: Double = 0, duration: Double) {
+        public init(
+            _ frequency: Double,
+            start: Double = 0,
+            duration: Double,
+            attack: Double = 0.02,
+            gain: Double = 1
+        ) {
             self.frequency = frequency
             self.start = start
             self.duration = duration
+            self.attack = max(0.001, attack)
+            self.gain = min(1, max(0, gain))
         }
     }
 
@@ -24,9 +34,6 @@ public enum ToneSynthesizer {
     /// Well below full scale. These play over whatever else is going on, and a
     /// breathing cue that startles has failed at its job.
     private static let amplitude: Double = 0.32
-    /// Long enough to keep the onset from clicking, short enough to still read
-    /// as a cue landing on the beat.
-    private static let attack: Double = 0.02
 
     /// Mono 16-bit PCM at 44.1 kHz — the format every Apple audio path decodes
     /// without resampling.
@@ -41,8 +48,8 @@ public enum ToneSynthesizer {
             for frame in 0 ..< length where offset + frame < samples.count {
                 let time = Double(frame) / sampleRate
                 let value = sin(2 * .pi * note.frequency * time)
-                    * envelope(at: time, of: note.duration)
-                    * amplitude
+                    * envelope(at: time, of: note.duration, attack: note.attack)
+                    * amplitude * note.gain
                 // Summed rather than assigned so overlapping notes can chord.
                 // Summed in `Int32` and narrowed by clamping, so a chord that
                 // peaks together saturates instead of wrapping to the opposite
@@ -66,7 +73,7 @@ public enum ToneSynthesizer {
 
     /// Fade in, then decay to silence — a struck-bell shape. Both ends taper to
     /// zero, because a waveform cut mid-cycle is a click.
-    private static func envelope(at time: Double, of duration: Double) -> Double {
+    private static func envelope(at time: Double, of duration: Double, attack: Double) -> Double {
         let rise = min(time / attack, 1)
         let fall = min((duration - time) / attack, 1)
         return rise * fall * exp(-3.5 * time / duration)

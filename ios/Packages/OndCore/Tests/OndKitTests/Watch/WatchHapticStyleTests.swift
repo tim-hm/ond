@@ -4,6 +4,31 @@ import Testing
 /// The sparse watch translation of the phone-authored haptic envelope.
 @Suite("Watch haptic style")
 struct WatchHapticStyleTests {
+    @Test("Audition alternatives reduce interior pulses while preserving hold identity")
+    func previewAlternatives() {
+        let beat = beat(for: [fullInhale])
+        let current = WatchHapticStyle()
+        let sparse = WatchHapticStyle(preview: .sparse)
+        let boundary = WatchHapticStyle(preview: .boundary)
+        #expect(boundary.pulses(for: beat).isEmpty)
+        #expect(!sparse.pulses(for: beat).isEmpty)
+        #expect(sparse.pulses(for: beat).count < current.pulses(for: beat).count)
+        #expect(boundary.holdTap(for: .holdIn) != boundary.holdTap(for: .holdOut))
+    }
+
+    @Test("Resume keeps future pulse deadlines and never replays missed pulses")
+    func resumesRemainingPulses() {
+        let beat = beat(for: [fullInhale])
+        let style = WatchHapticStyle()
+        let elapsed = beat.start + .seconds(2)
+        let remaining = style.remainingPulses(for: beat, at: elapsed)
+        let delay: Duration = beat.opensStage ? .milliseconds(350) : .zero
+        let expected = style.pulses(for: beat, cueDelay: delay).filter { $0 > .seconds(2) }
+        #expect(!remaining.isEmpty)
+        #expect(remaining.map { $0 + .seconds(2) } == expected)
+        #expect(style.remainingPulses(for: beat, at: beat.end).isEmpty)
+    }
+
     private func beat(
         for phases: [Phase],
         at index: Int = 0

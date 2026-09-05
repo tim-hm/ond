@@ -10,6 +10,11 @@ import Observation
 @Observable
 public final class WatchSettings {
     private static let hapticsKey = "session.haptics"
+    private static let visualKey = "watch.breathVisual"
+
+    public var breathVisual: BreathVisualStyle {
+        didSet { defaults.set(breathVisual.rawValue, forKey: Self.visualKey) }
+    }
 
     /// Whether session haptics are felt. Off leaves a visual-only session, which
     /// is the whole point of the switch: the same technique, silently, for a
@@ -25,5 +30,7 @@ public final class WatchSettings {
         // Assigning in an initialiser does not run `didSet`, which is what
         // keeps this from writing back the value it just read.
         playsHaptics = defaults.flag(forKey: Self.hapticsKey, default: true)
+        breathVisual = defaults.string(forKey: Self.visualKey)
+            .flatMap(BreathVisualStyle.init(rawValue:)) ?? .scaling
     }
 }

@@ -44,7 +44,7 @@ Each entry says what is open, why it was left, and what closes it.
 
 **A wrist emptied by the paywall says the wrong thing.** `unlocked(for:)` can in principle leave the carousel with no page and the Moments list with none to draw. The carousel then shows a blank `TabView`, and the list falls to "No moments yet", which blames the network for a subscription. Neither can happen now: `crates/migrate/src/seed/invariants.rs` asserts that no seeded technique requires a subscription, so the filter never removes anything. _Closes when the first paid technique ships, which is what makes both states reachable._
 
-**The complication copies the icon's ring by hand.** `OndWatchComplication/OpenRingMark.swift` repeats the radius, stroke, gap and opening from `ios/Ond/AppIcon.icon/Assets/RingDark.svg`, and says so. Nothing checks the two agree, so a retuned icon is a silent two-place edit. _Closes when one of them derives from the other, or a check compares them._
+**Resolved: complication and icon geometry are checked together.** The complication uses `OndUI/OpenRingMark.swift` and shared `OpenRingGeometry`. `IconGeometryTests` verifies the phone SVG dimensions, cap-adjusted gap and opening, plus favicon parity. Icon A was applied across these surfaces on 2026-09-05.
 
 **A discreet wrist session cannot carry a register.** Neither `WristSessionHandoff` nor `DiscreetSessionModel` holds one, so that summary always uses the plain words. Nothing in the seed forbids a moment that is both playful and discreet, and one would speak playfully and then end plainly. _Closes when the register reaches the wrist's discreet path._
 

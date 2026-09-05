@@ -25,7 +25,7 @@ public extension OnboardingModel {
             asksHowYouFeel: true,
             showsWristPulse: false,
             coachReadsHealthTrends: false,
-            writesMindfulMinutes: true
+            writesMindfulMinutes: false
         )
     }
 }

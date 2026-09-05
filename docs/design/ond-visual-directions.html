@@ -1,0 +1,797 @@
+<meta charset="utf-8" />
+<style>
+  #ond-directions {
+    color-scheme: light dark;
+  }
+  #ond-directions .ond-phone {
+    --ond-ground: light-dark(#edf3f6, #171e23);
+    --ond-paper: light-dark(#ffffff, #222b31);
+    --ond-ink: light-dark(#202d34, #edf3f5);
+    --ond-muted: light-dark(#53636c, #b0bec6);
+    --ond-line: light-dark(#d5dfe4, #3e4b53);
+    --ond-accent: light-dark(#146779, #91d6db);
+    --ond-tint: light-dark(#dfedf1, #293e46);
+    --ond-button: light-dark(#1b292f, #edf3f5);
+    --ond-button-text: light-dark(#ffffff, #19262d);
+    --ond-serif: Georgia, "Times New Roman", serif;
+    --ond-type: 1;
+    width: min(100%, 390px);
+    margin: 16px auto 0;
+    box-sizing: border-box;
+    color: var(--ond-ink);
+    background: var(--ond-ground);
+    border: 1px solid var(--ond-line);
+    border-radius: 34px;
+    overflow: clip;
+    font:
+      16px/1.45 -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
+  }
+  #ond-directions .ond-phone[data-direction="warm"] {
+    --ond-ground: light-dark(#f7f4ed, #211f1c);
+    --ond-paper: light-dark(#fffdf8, #2b2925);
+    --ond-ink: light-dark(#283c39, #f1eee5);
+    --ond-muted: light-dark(#5c6a64, #bbbeb2);
+    --ond-line: light-dark(#dbded4, #454b42);
+    --ond-accent: light-dark(#286c65, #a1d4c7);
+    --ond-tint: light-dark(#e5ece1, #303e35);
+    --ond-button: light-dark(#283e39, #e5eee3);
+    --ond-button-text: light-dark(#ffffff, #243c34);
+  }
+  #ond-directions .ond-phone *,
+  #ond-directions .ond-phone *::before,
+  #ond-directions .ond-phone *::after {
+    box-sizing: border-box;
+  }
+  #ond-directions .ond-phone button {
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+  #ond-directions .ond-phone button:disabled {
+    cursor: default;
+  }
+  #ond-directions .ond-phone [hidden] {
+    display: none !important;
+  }
+  #ond-directions .ond-status {
+    display: flex;
+    justify-content: space-between;
+    padding: 15px 28px 0;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  #ond-directions .ond-status-right {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+  #ond-directions .ond-battery {
+    height: 10px;
+    width: 22px;
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    padding: 1px;
+  }
+  #ond-directions .ond-battery::after {
+    content: "";
+    display: block;
+    width: 85%;
+    height: 100%;
+    background: currentColor;
+    border-radius: 1px;
+  }
+  #ond-directions .ond-brand {
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+    padding: 22px 25px 0;
+  }
+  #ond-directions .ond-wordmark {
+    font: 46px/1 var(--ond-serif);
+    letter-spacing: -3px;
+  }
+  #ond-directions .ond-brand span:last-child {
+    font-size: 16px;
+    color: var(--ond-muted);
+  }
+  #ond-directions .ond-screen {
+    min-height: 632px;
+  }
+  #ond-directions .ond-home {
+    padding: 0 25px 24px;
+    text-align: center;
+  }
+  #ond-directions .ond-orbit {
+    width: min(100%, 276px);
+    aspect-ratio: 1;
+    position: relative;
+    margin: 35px auto 26px;
+    display: grid;
+    place-items: center;
+  }
+  #ond-directions .ond-orbit::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--ond-line);
+    border-radius: 50%;
+  }
+  #ond-directions .ond-orb {
+    width: 77%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(circle at 33% 22%, #e0fbff 0%, #86dbe6 22%, #3cbed0 53%, #247e94 83%, #18556c 100%);
+    box-shadow:
+      inset -9px -14px 24px #174e6c24,
+      0 16px 35px #326e8d20;
+  }
+  #ond-directions [data-direction="warm"] .ond-orb {
+    background: radial-gradient(circle at 38% 28%, #daefdf 0%, #a3d7c7 27%, #73b9ad 56%, #4e928a 80%, #36736f 100%);
+    box-shadow:
+      inset -8px -12px 28px #31564f16,
+      0 14px 35px #527b6a12;
+  }
+  #ond-directions .ond-home h1 {
+    margin: 0;
+    font: calc(33px * var(--ond-type))/1.15 var(--ond-serif);
+    letter-spacing: -0.7px;
+  }
+  #ond-directions .ond-subtitle {
+    margin: 13px 0 25px;
+    font-size: calc(16px * var(--ond-type));
+    color: var(--ond-muted);
+  }
+  #ond-directions .ond-primary {
+    width: 100%;
+    padding: 15px 18px;
+    min-height: 54px;
+    border: 0;
+    border-radius: 28px;
+    background: var(--ond-button);
+    color: var(--ond-button-text) !important;
+    font-size: calc(17px * var(--ond-type)) !important;
+    font-weight: 600 !important;
+  }
+  #ond-directions .ond-choice {
+    min-height: 46px;
+    padding: 10px 0 0;
+    border: 0;
+    background: transparent;
+    font-size: calc(14px * var(--ond-type)) !important;
+    color: var(--ond-muted) !important;
+  }
+  #ond-directions .ond-tabs {
+    padding: 8px 9px 13px;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    border-top: 1px solid var(--ond-line);
+    background: var(--ond-paper);
+  }
+  #ond-directions .ond-tab {
+    border: 0;
+    padding: 7px 1px;
+    background: transparent;
+    min-height: 52px;
+    color: var(--ond-muted) !important;
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    font-size: 10px !important;
+  }
+  #ond-directions .ond-tab[aria-current="page"] {
+    color: var(--ond-accent) !important;
+    background: var(--ond-tint);
+    border-radius: 16px;
+  }
+  #ond-directions .ond-tab svg {
+    width: 21px;
+    height: 21px;
+  }
+  #ond-directions .ond-tab i:empty {
+    display: block;
+    width: 21px;
+    height: 21px;
+    border: 1px solid currentColor;
+    border-radius: 7px;
+  }
+  #ond-directions .ond-handle {
+    width: 110px;
+    height: 4px;
+    border-radius: 4px;
+    margin: 0 auto 9px;
+    background: var(--ond-ink);
+    opacity: 0.7;
+  }
+  #ond-directions .ond-page {
+    padding: 28px 23px 22px;
+  }
+  #ond-directions .ond-page h1 {
+    font: calc(31px * var(--ond-type))/1.18 var(--ond-serif);
+    letter-spacing: -0.5px;
+    margin: 0 0 8px;
+  }
+  #ond-directions .ond-page-intro {
+    color: var(--ond-muted);
+    font-size: calc(15px * var(--ond-type));
+    margin: 0 0 21px;
+  }
+  #ond-directions .ond-filters {
+    display: flex;
+    gap: 7px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  #ond-directions .ond-filter {
+    border: 1px solid var(--ond-line);
+    border-radius: 22px;
+    background: var(--ond-paper);
+    padding: 9px 15px;
+    min-height: 44px;
+    font-size: 14px !important;
+  }
+  #ond-directions .ond-filter[aria-pressed="true"] {
+    border-color: var(--ond-button);
+    background: var(--ond-button);
+    color: var(--ond-button-text) !important;
+  }
+  #ond-directions .ond-feature {
+    display: block;
+    text-align: left;
+    width: 100%;
+    background: var(--ond-tint);
+    border: 1px solid var(--ond-line);
+    border-radius: 24px;
+    padding: 20px;
+    margin-bottom: 19px;
+  }
+  #ond-directions .ond-eyebrow {
+    display: block;
+    font-size: 12px;
+    color: var(--ond-accent);
+    margin-bottom: 20px;
+  }
+  #ond-directions .ond-feature strong {
+    display: block;
+    font: calc(25px * var(--ond-type))/1.2 var(--ond-serif);
+    margin-bottom: 8px;
+  }
+  #ond-directions .ond-feature small {
+    display: block;
+    color: var(--ond-muted);
+    font-size: calc(14px * var(--ond-type));
+  }
+  #ond-directions .ond-row {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    width: 100%;
+    padding: 18px 0;
+    border: 0;
+    border-bottom: 1px solid var(--ond-line);
+    text-align: left;
+    background: transparent;
+    min-height: 86px;
+  }
+  #ond-directions .ond-row-icon {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    color: var(--ond-accent);
+    background: var(--ond-tint);
+  }
+  #ond-directions .ond-row-icon svg {
+    width: 21px;
+    height: 21px;
+  }
+  #ond-directions .ond-row strong {
+    display: block;
+    font-size: calc(16px * var(--ond-type));
+    font-weight: 500;
+  }
+  #ond-directions .ond-row small {
+    display: block;
+    margin-top: 4px;
+    font-size: calc(13px * var(--ond-type));
+    color: var(--ond-muted);
+  }
+  #ond-directions .ond-arrow {
+    margin-left: auto;
+    color: var(--ond-muted);
+  }
+  #ond-directions .ond-session {
+    background: #142128;
+    color: #edf7f7;
+  }
+  #ond-directions [data-direction="warm"] .ond-session {
+    background: #1b2926;
+  }
+  #ond-directions .ond-session .ond-orbit {
+    --ond-line: #537779;
+    width: min(100%, 286px);
+    margin-top: 53px;
+    margin-bottom: 34px;
+  }
+  #ond-directions .ond-session-top {
+    padding: 28px 25px 0;
+    text-align: center;
+  }
+  #ond-directions .ond-session-name {
+    font-size: calc(15px * var(--ond-type));
+  }
+  #ond-directions .ond-remaining {
+    font-size: 14px;
+    color: #bed0d1;
+    margin-top: 7px;
+    font-variant-numeric: tabular-nums;
+  }
+  #ond-directions .ond-session-body {
+    padding: 0 24px 29px;
+    text-align: center;
+  }
+  #ond-directions .ond-cue {
+    font: calc(38px * var(--ond-type))/1.15 var(--ond-serif);
+    margin: 0 0 9px;
+  }
+  #ond-directions .ond-cue-detail {
+    font-size: calc(15px * var(--ond-type));
+    color: #bed0d1;
+    margin: 0 0 32px;
+  }
+  #ond-directions .ond-session-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+  }
+  #ond-directions .ond-session-actions button {
+    min-height: 50px;
+    padding: 12px 25px;
+    border-radius: 28px;
+    border: 1px solid #637c7c;
+    background: #2e4347;
+    color: #edf7f7;
+  }
+  #ond-directions .ond-session-actions button:last-child {
+    background: transparent;
+  }
+  #ond-directions .ond-session .ond-orb {
+    transform: scale(0.72);
+    transition: transform 0.2s linear;
+  }
+  #ond-directions .ond-session[data-paused="true"] .ond-orb {
+    transition: none;
+  }
+  #ond-directions .ond-offer-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 19px 24px 0;
+  }
+  #ond-directions .ond-offer-brand {
+    font: 32px/1 var(--ond-serif);
+    letter-spacing: -1.8px;
+  }
+  #ond-directions .ond-text-button {
+    border: 0;
+    background: transparent;
+    min-height: 44px;
+    padding: 7px 0 7px 12px;
+    font-size: 14px !important;
+    color: var(--ond-muted) !important;
+  }
+  #ond-directions .ond-offer {
+    padding-top: 19px;
+  }
+  #ond-directions .ond-example {
+    border: 1px solid var(--ond-line);
+    background: var(--ond-paper);
+    border-radius: 22px;
+    padding: 15px;
+    margin: 19px 0;
+  }
+  #ond-directions .ond-example-label {
+    color: var(--ond-muted);
+    font-size: 11px;
+    margin-bottom: 13px;
+  }
+  #ond-directions .ond-message {
+    font-size: calc(14px * var(--ond-type));
+    background: var(--ond-tint);
+    padding: 12px 14px;
+    border-radius: 16px 16px 4px 16px;
+    margin-left: 25px;
+  }
+  #ond-directions .ond-reply {
+    font-size: calc(14px * var(--ond-type));
+    margin: 15px 0 12px;
+  }
+  #ond-directions .ond-exercise {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-top: 1px solid var(--ond-line);
+    padding-top: 12px;
+    font-size: 14px;
+  }
+  #ond-directions .ond-exercise-dot {
+    width: 25px;
+    height: 25px;
+    border: 1px solid var(--ond-accent);
+    border-radius: 7px;
+  }
+  #ond-directions .ond-benefit {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    font-size: calc(14px * var(--ond-type));
+    margin: 11px 0;
+  }
+  #ond-directions .ond-benefit svg {
+    flex-shrink: 0;
+    width: 17px;
+    height: 17px;
+    color: var(--ond-accent);
+    margin-top: 2px;
+  }
+  #ond-directions .ond-plans {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+    margin: 21px 0 13px;
+  }
+  #ond-directions .ond-plan {
+    position: relative;
+    text-align: left;
+    background: var(--ond-paper);
+    border: 1px solid var(--ond-line);
+    border-radius: 17px;
+    padding: 12px;
+    min-height: 101px;
+  }
+  #ond-directions .ond-plan[aria-pressed="true"] {
+    border: 2px solid var(--ond-accent);
+    padding: 11px;
+    background: var(--ond-tint);
+  }
+  #ond-directions .ond-plan-name {
+    display: block;
+    font-size: 13px;
+  }
+  #ond-directions .ond-price {
+    display: block;
+    margin: 5px 0 2px;
+    font-size: calc(21px * var(--ond-type));
+    font-weight: 500;
+  }
+  #ond-directions .ond-plan small {
+    font-size: 12px;
+    color: var(--ond-muted);
+  }
+  #ond-directions .ond-terms {
+    font-size: calc(12px * var(--ond-type));
+    line-height: 1.5;
+    color: var(--ond-muted);
+    text-align: center;
+    margin: 12px 0;
+  }
+  #ond-directions .ond-links {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  #ond-directions .ond-links button {
+    border: 0;
+    background: transparent;
+    color: var(--ond-muted);
+    min-height: 44px;
+    padding: 4px 0;
+    font-size: 12px;
+  }
+  #ond-directions .ond-note {
+    padding: 14px;
+    border-radius: 14px;
+    background: var(--ond-tint);
+    font-size: 14px;
+    margin-top: 12px;
+  }
+  #ond-directions .ond-review-name {
+    text-align: center;
+    margin: 12px 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #ond-directions .ond-session .ond-orb {
+      transition: none;
+      transform: scale(0.86) !important;
+    }
+  }
+  @media (max-width: 359px) {
+    #ond-directions .ond-page {
+      padding-left: 18px;
+      padding-right: 18px;
+    }
+    #ond-directions .ond-home {
+      padding-left: 20px;
+      padding-right: 20px;
+    }
+    #ond-directions .ond-filter {
+      padding: 9px 12px;
+    }
+  }
+</style>
+<div id="ond-directions">
+  <div class="viz-controls" aria-label="Preview screen">
+    <button class="btn" data-preview="home" type="button">Home</button>
+    <button class="btn" data-preview="moments" type="button">Moments</button>
+    <button class="btn" data-preview="session" type="button">Session</button>
+    <button class="btn" data-preview="plus" type="button">önd+</button>
+  </div>
+  <div class="text-small ond-review-name" id="ond-direction-label">A · Cool & clear</div>
+  <div class="ond-phone" data-direction="cool" aria-label="önd visual direction">
+    <div class="ond-status" aria-hidden="true">
+      <span>9:41</span><span class="ond-status-right">5G <span class="ond-battery"></span></span>
+    </div>
+    <section class="ond-screen" data-screen="home" aria-label="Home">
+      <div class="ond-brand"><span class="ond-wordmark">önd</span><span>breathe</span></div>
+      <div class="ond-home">
+        <div class="ond-orbit" aria-hidden="true"><div class="ond-orb"></div></div>
+        <h1>A little room<br />to breathe.</h1>
+        <p class="ond-subtitle">Five minutes, just for you.</p>
+        <button class="ond-primary" type="button" data-start="Coherent Breathing">Breathe</button>
+        <button class="ond-choice" type="button" data-go="exercises">Coherent Breathing · 5 min <span aria-hidden="true">⌃</span></button>
+      </div>
+    </section>
+    <section class="ond-screen ond-page" data-screen="moments" aria-label="Moments" hidden>
+      <h1>Meet the moment.</h1>
+      <p class="ond-page-intro">Start with what’s happening now.</p>
+      <div class="ond-filters" aria-label="Moment type">
+        <button class="ond-filter" type="button" data-filter="all" aria-pressed="true">All</button>
+        <button class="ond-filter" type="button" data-filter="calm" aria-pressed="false">Calm</button>
+        <button class="ond-filter" type="button" data-filter="sleep" aria-pressed="false">Sleep</button>
+        <button class="ond-filter" type="button" data-filter="reset" aria-pressed="false">Reset</button>
+      </div>
+      <button class="ond-feature" type="button" data-start="Coherent Breathing" data-category="calm">
+        <span class="ond-eyebrow">A quiet pause</span><strong>After a hard meeting</strong><small>Coherent Breathing · 5 min <span aria-hidden="true">↗</span></small>
+      </button>
+      <button class="ond-row" type="button" data-start="Box Breathing" data-minutes="3" data-category="calm">
+        <span class="ond-row-icon"><i data-lucide="presentation" aria-hidden="true"></i></span><span><strong>Before a presentation</strong><small>Box Breathing · 3 min</small></span
+        ><span class="ond-arrow" aria-hidden="true">›</span>
+      </button>
+      <button class="ond-row" type="button" data-start="Coherent Breathing" data-category="sleep">
+        <span class="ond-row-icon"><i data-lucide="moon" aria-hidden="true"></i></span><span><strong>Winding down</strong><small>Coherent Breathing · 5 min</small></span
+        ><span class="ond-arrow" aria-hidden="true">›</span>
+      </button>
+      <button class="ond-row" type="button" data-start="Coherent Breathing" data-minutes="3" data-category="reset">
+        <span class="ond-row-icon"><i data-lucide="coffee" aria-hidden="true"></i></span><span><strong>Between things</strong><small>Coherent Breathing · 3 min</small></span
+        ><span class="ond-arrow" aria-hidden="true">›</span>
+      </button>
+    </section>
+    <section class="ond-screen ond-session" data-screen="session" data-phase="out" data-paused="false" aria-label="Breathing session" hidden>
+      <div class="ond-session-top">
+        <div class="ond-session-name">Coherent Breathing</div>
+        <div class="ond-remaining">5:00 left</div>
+      </div>
+      <div class="ond-session-body">
+        <div class="ond-orbit" aria-hidden="true"><div class="ond-orb"></div></div>
+        <h1 class="ond-cue">Breathe in</h1>
+        <p class="ond-cue-detail">Gently, at your own pace.</p>
+        <div class="ond-session-actions"><button type="button" id="ond-pause">Pause</button><button type="button" data-go="home">End session</button></div>
+      </div>
+    </section>
+    <section class="ond-screen" data-screen="plus" aria-label="önd Plus offer" hidden>
+      <div class="ond-offer-top"><span class="ond-offer-brand">önd+</span><button class="ond-text-button" type="button" data-go="home">Not now</button></div>
+      <div class="ond-page ond-offer">
+        <h1>A little guidance.<br />A practice that fits.</h1>
+        <div class="ond-example">
+          <div class="ond-example-label">Example conversation · AI coach</div>
+          <div class="ond-message">I have a few minutes before a meeting.</div>
+          <p class="ond-reply">Try a short, steady rhythm. Keep it comfortable and skip the holds if you need to.</p>
+          <div class="ond-exercise">
+            <span class="ond-exercise-dot" aria-hidden="true"></span><span>Box Breathing <span style="color: var(--ond-muted)">· 3 min</span></span>
+          </div>
+        </div>
+        <div class="ond-benefit"><i data-lucide="check" aria-hidden="true"></i><span>Personal guidance from your AI coach</span></div>
+        <div class="ond-benefit"><i data-lucide="check" aria-hidden="true"></i><span>Your phone and Watch, in one session</span></div>
+        <div class="ond-benefit"><i data-lucide="check" aria-hidden="true"></i><span>Health trends over time</span></div>
+        <div class="ond-plans" aria-label="Subscription plan">
+          <button class="ond-plan" type="button" data-plan="yearly" aria-pressed="true">
+            <span class="ond-plan-name">Yearly</span><span class="ond-price">$14.99</span><small>$1.25 / month</small>
+          </button>
+          <button class="ond-plan" type="button" data-plan="monthly" aria-pressed="false">
+            <span class="ond-plan-name">Monthly</span><span class="ond-price">$1.99</span><small>Billed monthly</small>
+          </button>
+        </div>
+        <button class="ond-primary" type="button" id="ond-trial">Try 7 days free</button>
+        <p class="ond-terms" id="ond-renewal">7 days free, then $14.99 / year. Renews automatically unless cancelled. For eligible new subscribers.</p>
+        <p class="ond-terms">All offline breathing exercises stay free.</p>
+        <div class="ond-links">
+          <button type="button" data-info="Restore is a preview here. No App Store account is connected.">Restore</button
+          ><button type="button" data-info="Privacy preview: the coach example is illustrative. No text or health information is sent by this prototype.">Privacy</button
+          ><button type="button" data-info="Illustrative US prices. Confirm current App Store pricing and trial eligibility before release.">Terms</button>
+        </div>
+        <div class="ond-note" id="ond-purchase-note" role="status" hidden></div>
+      </div>
+    </section>
+    <section class="ond-screen ond-page" data-screen="exercises" aria-label="Exercises" hidden>
+      <h1>Choose a rhythm.</h1>
+      <p class="ond-page-intro">All exercises work offline, for free.</p>
+      <button class="ond-row" type="button" data-start="Coherent Breathing">
+        <span><strong>Coherent Breathing</strong><small>5 seconds in · 5 seconds out · 5 min</small></span
+        ><span class="ond-arrow" aria-hidden="true">›</span>
+      </button>
+      <button class="ond-row" type="button" data-start="Box Breathing" data-minutes="3">
+        <span><strong>Box Breathing</strong><small>In · hold · out · hold · 3 min</small></span
+        ><span class="ond-arrow" aria-hidden="true">›</span>
+      </button>
+    </section>
+    <section class="ond-screen ond-page" data-screen="progress" aria-label="Progress" hidden>
+      <h1>Your practice.</h1>
+      <p class="ond-page-intro">A little time adds up.</p>
+      <div class="ond-feature"><strong>Begin where you are.</strong><small>Your completed sessions will appear here.</small></div>
+      <button class="ond-primary" type="button" data-start="Coherent Breathing">Take five minutes</button>
+    </section>
+    <nav class="ond-tabs" aria-label="App navigation">
+      <button class="ond-tab" type="button" data-go="home" aria-current="page"><i data-lucide="circle" aria-hidden="true"></i><span>Home</span></button>
+      <button class="ond-tab" type="button" data-go="moments"><i data-lucide="sun" aria-hidden="true"></i><span>Moments</span></button>
+      <button class="ond-tab" type="button" data-go="exercises"><i data-lucide="wind" aria-hidden="true"></i><span>Exercises</span></button>
+      <button class="ond-tab" type="button" data-go="progress"><i data-lucide="chart-no-axes-column" aria-hidden="true"></i><span>Progress</span></button>
+      <button class="ond-tab" type="button" data-go="plus"><i data-lucide="message-circle" aria-hidden="true"></i><span>Coach</span></button>
+    </nav>
+    <div class="ond-handle" aria-hidden="true"></div>
+  </div>
+  <div class="text-small text-muted ond-review-name" aria-live="polite" id="ond-preview-status">Design preview · illustrative content and US prices</div>
+</div>
+<script>
+  (() => {
+    const root = document.getElementById("ond-directions");
+    const phone = root.querySelector(".ond-phone");
+    const query = new URLSearchParams(location.search);
+    const state = {
+      direction: query.get("direction") === "warm" ? "warm" : "cool",
+      appearance: ["light", "dark"].includes(query.get("appearance")) ? query.get("appearance") : "auto",
+      textSize: query.get("text") === "large" ? "large" : "standard",
+      width: query.get("width") === "320" ? "320" : "390",
+    };
+    const screens = ["home", "moments", "session", "plus", "exercises", "progress"];
+    let current = screens.includes(query.get("screen")) ? query.get("screen") : "home";
+    let plan = "yearly";
+    let technique = "Coherent Breathing";
+    let remaining = 300;
+    let elapsed = 0;
+    let paused = false;
+    let lastTick = performance.now();
+    function renderDesign() {
+      phone.dataset.direction = state.direction;
+      phone.style.colorScheme = state.appearance === "auto" ? "light dark" : state.appearance;
+      phone.style.setProperty("--ond-type", state.textSize === "large" ? "1.3" : "1");
+      phone.style.maxWidth = `${state.width}px`;
+      document.getElementById("ond-direction-label").textContent = state.direction === "warm" ? "B · Warm & quiet" : "A · Cool & clear";
+    }
+    function renderScreen() {
+      root.querySelectorAll("[data-screen]").forEach((section) => {
+        section.hidden = section.dataset.screen !== current;
+      });
+      root.querySelector(".ond-tabs").hidden = ["session", "plus"].includes(current);
+      root.querySelector(".ond-status").hidden = current === "session";
+      root.querySelector(".ond-handle").hidden = current === "session";
+      root.querySelectorAll(".ond-tab").forEach((button) => {
+        if (button.dataset.go === current) button.setAttribute("aria-current", "page");
+        else button.removeAttribute("aria-current");
+      });
+      root.querySelectorAll("[data-preview]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.preview === current)));
+      lastTick = performance.now();
+      renderSession();
+    }
+    function renderSession() {
+      const session = root.querySelector(".ond-session");
+      const phases = technique === "Box Breathing" ? ["in", "hold-in", "out", "hold-out"] : ["in", "out"];
+      const phaseSeconds = technique === "Box Breathing" ? 4 : 5;
+      const phase = phases[Math.floor(elapsed / phaseSeconds) % phases.length];
+      session.dataset.phase = phase === "in" || phase === "hold-in" ? "in" : "out";
+      session.dataset.paused = String(paused);
+      const progress = (elapsed % phaseSeconds) / phaseSeconds;
+      const expansion = phase === "in" ? progress : phase === "out" ? 1 - progress : phase === "hold-in" ? 1 : 0;
+      session.querySelector(".ond-orb").style.transform = `scale(${0.72 + 0.28 * expansion})`;
+      session.querySelector(".ond-session-name").textContent = technique;
+      const seconds = Math.ceil(remaining);
+      session.querySelector(".ond-remaining").textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")} left`;
+      session.querySelector(".ond-cue").textContent = paused ? "Take your time." : phase.startsWith("hold") ? "Hold gently" : phase === "in" ? "Breathe in" : "Breathe out";
+      session.querySelector(".ond-cue-detail").textContent = paused ? "Resume whenever you’re ready." : "Gently, at your own pace.";
+      document.getElementById("ond-pause").textContent = paused ? "Resume" : "Pause";
+    }
+    root.addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      if (!button || !root.contains(button)) return;
+      if (button.dataset.go || button.dataset.preview) {
+        current = button.dataset.go || button.dataset.preview;
+        renderScreen();
+      }
+      if (button.dataset.start) {
+        technique = button.dataset.start;
+        remaining = Number(button.dataset.minutes || 5) * 60;
+        elapsed = 0;
+        paused = false;
+        current = "session";
+        renderScreen();
+      }
+      if (button.dataset.filter) {
+        root.querySelectorAll("[data-filter]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+        root.querySelectorAll("[data-category]").forEach((item) => {
+          item.hidden = button.dataset.filter !== "all" && item.dataset.category !== button.dataset.filter;
+        });
+      }
+      if (button.dataset.plan) {
+        plan = button.dataset.plan;
+        root.querySelectorAll("[data-plan]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+        document.getElementById("ond-renewal").textContent =
+          `7 days free, then ${plan === "yearly" ? "$14.99 / year" : "$1.99 / month"}. Renews automatically unless cancelled. For eligible new subscribers.`;
+      }
+      if (button.id === "ond-pause") {
+        paused = !paused;
+        renderSession();
+      }
+      if (button.id === "ond-trial" || button.dataset.info) {
+        const note = document.getElementById("ond-purchase-note");
+        note.hidden = false;
+        note.textContent = button.dataset.info || `Preview only: ${plan} plan selected. No purchase has been made.`;
+      }
+    });
+    renderDesign();
+    renderScreen();
+    const ticker = setInterval(() => {
+      if (!root.isConnected) {
+        clearInterval(ticker);
+        return;
+      }
+      const now = performance.now();
+      const delta = (now - lastTick) / 1000;
+      lastTick = now;
+      if (current !== "session" || paused || document.hidden) return;
+      elapsed += delta;
+      remaining = Math.max(0, remaining - delta);
+      if (remaining === 0) {
+        current = "home";
+        renderScreen();
+        return;
+      }
+      renderSession();
+    }, 200);
+    if (globalThis.Tweak) {
+      const tweak = new Tweak({ container: phone, onChange: renderDesign });
+      tweak.addSelect(state, "direction", {
+        label: "Visual direction",
+        options: [
+          { label: "A · Cool & clear", value: "cool" },
+          { label: "B · Warm & quiet", value: "warm" },
+        ],
+      });
+      tweak.addSelect(state, "appearance", {
+        label: "Appearance",
+        options: [
+          { label: "Follow system", value: "auto" },
+          { label: "Light", value: "light" },
+          { label: "Dark", value: "dark" },
+        ],
+      });
+      tweak.addSelect(state, "textSize", {
+        label: "Text size",
+        options: [
+          { label: "Standard", value: "standard" },
+          { label: "Larger", value: "large" },
+        ],
+      });
+      tweak.addSelect(state, "width", {
+        label: "Phone width",
+        options: [
+          { label: "Standard · 390", value: "390" },
+          { label: "Small · 320", value: "320" },
+        ],
+      });
+    }
+  })();
+</script>

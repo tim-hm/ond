@@ -13,8 +13,9 @@ final class WatchHapticController: SessionCueing {
     /// the next boundary instead of the next session.
     private let settings: WatchSettings
 
-    init(settings: WatchSettings) {
+    init(settings: WatchSettings, preview: WatchHapticStyle.Preview = .current) {
         self.settings = settings
+        style = WatchHapticStyle(preview: preview)
     }
 
     /// The wrist keeps tapping with the screen dark, which is the posture these
@@ -31,11 +32,18 @@ final class WatchHapticController: SessionCueing {
         pending?.cancel()
     }
 
-    /// Resuming mid-phase deliberately does not re-fire a cue, and a train the
-    /// pause cancelled stays lost until the next boundary: reinstating it
-    /// would need the beat's remaining time, which `SessionCueing` does not
-    /// carry. A known cost, accepted over re-announcing a breath mid-flow.
+    /// The model restores future pulses separately without repeating the boundary cue.
     func resume() {}
+
+    func restore(_ beat: SessionTimeline.Beat, at elapsed: Duration) {
+        pending?.cancel()
+        guard settings.playsHaptics, !beat.isOpenEnded else { return }
+        schedule(
+            WatchCue(beat.kind),
+            after: .zero,
+            pulsesAt: style.remainingPulses(for: beat, at: elapsed)
+        )
+    }
 
     func play(_ beat: SessionTimeline.Beat) {
         pending?.cancel()
@@ -130,7 +138,7 @@ final class WatchHapticController: SessionCueing {
     /// its slot; playing it would stack it against the next one.
     private static let tickForgiveness: Duration = .milliseconds(100)
 
-    private let style = WatchHapticStyle()
+    private let style: WatchHapticStyle
 
     /// The hardware's word for each abstract hold weight.
     private func haptic(for tap: WatchHapticStyle.Tap) -> WKHapticType {

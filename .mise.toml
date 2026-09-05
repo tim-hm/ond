@@ -465,6 +465,29 @@ depends = ["ios:gen"]
 dir = "{{config_root}}"
 run = "cargo run --quiet -p toolkit -- ios ui-test"
 
+[tasks."test:ui:phone:case"]
+description = "Run one iPhone UI test class or method on a named simulator ID"
+depends = ["ios:gen"]
+dir = "{{config_root}}/ios"
+usage = '''
+arg "<test>" help="TestClass or TestClass/testMethod"
+arg "<device>" help="iOS simulator UUID"
+'''
+run = '''
+xcodebuild -project Ond.xcodeproj -scheme Ond \
+  -destination "platform=iOS Simulator,id=$usage_device" \
+  "-only-testing:OndAppUITests/$usage_test" test
+'''
+
+[tasks."ios:ui:attachments"]
+description = "Export screenshots and diagnostics from an xcresult bundle"
+dir = "{{config_root}}/ios"
+usage = '''
+arg "<result>" help="Path to the xcresult bundle"
+arg "<output>" help="New output directory"
+'''
+run = 'xcrun xcresulttool export attachments --path "$usage_result" --output-path "$usage_output"'
+
 [tasks."ios:screenshots"]
 description = "Capture the App Store screenshot set into ios/build/screenshots"
 depends = ["ios:gen"]

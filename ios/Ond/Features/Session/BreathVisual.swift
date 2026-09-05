@@ -11,8 +11,6 @@ import SwiftUI
 struct BreathVisual: View {
     let beat: SessionTimeline.Beat?
     let elapsed: Duration
-    /// The whole plan, not just the beat: the orb's arc fills once over the
-    /// whole session, which only the timeline can measure.
     let timeline: SessionTimeline
     let accent: Color
     /// Which drawing the moment asked for. Passed rather than read off `beat`,
@@ -40,7 +38,7 @@ struct BreathVisual: View {
     /// The breath ring's stroke, and how far inside the orb's circle it is
     /// wound. Heavy, because at this size it is the loudest mark on the
     /// drawing; and inset far enough to clear the parked core it sweeps
-    /// around, which the extent hairline and the session arc do not. Both are
+    /// around. Both are
     /// fractions of the circle, or the clearance closes as the guide shrinks.
     private static let breathLineWidth = 12.0 / 300
     private static let arcInset = 32.0 / 300
@@ -158,13 +156,12 @@ struct BreathVisual: View {
             level: level,
             coreTravels: travels,
             hold: hold,
-            progress: timeline.progress(at: elapsed),
             extent: extent
         )
     }
 
     /// How present the hold is, 0...1 — the orb's core wears the hold's colour
-    /// by it, over a crossfade that straddles the boundary. Zero before the
+    /// by it, over a crossfade beginning at the boundary. Zero before the
     /// first beat.
     private var hold: Double {
         guard let beat else { return 0 }

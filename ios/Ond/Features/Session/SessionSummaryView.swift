@@ -34,6 +34,7 @@ struct SessionSummaryView: View {
     let onDone: () -> Void
 
     @Environment(SessionSettings.self) private var settings
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(MoodRecorder.self) private var moodRecorder
 
     var body: some View {
@@ -51,9 +52,7 @@ struct SessionSummaryView: View {
         .padding(.horizontal, Theme.Spacing.page)
         .padding(.vertical, Theme.Spacing.loose)
         .foregroundStyle(Theme.Ink.primary)
-        // Stilled: the breathing has stopped, so the field holds where the
-        // session left it rather than repainting the screen while it is read.
-        .sessionGround(stilled: true)
+        .sessionGround()
     }
 
     private var content: some View {
@@ -86,30 +85,41 @@ struct SessionSummaryView: View {
         }
     }
 
-    /// What happened, what it was, and the rung it crossed, in the heights
-    /// `SessionSlots` reserves. Capped with the session's words, and for their
-    /// reason: an accessibility size would spill the words out of them.
+    @ViewBuilder
     private var slots: some View {
-        VStack(spacing: 0) {
-            Text(SessionSummaryLines.headline(for: outcome, register: register))
-                .displaySerif(size: SessionSlots.actionSize)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .frame(height: SessionSlots.actionHeight)
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(spacing: Theme.Spacing.close) {
+                Text(SessionSummaryLines.headline(for: outcome, register: register))
+                    .font(.largeTitle)
+                Text(SessionSummaryLines.note(for: outcome, exercise: exercise, register: register))
+                    .font(.body)
+                if let reached {
+                    Text(reached.arrival).font(.subheadline)
+                }
+            }
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+        } else {
+            VStack(spacing: 0) {
+                Text(SessionSummaryLines.headline(for: outcome, register: register))
+                    .displaySerif(size: SessionSlots.actionSize)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .frame(height: SessionSlots.actionHeight)
 
-            Text(SessionSummaryLines.note(for: outcome, exercise: exercise, register: register))
-                .font(.body)
-                .foregroundStyle(Theme.Ink.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .frame(height: SessionSlots.qualifierHeight)
+                Text(SessionSummaryLines.note(for: outcome, exercise: exercise, register: register))
+                    .font(.body)
+                    .foregroundStyle(Theme.Ink.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .frame(height: SessionSlots.qualifierHeight)
 
-            mark
-                .frame(height: SessionSlots.countHeight)
-                .animation(.easeIn(duration: 0.4), value: reached)
+                mark
+                    .frame(height: SessionSlots.countHeight)
+                    .animation(.easeIn(duration: 0.4), value: reached)
+            }
+            .multilineTextAlignment(.center)
         }
-        .multilineTextAlignment(.center)
-        .dynamicTypeSize(...SessionWords.mostGrowth)
     }
 
     @ViewBuilder private var mark: some View {

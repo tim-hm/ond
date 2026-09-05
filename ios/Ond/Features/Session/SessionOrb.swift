@@ -2,11 +2,6 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The live session's orb — the shared geometry's derivative rather than an
-/// instance of it. The core is the breath, the arc is the session, and the
-/// extent ring says how much further; an exercise may add a tail on the side
-/// it breathes through, or the mark a stacked inhale overshoots. The drifting
-/// light behind all of it is the screen's, and never follows the phase.
 struct SessionOrb: View {
     /// The beat on screen, for the two marks an exercise may add to the orb.
     let beat: SessionTimeline.Beat?
@@ -19,8 +14,6 @@ struct SessionOrb: View {
     /// How present the hold is, 0...1 — the core wears the hold's colour by
     /// it. Nothing else on this screen carries the hold's own indigo.
     let hold: Double
-    /// How far through the whole session, 0...1 — the arc's sweep.
-    let progress: Double
     /// The square this draws in, the core's light included.
     let extent: CGFloat
 
@@ -32,7 +25,7 @@ struct SessionOrb: View {
     /// The shared core's own light. §3's reach, kept as the ratio it was drawn
     /// at — 60 points on that drawing's 276-point core — so the light scales
     /// with the core rather than swamping a smaller one.
-    private static let coreGlow = BreathGlyph.CoreGlow(alpha: 0.5, reach: 60.0 / 276)
+    private static let coreGlow = BreathGlyph.CoreGlow(alpha: 0.3, reach: 60.0 / 276)
 
     /// The circle the core and its light are drawn on, as a fraction of the
     /// frame. Read off the glow's own spread, so a breath at its fullest sheds
@@ -73,7 +66,6 @@ struct SessionOrb: View {
         ZStack {
             core
             extentRing
-            SessionArc(fraction: progress)
             if let side = beat?.passage?.side {
                 tail(towards: side)
             }

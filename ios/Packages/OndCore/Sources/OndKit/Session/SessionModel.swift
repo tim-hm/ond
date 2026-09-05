@@ -229,6 +229,9 @@ public final class SessionModel {
     /// three, and why telling them twice on a start has to be harmless.
     private func resumeClock() {
         cues.resume()
+        if let beat = timeline.beat(at: elapsed), beat.id == currentBeat?.id, !beat.isOpenEnded {
+            cues.restore(beat, at: elapsed)
+        }
         anchor = clock.now
         cueLoop?.cancel()
         cueLoop = Task { await self.runCueLoop() }

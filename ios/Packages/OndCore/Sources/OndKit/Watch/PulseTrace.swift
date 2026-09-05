@@ -57,6 +57,14 @@ public struct PulseTrace: Sendable, Equatable {
         return lowest ... highest
     }
 
+    /// Keep small fluctuations small while preserving the measured range separately.
+    public var plotRange: ClosedRange<Int>? {
+        guard let range else { return nil }
+        guard range.upperBound - range.lowerBound < 10 else { return range }
+        let lower = max(0, (range.lowerBound + range.upperBound) / 2 - 5)
+        return lower ... (lower + 10)
+    }
+
     /// Whether there is enough here to be worth a drawing. A short session, a
     /// wrist that woke late, a watch nobody was wearing: all answer false, and
     /// the surface shows nothing — silence is this feature's designed failure
@@ -65,12 +73,9 @@ public struct PulseTrace: Sendable, Equatable {
         readings.count >= Self.minimumReadings
     }
 
-    /// The readings as one or more runs of a shape, the first at x = 0 and the
-    /// end of the session at x = 1, with the slowest reading at y = 0 and the
-    /// fastest at y = 1. The six geometry decisions are in
-    /// `docs/architecture.md` under "Pulse trace geometry".
+    /// Positions use elapsed time and `plotRange`. Gaps remain separate runs.
     public func runs() -> [[CGPoint]] {
-        guard let range, let last = readings.last else { return [] }
+        guard let range = plotRange, let last = readings.last else { return [] }
 
         let span = span ?? last.elapsed
         let spread = range.upperBound - range.lowerBound

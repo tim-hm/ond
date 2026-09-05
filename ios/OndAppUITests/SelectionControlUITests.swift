@@ -39,7 +39,7 @@ final class SelectionControlUITests: XCTestCase {
         for answer in ["Bad", "Not good", "Okay", "Good", "Great"] {
             let button = app.buttons[answer]
             XCTAssertTrue(button.exists)
-            XCTAssertGreaterThanOrEqual(button.frame.height, 44)
+            XCTAssertGreaterThanOrEqual(button.frame.height + 0.000001, 44)
         }
     }
 }

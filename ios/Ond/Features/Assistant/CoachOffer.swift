@@ -40,10 +40,19 @@ struct CoachOffer: View {
                 .accessibilityAddTraits(.isHeader)
 
             Text(
-                "önd+ is only the connected layer. Every other feature works "
-                    + "without it."
+                "Ask for a practice that fits the time you have and how you want to feel."
             )
             .font(.callout)
+            .foregroundStyle(Theme.Ink.secondary)
+
+            Text("Example · not personalised")
+                .font(.caption.weight(.semibold))
+            Text("“I have two minutes before a meeting.”")
+                .font(.subheadline)
+            Text(
+                "The coach can suggest a short, comfortable rhythm and offer an exercise to start."
+            )
+            .font(.subheadline)
             .foregroundStyle(Theme.Ink.secondary)
 
             Button("See \(SubscriptionTier.assistant.title)") {

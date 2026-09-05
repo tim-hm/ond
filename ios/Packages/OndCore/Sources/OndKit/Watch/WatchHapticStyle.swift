@@ -2,6 +2,22 @@
 /// has no haptic intensity API, so a breath's amplitude envelope becomes
 /// pulse density: stronger parts place pulses closer together.
 public struct WatchHapticStyle: Sendable, Equatable {
+    public enum Preview: String, Sendable, CaseIterable, Identifiable {
+        case current, boundary, sparse
+        public var id: Self {
+            self
+        }
+
+        public var title: String {
+            switch self {
+            case .current: "Current"
+            case .boundary: "Boundaries only"
+            case .sparse: "Fewer pulses"
+            }
+        }
+    }
+
+    private let preview: Preview
     /// The weight of a discrete hold cue, named without WatchKit so the mapping
     /// onto `WKHapticType` stays in the watch target.
     public enum Tap: Sendable, Comparable {
@@ -11,8 +27,9 @@ public struct WatchHapticStyle: Sendable, Equatable {
         case solid
     }
 
-    /// Creates the fixed Standard renderer used by every watch session.
-    public init() {}
+    public init(preview: Preview = .current) {
+        self.preview = preview
+    }
 
     /// The full-lung hold stays heavier than the empty-lung hold, preserving
     /// the phone's crisp 0.9 tap against its soft 0.45. Breath and completion
@@ -34,7 +51,8 @@ public struct WatchHapticStyle: Sendable, Equatable {
         for beat: SessionTimeline.Beat,
         cueDelay: Duration = .zero
     ) -> [Duration] {
-        guard let envelope = SessionHapticShape(beat: beat).envelope else { return [] }
+        guard preview != .boundary,
+              let envelope = SessionHapticShape(beat: beat).envelope else { return [] }
 
         let first = envelope.span.lowerBound + cueDelay
         let duration = beat.breathing
@@ -51,9 +69,21 @@ public struct WatchHapticStyle: Sendable, Equatable {
             let intensity = Double(envelope.startIntensity)
                 + (Double(envelope.endIntensity) - Double(envelope.startIntensity)) * progress
             let level = Self.level(ofAuthoredIntensity: intensity)
-            offset += Self.gaps.empty * (1 - level) + Self.gaps.full * level
+            let gap = Self.gaps.empty * (1 - level) + Self.gaps.full * level
+            offset += gap * (preview == .sparse ? 1.8 : 1)
         }
         return offsets
+    }
+
+    public func remainingPulses(
+        for beat: SessionTimeline.Beat,
+        at elapsed: Duration
+    ) -> [Duration] {
+        let offset = max(.zero, elapsed - beat.start)
+        let delay: Duration = beat.opensStage ? .milliseconds(350) : .zero
+        return pulses(for: beat, cueDelay: delay).compactMap { pulse in
+            pulse > offset ? pulse - offset : nil
+        }
     }
 
     /// The standard spacing at the phone envelope's strongest and softest

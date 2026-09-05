@@ -41,6 +41,7 @@ extension OndApp {
             .environment(choice)
             .environment(account)
             .environment(plus)
+            .environment(assistantConsent)
             .environment(schedules)
             .environment(heart)
             .environment(journey)

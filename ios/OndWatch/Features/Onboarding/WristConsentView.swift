@@ -28,7 +28,7 @@ struct WristConsentView: View {
             CautionRule().padding(.bottom, 2)
 
             Text(terms.title)
-                .displaySerif(size: Theme.Metrics.wristDisplaySize)
+                .font(.headline)
                 .foregroundStyle(Theme.Ink.primary)
 
             Text(terms.intro)
@@ -47,7 +47,7 @@ struct WristConsentView: View {
             Divider().overlay(Theme.Surface.line)
 
             ForEach(points.indices, id: \.self) { index in
-                Text(points[index])
+                Text("\(index + 1). \(points[index])")
                     .font(.caption2)
                     .foregroundStyle(Theme.Ink.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
