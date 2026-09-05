@@ -693,6 +693,10 @@ run = "open {{config_root}}/ios/Ond.xcodeproj"
 # a simulator, `device` lands on hardware. None is aliased to a bare verb — a
 # name that omits the surface has to pick one silently.
 
+[tasks."ios:setup:metal"]
+description = "Install Xcode's Metal compiler for the breathing orb"
+run = "xcodebuild -downloadComponent MetalToolchain"
+
 [tasks."ios:build:phone"]
 description = "Build the phone app for the simulator without opening Xcode"
 depends = ["ios:gen"]

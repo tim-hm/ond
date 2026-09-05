@@ -39,22 +39,17 @@ struct CuePreviewView: View {
                     }
                     Text(settings.cueMode.title)
                     if let preview, preview.isPlaying {
+                        let motion = AirOrbMotion(timeline: preview.timeline)
                         TimelineView(.animation(
-                            minimumInterval: drawsArc ? Theme.Motion.restfulFrameInterval : nil
+                            minimumInterval: Theme.Motion.restfulFrameInterval
                         )) { _ in
                             let elapsed = preview.elapsed
                             let beat = preview.timeline.beat(at: elapsed)
                             ZStack {
                                 SessionOrb(
                                     beat: beat,
-                                    level: drawsArc ? 0.5 : SessionTimeline.Beat
-                                        .level(ofFullness: beat?.lungFullness(at: elapsed) ?? 0),
+                                    frame: motion.frame(at: elapsed, stationary: drawsArc),
                                     coreTravels: !drawsArc,
-                                    hold: beat.map { BreathGlyph.Pose.holdPresence(
-                                        near: $0,
-                                        in: preview.timeline,
-                                        at: elapsed
-                                    ) } ?? 0,
                                     extent: 140
                                 )
                                 if drawsArc {

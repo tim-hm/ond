@@ -131,37 +131,39 @@ struct SessionSlots: View {
     /// How to do it. Neutral ink, unless the line names the side being
     /// breathed through — the one case that takes the accent, and the only
     /// thing on this screen wearing a dot.
-    @ViewBuilder
     private var qualifierLine: some View {
-        if let qualifier = displayed.qualifier {
-            HStack(spacing: Theme.Spacing.close) {
-                if let accent = qualifier.accent {
-                    Circle()
-                        .fill(accent)
-                        .frame(width: Self.dotSize, height: Self.dotSize)
+        Color.clear.overlay {
+            if let qualifier = displayed.qualifier {
+                HStack(spacing: Theme.Spacing.close) {
+                    if let accent = qualifier.accent {
+                        Circle()
+                            .fill(accent)
+                            .frame(width: Self.dotSize, height: Self.dotSize)
+                    }
+                    Text(qualifier.line)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
-                Text(qualifier.line)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                .font(.body)
+                .foregroundStyle(qualifier.accent ?? Theme.Ink.secondary)
             }
-            .font(.body)
-            .foregroundStyle(qualifier.accent ?? Theme.Ink.secondary)
-            .transition(.identity)
         }
+        .transition(.identity)
     }
 
     /// How long is left, faded by the hold's own crossfade. The presence is
     /// sampled a second at a time with the words and moved linearly between
     /// samples: the fade it rides is linear too, so the tween lands on it, and
     /// one numeral does not earn a second clock at frame rate.
-    @ViewBuilder
     private var countLine: some View {
-        if let count {
-            Text(count.text)
-                .displayNumeral(size: Self.countSize, design: .monospaced)
-                .foregroundStyle(Theme.Ink.tertiary)
-                .opacity(count.presence)
-                .animation(.linear(duration: Self.countStep), value: count.presence)
+        Color.clear.overlay {
+            if let count {
+                Text(count.text)
+                    .displayNumeral(size: Self.countSize, design: .monospaced)
+                    .foregroundStyle(Theme.Ink.tertiary)
+                    .opacity(count.presence)
+                    .animation(.linear(duration: Self.countStep), value: count.presence)
+            }
         }
     }
 }

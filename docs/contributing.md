@@ -17,6 +17,8 @@ xcodebuild -runFirstLaunch     # accepts the licence, installs components
 
 Verify with `xcode-select -p`; it should print the Xcode path, not `/Library/Developer/CommandLineTools`.
 
+Install the Metal compiler for the iPhone's smoke orb with `mise run ios:setup:metal`. Xcode distributes this component separately; app builds need it to compile `BreathingSmoke.metal`.
+
 ## First run
 
 ```bash

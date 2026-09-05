@@ -68,14 +68,6 @@ struct SessionPlayerView: View {
         .padding(Theme.Spacing.loose)
     }
 
-    /// How slowly the guide may redraw, or nil where it is the breath itself
-    /// moving and every frame counts.
-    private var restfulInterval: Double? {
-        BreathVisual.drawsArc(reduceMotion: reduceMotion, settings)
-            ? Theme.Motion.restfulFrameInterval
-            : nil
-    }
-
     /// The name and the remaining time. The name is fixed for the session;
     /// the remaining time ticks on its own one-second timeline so the rest of
     /// the header is not rebuilt with it.
@@ -102,16 +94,19 @@ struct SessionPlayerView: View {
         }
     }
 
-    /// The orb, on the session's own clock and paused with it. `drawsArc`
-    /// decides the restful cap; a scaling core is followed breath for breath,
-    /// so it redraws as often as the display can.
+    /// Freeze the air globe during holds; other visual modes keep their phase cues.
     private var breathGuide: some View {
-        TimelineView(.animation(
-            minimumInterval: restfulInterval,
-            paused: model.status != .running
+        let motion = AirOrbMotion(timeline: model.timeline)
+        let drawsArc = BreathVisual.drawsArc(reduceMotion: reduceMotion, settings)
+        let holdsOrb = !drawsArc && model.timeline.register != .playful
+            && model.currentBeat?.kind.isHold == true
+
+        return TimelineView(.animation(
+            minimumInterval: Theme.Motion.restfulFrameInterval,
+            paused: model.status != .running || holdsOrb
         )) { _ in
             let elapsed = model.elapsed
-            breathVisual(beat: model.timeline.beat(at: elapsed), elapsed: elapsed)
+            breathVisual(beat: model.timeline.beat(at: elapsed), elapsed: elapsed, motion: motion)
         }
     }
 
@@ -154,11 +149,15 @@ struct SessionPlayerView: View {
     /// words do not — the wordless screen, while the session runs — and goes
     /// silent rather than swapping identity, so a pause cannot restart the
     /// drawing it is meant to freeze.
-    private func breathVisual(beat: SessionTimeline.Beat?, elapsed: Duration) -> some View {
+    private func breathVisual(
+        beat: SessionTimeline.Beat?,
+        elapsed: Duration,
+        motion: AirOrbMotion
+    ) -> some View {
         BreathVisual(
             beat: beat,
             elapsed: elapsed,
-            timeline: model.timeline,
+            motion: motion,
             accent: model.accent,
             register: model.timeline.register
         )

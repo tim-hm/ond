@@ -57,10 +57,16 @@ struct SessionWords: View {
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(spoken.label)
                 .accessibilityValue(spoken.value)
+                .accessibilityIdentifier("session-instruction")
                 .accessibilityHidden(!Self.speak(for: model, under: settings.guidance))
 
                 if moment.held != nil {
                     release(aim: moment.aim)
+                } else if model.technique.hasOpenEndedStage, !dynamicTypeSize.isAccessibilitySize {
+                    release(aim: "Aim for 0:00")
+                        .hidden()
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
                 }
             }
         }
@@ -176,8 +182,8 @@ struct SessionWords: View {
     /// guidance level says.
     private func release(aim: String?) -> some View {
         VStack(spacing: Theme.Spacing.close) {
-            if let aim {
-                Text(aim)
+            if aim != nil || !dynamicTypeSize.isAccessibilitySize {
+                Text(aim ?? " ")
                     .font(.footnote)
                     .foregroundStyle(Theme.Ink.tertiary)
                     // Spoken as part of the slots' value above, where it reads

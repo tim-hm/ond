@@ -306,6 +306,81 @@ final class OndAppUITests: XCTestCase {
         try app.performAccessibilityAudit()
     }
 
+    func testBreathingInstructionsKeepTheirPositionAcrossHoldAndPause() {
+        app.terminate()
+        app.launchArguments = [
+            "--ui-testing",
+            "-session.breathVisual", "sphere",
+            "-session.guidance", "full",
+            "-session.moodCheck", "NO",
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["home-breathe"].waitForExistence(timeout: 10))
+        let home = XCTAttachment(screenshot: app.screenshot())
+        home.name = "smoke-orb-home"
+        home.lifetime = .keepAlways
+        add(home)
+
+        app.tabBars.buttons["Exercises"].tap()
+        app.staticTexts["Box Breathing"].tap()
+        app.buttons["Begin"].tap()
+        XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 10))
+
+        let instruction = app.descendants(matching: .any)["session-instruction"].firstMatch
+        XCTAssertTrue(instruction.waitForExistence(timeout: 5))
+        let initial = instruction.frame
+        let hold = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS[c] 'hold'"),
+            object: instruction
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [hold], timeout: 12), .completed)
+        XCTAssertEqual(instruction.frame.midY, initial.midY, accuracy: 1)
+        let held = XCTAttachment(screenshot: app.screenshot())
+        held.name = "smoke-orb-hold"
+        held.lifetime = .keepAlways
+        add(held)
+
+        app.buttons["Pause"].tap()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 3))
+        XCTAssertEqual(instruction.frame.midY, initial.midY, accuracy: 1)
+    }
+
+    func testSmokeOrbAnimatesWithinItsFixedFrame() {
+        app.terminate()
+        app.launchArguments = [
+            "--ui-testing",
+            "-session.breathVisual", "sphere",
+            "-session.guidance", "essentials",
+            "-session.moodCheck", "NO",
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["home-breathe"].waitForExistence(timeout: 10))
+        app.buttons["home-breathe"].tap()
+        XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 10))
+
+        let guide = app.otherElements["breath-guide-orb"]
+        XCTAssertTrue(guide.waitForExistence(timeout: 5))
+        let frame = guide.frame
+        let first = guide.screenshot()
+        let moving = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                guide.screenshot().pngRepresentation != first.pngRepresentation
+            },
+            object: nil
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [moving], timeout: 4), .completed)
+        XCTAssertEqual(guide.frame, frame)
+        for (name, shot) in [
+            ("smoke-motion-start", first),
+            ("smoke-motion-next", guide.screenshot()),
+        ] {
+            let attachment = XCTAttachment(screenshot: shot)
+            attachment.name = name
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+    }
+
     func testWithYourChildIsAPlayfulMomentRatherThanAnExercise() {
         app.terminate()
         app.launchArguments = [
