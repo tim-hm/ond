@@ -38,20 +38,15 @@ public struct SafetyConsent: Sendable, Equatable {
         ([title, intro] + points + [agreement]).joined(separator: "\n")
     }
 
-    /// The terms as they stand. Product copy: every hazard here was carried by a
-    /// per-technique caution before this screen existed, and `SafetyConsentTests`
-    /// pins that each is still named. One instruction to a point, the reasoning
-    /// left out — the explaining sentence is what makes the screen long enough
-    /// to skim. No hazard was cut, so `version` stays and nobody agrees twice.
     public static let current = SafetyConsent(
-        version: 1,
+        version: 2,
         title: "Before you start",
-        intro: "Breathing exercises suit most people most of the time. These are the few ways they don't.",
+        intro: "Keep the breath comfortable. Read these precautions before you begin.",
         points: [
             "Sit or lie down. Fast breathing can make you faint without warning.",
             "Never in or beside water. Never while driving.",
             "Some exercises are meant to make you drowsy. Do those somewhere you can stay put.",
-            "Tingling in your hands or face is ordinary. Lightheadedness means stop and breathe normally.",
+            "Stop the exercise and breathe normally if you feel dizzy, lightheaded or tingly.",
             "önd is not medical advice. If you're pregnant, or have a heart or breathing condition, epilepsy, or a history of fainting, ask a doctor first.",
         ],
         agreement: "I understand"

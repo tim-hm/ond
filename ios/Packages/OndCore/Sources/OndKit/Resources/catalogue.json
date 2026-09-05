@@ -353,7 +353,7 @@
               "hapticPattern": null
             }
           ],
-          "cycles": 3,
+          "cycles": 2,
           "openEnded": false
         }
       ],
@@ -459,7 +459,7 @@
         "listStyle": "BULLETS"
       },
       "evidenceGrade": "MODERATE",
-      "safetyNote": "",
+      "safetyNote": "Do not use this exercise to assess unexplained breathlessness. Seek medical advice if it is new or not settling. Seek urgent medical help if breathing is suddenly difficult, severe, or accompanied by chest pain.",
       "preparation": "Part your lips gently, as though you were about to whistle or cool a spoonful of soup.",
       "preparationContent": {
         "lead": "Part your lips gently, as though you were about to whistle or cool a spoonful of soup.",
@@ -654,7 +654,7 @@
         "listStyle": "BULLETS"
       },
       "evidenceGrade": "LIMITED",
-      "safetyNote": "Sitting down only. Stop at the first sign of lightheadedness. Never in water, never while driving.",
+      "safetyNote": "Sitting down only. Stop and breathe normally if you feel dizzy, lightheaded or tingly. Never in water, never while driving.",
       "preparation": "",
       "preparationContent": {
         "lead": "",
@@ -718,7 +718,7 @@
         "listStyle": "BULLETS"
       },
       "evidenceGrade": "LIMITED",
-      "safetyNote": "Sitting or lying down, always. Never in water, never in the bath, never driving or standing. Fast breathing can make you faint with no warning. Tingling in the hands and face is ordinary; dizziness means stop. Never push a hold to the limit. This app does not measure one.",
+      "safetyNote": "Sitting or lying down, always. Never in water, never in the bath, never driving or standing. Fast breathing can make you faint with no warning. Stop and breathe normally if you feel dizzy, lightheaded or tingly. Never push a hold to the limit. End each hold while comfortable.",
       "preparation": "",
       "preparationContent": {
         "lead": "",
@@ -1025,13 +1025,13 @@
     {
       "slug": "what-a-good-breath-feels-like",
       "question": "What should a good breath feel like?",
-      "answer": "A good breath feels quiet and comfortable. It does not need to be large.\n\n• Let your ribs and belly move without forcing them.\n• Make the breath smaller if you feel air hunger, tingling or dizziness.\n• Stop if those feelings do not settle.",
+      "answer": "A good breath feels quiet and comfortable. It does not need to be large.\n\n• Let your ribs and belly move without forcing them.\n• Stop and breathe normally if you feel dizzy, lightheaded or tingly.\n• Shorten the count or stop if you feel short of air.",
       "answerContent": {
         "lead": "A good breath feels quiet and comfortable. It does not need to be large.",
         "items": [
           "Let your ribs and belly move without forcing them.",
-          "Make the breath smaller if you feel air hunger, tingling or dizziness.",
-          "Stop if those feelings do not settle."
+          "Stop and breathe normally if you feel dizzy, lightheaded or tingly.",
+          "Shorten the count or stop if you feel short of air."
         ],
         "listStyle": "BULLETS"
       }
@@ -1143,9 +1143,9 @@
     {
       "slug": "when-breathing-is-the-problem",
       "question": "When breathing itself is the problem",
-      "answer": "Some people cannot get a breath that feels satisfying, even with healthy lungs. Frequent sighing, a tight chest or never feeling full can be part of this common and treatable breathing pattern.",
+      "answer": "An unsatisfying breath can have several causes, including a breathing-pattern problem. An app cannot tell you the cause. Seek medical advice if this is new or persistent, and urgent help if breathing is suddenly difficult, severe or accompanied by chest pain.",
       "answerContent": {
-        "lead": "Some people cannot get a breath that feels satisfying, even with healthy lungs. Frequent sighing, a tight chest or never feeling full can be part of this common and treatable breathing pattern.",
+        "lead": "An unsatisfying breath can have several causes, including a breathing-pattern problem. An app cannot tell you the cause. Seek medical advice if this is new or persistent, and urgent help if breathing is suddenly difficult, severe or accompanied by chest pain.",
         "items": [],
         "listStyle": "NONE"
       }
@@ -1183,7 +1183,7 @@
     {
       "slug": "five-minutes-today",
       "name": "Five minutes today",
-      "summary": "Build the regular five-minute habit that the strongest daily-practice evidence supports.",
+      "summary": "Build a regular five-minute breathing habit.",
       "techniqueSlug": "cyclic-sighing",
       "goal": "CALM",
       "surface": "FULL_SCREEN",
@@ -1261,7 +1261,7 @@
       "surface": "FULL_SCREEN",
       "register": "PLAIN",
       "phaseDurationsMs": [],
-      "safetyNote": "Practise this while you are comfortable rather than meeting it for the first time out of breath. A shape you already know is far easier to find. Breathlessness that is new, that is severe, or that is not settling is a matter for a doctor rather than an app, and breathlessness that arrives suddenly or alongside chest pain is a matter for an emergency number.",
+      "safetyNote": "Do not use this exercise to assess unexplained breathlessness. Seek medical advice if it is new or not settling. Seek urgent medical help if breathing is suddenly difficult, severe, or accompanied by chest pain.",
       "durationMs": 120000
     },
     {
@@ -1273,7 +1273,7 @@
       "surface": "FULL_SCREEN",
       "register": "PLAIN",
       "phaseDurationsMs": [],
-      "safetyNote": "A breath that will not satisfy is common, and most of the time nothing serious is behind it. Breathlessness that is new, that is severe, or that is not settling is a matter for a doctor rather than an app, and breathlessness that arrives suddenly or alongside chest pain is a matter for an emergency number.",
+      "safetyNote": "Do not use this exercise to assess unexplained breathlessness. Seek medical advice if it is new or not settling. Seek urgent medical help if breathing is suddenly difficult, severe, or accompanied by chest pain.",
       "durationMs": 300000
     },
     {
@@ -1294,7 +1294,7 @@
     {
       "slug": "in-a-tight-spot",
       "name": "In a tight spot",
-      "summary": "Use a discreet slow rhythm to create a little more room in a scanner, lift or crowded journey.",
+      "summary": "Use a discreet slow rhythm in a lift or on a crowded journey.",
       "techniqueSlug": "extended-exhale",
       "goal": "CALM",
       "surface": "DISCREET",
@@ -1369,14 +1369,14 @@
     {
       "slug": "a-moment-to-reset",
       "name": "A moment to reset",
-      "summary": "Use one quiet minute of sighs to take the edge off a sudden spike wherever you are.",
+      "summary": "Try two gentle sighs for a brief pause after a sudden spike.",
       "techniqueSlug": "physiological-sigh",
       "goal": "RESET",
       "surface": "FULL_SCREEN",
       "register": "PLAIN",
       "phaseDurationsMs": [],
       "safetyNote": "",
-      "durationMs": 60000
+      "durationMs": 15000
     },
     {
       "slug": "riding-out-a-craving",

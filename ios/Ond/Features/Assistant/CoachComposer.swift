@@ -95,18 +95,17 @@ struct CoachComposer: View {
     private var confirmingCopy: String {
         switch plus.lastSubmission {
         case .refusedLocallySigned:
-            "Purchases on this build stay local to Xcode and never reach "
-                + "the server, so the coach answers from its rules here."
+            "This test purchase cannot unlock online chat. "
+                + "Exercises and basic suggestions are still available."
         case .refused:
-            "Your subscription couldn't be confirmed. Nothing more has been "
-                + "charged. Retry, and contact support if it keeps happening."
+            "We couldn't confirm access to the online coach. "
+                + "Retry, or contact support if this continues."
         case .held:
-            "Your subscription is settling onto this device. A safeguard "
-                + "after a reinstall holds it for up to a day, and you do not "
-                + "need to do anything."
+            "Online coach access can take up to a day to transfer after a reinstall. "
+                + "Reopen önd later to try again. Exercises are still available."
         case nil:
-            "Confirming your subscription with the App Store. The coach "
-                + "answers from its rules until that lands."
+            "Your purchase is active on this device. We're still confirming "
+                + "access to the online coach. Retry to check again."
         }
     }
 

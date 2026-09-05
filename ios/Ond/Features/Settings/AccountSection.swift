@@ -101,7 +101,7 @@ struct AccountSection: View {
             isPresented: $isConfirmingDeletion,
             titleVisibility: .visible
         ) {
-            Button("Delete everything", role: .destructive) {
+            Button("Delete account and app data", role: .destructive) {
                 Task { await delete() }
             }
             // Beside the deletion rather than only named in the message,
@@ -178,12 +178,12 @@ struct AccountSection: View {
             ? "You will be asked to confirm with Apple.\n\n"
             : ""
 
-        return "Your profile, your sessions and your comfortable-pause history are "
-            + "erased from this iPhone, from a paired Apple Watch, and from "
-            + "our servers. It cannot be undone.\n\n"
+        return "This removes your account and app data from this iPhone and our active server. "
+            + "Your Watch clears its copy when it next connects. This cannot be undone. "
+            + "Backups expire within 30 days.\n\n"
             + confirmation
-            + "Deleting your account does not cancel your subscription. "
-            + "Only Apple can do that, under Manage Subscription."
+            + "Apple Health entries remain. Deleting your account does not cancel "
+            + "your subscription. Use Manage subscription to cancel with Apple."
     }
 
     /// Erases the account, confirming with Apple first where it is bound to an

@@ -10,10 +10,11 @@ public final class AssistantConsentStore: PersonalStore {
         public let disclosure: String
     }
 
-    public static let version = 1
+    public static let version = 2
     public static let disclosure = "The coach uses AI through Amazon Bedrock (Anthropic's Claude). "
-        + "Your message, recent conversation, relevant profile, practice and check-in history, "
-        + "and saved exercises are sent through önd's server for a reply. "
+        + "Your message, recent conversation, optional first name and profile, practice and check-in history, "
+        + "and saved exercise names and goals are sent through önd's server for a reply. "
+        + "Conversations are saved on your iPhone until you delete them. "
         + "If you enable Heart and sleep data, Health summaries are included too; raw Health readings stay on your device. "
         + "You can withdraw permission in Settings. Breathing exercises remain available without AI."
 

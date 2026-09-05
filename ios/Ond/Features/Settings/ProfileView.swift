@@ -28,9 +28,8 @@ struct ProfileView: View {
             } header: {
                 Text("What we call you")
             } footer: {
-                Text("Onboarding asked for this, and this is where it changes. Clear "
-                    + "it and the app stops using it. Nobody else ever sees it. The "
-                    + "leaderboard name at the bottom is the one they do see.")
+                Text("Your first name is used in önd and can be included in coach requests "
+                    + "when AI sharing is on. Clear it to stop using it in new requests.")
             }
             .listRowBackground(Theme.Surface.raised)
 
@@ -68,9 +67,8 @@ struct ProfileView: View {
             } header: {
                 Text("About you")
             } footer: {
-                Text("Your decade and gender let your coach read a breath-test "
-                    + "score against the right baseline, and your decade decides "
-                    + "which age-band leaderboard you can compare within.")
+                Text("Your decade and gender can give your coach context when AI sharing is on. "
+                    + "Your decade also selects your age-band leaderboard.")
             }
             .listRowBackground(Theme.Surface.raised)
 
@@ -84,7 +82,9 @@ struct ProfileView: View {
             } header: {
                 Text("Note for your coach")
             } footer: {
-                Text("Why you are here, in your own words. Only your coach reads it.")
+                Text(
+                    "Optional context for your coach. Included in coach requests when AI sharing is on."
+                )
             }
             .listRowBackground(Theme.Surface.raised)
 
@@ -95,9 +95,9 @@ struct ProfileView: View {
             } header: {
                 Text("Display name")
             } footer: {
-                Text("The only thing other people see on a leaderboard. Your "
-                    + "goals, notes and history stay private. Leave it empty to "
-                    + "stay invisible, which is where every profile starts.")
+                Text("Other people see your display name and the value being ranked. "
+                    + "Your other profile details are not shown on the board. "
+                    + "Leave this empty to stay off the boards.")
             }
             .listRowBackground(Theme.Surface.raised)
         }

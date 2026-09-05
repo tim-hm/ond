@@ -2,11 +2,6 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The two check-ins behind one door, opened from the Coach tab — the coach
-/// is the only thing in the app that reads either number back. The rate
-/// measures the habitual pattern, the pause CO2 tolerance; they move
-/// independently. The rate leads as a claim, not a layout: it is the one
-/// figure with trial evidence (Balban), and the coach reads the same order.
 struct CheckInsView: View {
     let model: JourneyModel
 
@@ -39,16 +34,13 @@ struct CheckInsView: View {
         .task { await model.refresh() }
     }
 
-    /// The number shown is the *lowest*, which is the good end for this one —
-    /// the caption says "slowest" rather than "best" so a number that went down
-    /// does not read as a number that got worse.
     private var restingRateCard: some View {
         DoorCard(
             title: "Resting breathing rate",
-            caption: model.lowestRestingRate == nil
+            caption: model.latestRestingRate == nil
                 ? "Count your breaths for one minute while sitting still."
-                : "Your slowest so far. You can take it again at any time.",
-            value: model.lowestRestingRate.map { "\($0) breaths per minute" }
+                : "Your latest reading. Take it again when comfortable.",
+            value: model.latestRestingRate.map { "\($0) breaths per minute" }
         ) {
             RestingRateTestView(model: model)
         }
@@ -58,10 +50,10 @@ struct CheckInsView: View {
     private var pauseCard: some View {
         DoorCard(
             title: "Comfortable pause",
-            caption: model.personalBest == nil
+            caption: model.latestPause == nil
                 ? "A gentle pause, stopped at the first clear urge to breathe."
-                : "Your longest so far. You can take it again at any time.",
-            value: model.personalBest.map { "\($0)s" }
+                : "Your latest reading. Take it again when comfortable.",
+            value: model.latestPause.map { "\($0)s" }
         ) {
             BoltTestView(model: model)
         }

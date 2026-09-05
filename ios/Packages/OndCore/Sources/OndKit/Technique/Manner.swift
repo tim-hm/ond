@@ -23,7 +23,7 @@ public extension Manner {
     /// nothing a nil could mean.
     var hint: String {
         switch self {
-        case .curledTongue: "Through a curled tongue"
+        case .curledTongue: "Over your tongue or teeth"
         case .pursedLips: "Through pursed lips"
         case .hum: "Hum all the way out"
         }
@@ -35,7 +35,7 @@ public extension Manner {
     /// surfaces are read at a glance. See `PhaseKind.shortInstruction`.
     var glanceHint: String {
         switch self {
-        case .curledTongue: "Curled tongue"
+        case .curledTongue: "Tongue or teeth"
         case .pursedLips: "Pursed lips"
         case .hum: "Hum"
         }
@@ -50,8 +50,8 @@ public extension Manner {
     /// interpolation. Every pair is spelled out, so a new manner fails here.
     func instruction(for kind: PhaseKind) -> String? {
         switch (self, kind) {
-        case (.curledTongue, .inhale): "Breathe in through a curled tongue"
-        case (.curledTongue, .exhale): "Breathe out through a curled tongue"
+        case (.curledTongue, .inhale): "Breathe in over your tongue or teeth"
+        case (.curledTongue, .exhale): "Breathe out over your tongue or teeth"
         case (.pursedLips, .inhale): "Breathe in through pursed lips"
         case (.pursedLips, .exhale): "Breathe out through pursed lips"
         case (.hum, .exhale): "Breathe out, humming all the way"

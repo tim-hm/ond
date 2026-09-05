@@ -157,7 +157,7 @@ struct TechniqueComposerView: View {
         // settled before the menu opens.
         let breath = lastBreath(before: stage.wrappedValue.id)
 
-        return Menu("Add a breath") {
+        return Menu("Add a step") {
             ForEach(Movement.options, id: \.self) { movement in
                 // A movement whose kind the catalogue seeds no range for is left
                 // off entirely, rather than offered with a duration this screen

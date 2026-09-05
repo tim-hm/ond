@@ -24,7 +24,7 @@ pub enum UserTechniqueError {
     /// No technique with that id belongs to this caller. One variant covers both
     /// "does not exist" and "is somebody else's" on purpose: distinguishing them
     /// would answer whether an id exists to a caller who cannot read it.
-    #[error("no technique with that id")]
+    #[error("This exercise is no longer available. Return to Exercises and try again.")]
     NotFound,
 
     /// A stored technique that does not fit the wire — a stage with no phases, a
@@ -56,7 +56,9 @@ impl From<UserTechniqueError> for Status {
         match error {
             UserTechniqueError::Invalid(message) => Self::invalid_argument(message),
             UserTechniqueError::TooMany(message) => Self::failed_precondition(message),
-            UserTechniqueError::NotFound => Self::not_found("no technique with that id"),
+            UserTechniqueError::NotFound => Self::not_found(
+                "This exercise is no longer available. Return to Exercises and try again.",
+            ),
             UserTechniqueError::Inconsistent(message) => {
                 tracing::error!(feature = "user_technique", error = %message, "inconsistent technique");
                 Self::internal("internal error")

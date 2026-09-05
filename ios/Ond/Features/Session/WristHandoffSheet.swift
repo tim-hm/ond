@@ -62,13 +62,13 @@ struct WristHandoffSheet: View {
             Copy(
                 glyph: "applewatch.slash",
                 headline: "This one runs on your wrist",
-                detail: "\(occasionTitle) runs with the screen off. The watch taps the rhythm. Start it from OndWatch."
+                detail: "\(occasionTitle) runs with the screen off. The watch taps the rhythm. Open önd on your Watch to start."
             )
         case .locked:
             Copy(
                 glyph: "applewatch",
                 headline: "Send it to your watch",
-                detail: "\(occasionTitle) runs with the screen off. The watch taps the rhythm. Starting it from OndWatch by hand is free; sending it from here is part of önd+."
+                detail: "\(occasionTitle) runs with the screen off. The watch taps the rhythm. Starting it on your Watch is free; sending it from here is part of önd+."
             )
         }
     }

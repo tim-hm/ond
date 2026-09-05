@@ -14,7 +14,7 @@ public extension EvidenceGrade {
     var title: String {
         switch self {
         case .moderate: "Moderate evidence"
-        case .limited: "Early research"
+        case .limited: "Limited evidence"
         }
     }
 }
@@ -142,9 +142,7 @@ public extension Breath {
 
     /// This breath's own words in `register`, or nil where it falls back.
     ///
-    /// Asked of the breath as authored rather than of `spokenAs`, so a playful
-    /// *mouth* exhale falls back to "Breathe out" rather than being handed
-    /// "Blow out the candle" by way of the nose.
+    /// Use the authored passage. A mouth exhale has no playful cue.
     func playfulInstruction(in register: CopyRegister) -> String? {
         switch register {
         case .plain: nil
@@ -162,11 +160,7 @@ public extension Breath {
         }
     }
 
-    /// The same, as the screen shows it — `PhaseKind.instruction`'s form,
-    /// which drops the passage. Derived from the whole breath, not its kind:
-    /// only the breath knows whether the register covers it, and deriving
-    /// through the nose once handed "Blow out the candle" to a mouth exhale
-    /// on screen while the spoken form correctly fell back.
+    /// Use the same passage eligibility as the spoken cue.
     func writtenInstruction(in register: CopyRegister) -> String {
         switch register {
         case .plain: kind.instruction
@@ -182,7 +176,7 @@ public extension Breath {
     private var playfulInstruction: String? {
         switch self {
         case .inhale(.nose): "Smell the flower"
-        case .exhale(.nose): "Blow out the candle"
+        case .exhale(.nose): "Breathe out gently"
         case .inhale(.mouth), .inhale(.leftNostril), .inhale(.rightNostril): nil
         case .exhale(.mouth), .exhale(.leftNostril), .exhale(.rightNostril): nil
         case .holdIn, .holdOut: nil

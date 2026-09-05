@@ -29,7 +29,7 @@ Guided breathing, grounded in evidence.
 önd is a focused breathing practice for iPhone and Apple Watch. Distinct haptics mark each inhale, hold and exhale, so you can put the screen down, close your eyes, and stay with the breath.
 
 BUILT FOR PRACTICE
-Pick a Moment when you want a complete guided sequence and would rather not decide what comes next. Choose an Exercise when you already know what you need. Every included pattern is available from the start — box breathing, 4-7-8, coherence and resonance pacing, physiological sighs and more — and you can build your own when a different rhythm suits you better.
+Choose a Moment for a practice suited to your situation. Choose an Exercise when you already know what you need. Every included pattern is available from the start — box breathing, 4-7-8, coherence and resonance pacing, physiological sighs and more — and you can build your own when a different rhythm suits you better.
 
 ON YOUR WRIST
 The Watch app is a place to practise, not a remote control. Start an Exercise or Moment without reaching for your phone. One clear breathing shape, phase-specific haptics, deliberately minimal controls. Sessions carry on when the display rests, and standalone Watch practice is part of the free app.

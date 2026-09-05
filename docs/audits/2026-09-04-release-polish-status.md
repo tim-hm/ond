@@ -64,7 +64,7 @@ Icon A follow-up, 2026-09-05: 1,062 Swift tests passed, including the updated pa
 
 ## Remaining product experiments
 
-A complete line-by-line copy audit remains outstanding. The non-overlapping phone phase-label transition is implemented; its feel still needs device review with the other visual comfort checks above.
+The [complete source-copy audit](2026-09-05-complete-copy-audit.md) is finished, with a [coverage inventory](2026-09-05-copy-coverage.md). Its 27 findings have a separate [remediation status](2026-09-05-copy-remediation-status.md), covering implementation, validation and remaining clinical/device checks. The non-overlapping phone phase-label transition is implemented; its feel still needs device review with the other visual comfort checks above.
 
 Shorter onboarding, a one- or two-minute first practice, the timing of the trial offer, post-practice reminders, physiological leaderboards, broader palette changes, and acquisition experiments still need the beta observation or product decision specified in the original review. Existing functional architecture was retained. New analytics, pricing changes, deployments and external publication were not introduced.
 

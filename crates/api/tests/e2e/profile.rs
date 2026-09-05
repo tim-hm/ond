@@ -268,7 +268,7 @@ async fn an_unrepresentable_answer_is_rejected_with_its_reason() {
     .await;
 
     assert_eq!(retired_band.status, tonic::Code::InvalidArgument as i32);
-    assert!(retired_band.status_message.contains("birth"));
+    assert!(retired_band.status_message.contains("app update"));
 
     let missing_message = update(&db, USER, None).await;
     assert_eq!(missing_message.status, tonic::Code::InvalidArgument as i32);
@@ -314,7 +314,7 @@ async fn a_denied_display_name_is_refused_with_its_reason() {
     .await;
 
     assert_eq!(response.status, tonic::Code::InvalidArgument as i32);
-    assert!(response.status_message.contains("display_name"));
+    assert!(response.status_message.contains("display name"));
 }
 
 /// Sets `user`'s display name and returns the one the server actually stored.

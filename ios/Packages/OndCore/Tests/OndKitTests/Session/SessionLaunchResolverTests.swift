@@ -163,7 +163,7 @@ struct SessionLaunchResolverTests {
         #expect(stage.cycles == 11)
         #expect(launch.model.timeline.beats.first?.instruction == "Smell the flower")
         #expect(launch.model.timeline.beats.first(where: { $0.kind == .exhale })?.instruction
-            == "Blow out the candle")
+            == "Breathe out gently")
         #expect(launch.model.title == "With your child")
         #expect(launch.model.warning?.key == "occasion/with-your-child")
         #expect(launch.model.warning?.title == "With your child")

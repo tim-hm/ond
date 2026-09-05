@@ -41,8 +41,8 @@ struct LeaderboardNameView: View {
                 Text("Display name")
             } footer: {
                 Text(
-                    "This is the only thing other people see. Your goals, notes and history "
-                        + "stay private. "
+                    "Other people see your display name and the value being ranked. "
+                        + "Your other profile details are not shown on the board. "
                         + "Leave it empty and you stay invisible on every board while still "
                         + "seeing your own place. If somebody already has the name, we'll add a "
                         + "number to yours."

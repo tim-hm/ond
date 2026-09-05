@@ -58,7 +58,7 @@ struct FoundationsView: View {
         case .failed:
             ReferenceRetryView(
                 title: "The basics aren’t available yet",
-                message: "Connect to download them for offline use, then try again."
+                message: "We couldn’t load the Basics. Try again."
             ) {
                 Task { await model.refresh() }
             }

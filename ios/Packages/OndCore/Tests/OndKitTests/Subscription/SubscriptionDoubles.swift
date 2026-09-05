@@ -11,6 +11,7 @@ final class FakeStoreFront: StoreFront, @unchecked Sendable {
     private let lock = NSLock()
     private var entitlements: [SubscriptionTransaction]
     private var purchaseError: (any Error)?
+    private let restoreError: (any Error)?
     private let purchaseOutcome: PurchaseOutcome
     private(set) var purchased: [SubscriptionPlan] = []
 
@@ -28,12 +29,14 @@ final class FakeStoreFront: StoreFront, @unchecked Sendable {
     init(
         entitlements: [SubscriptionTransaction] = [],
         failingWith error: (any Error)? = nil,
+        restoreError: (any Error)? = nil,
         purchaseOutcome: PurchaseOutcome = .cancelled,
         isEligibleForTrial: Bool = true,
         sellsNothing: Bool = false
     ) {
         self.entitlements = entitlements
         purchaseError = error
+        self.restoreError = restoreError
         self.purchaseOutcome = purchaseOutcome
         self.isEligibleForTrial = isEligibleForTrial
         self.sellsNothing = sellsNothing
@@ -92,7 +95,11 @@ final class FakeStoreFront: StoreFront, @unchecked Sendable {
         return purchaseOutcome
     }
 
-    func restore() async throws {}
+    func restore() async throws {
+        if let restoreError {
+            throw restoreError
+        }
+    }
 }
 
 /// Delays its first entitlement snapshot so tests can put another read, or an

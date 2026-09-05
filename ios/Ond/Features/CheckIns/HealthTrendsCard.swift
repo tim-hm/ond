@@ -75,7 +75,7 @@ struct HealthTrendsCard: View {
                 "If you wear an Apple Watch overnight, önd+ can add weekly sleeping "
                     + "breathing rate, resting heart rate and heart rate variability (HRV) "
                     + "trends to your coach's context, "
-                    + "and draw your heart rate around each session on Home."
+                    + "and draw your heart rate around each session in Progress."
             )
             .font(.callout)
             .foregroundStyle(Theme.Ink.secondary)
@@ -93,7 +93,7 @@ struct HealthTrendsCard: View {
                 "If you wear an Apple Watch overnight, önd can add weekly sleeping breathing "
                     + "rate, resting heart rate and heart rate variability (HRV) trends to your "
                     + "coach's context, and draw "
-                    + "your heart rate around each session on Home. Nothing is read until you "
+                    + "your heart rate around each session in Progress. Nothing is read until you "
                     + "opt in."
             )
             .font(.callout)
@@ -117,7 +117,7 @@ struct HealthTrendsCard: View {
                     "Sleeping breathing rate",
                     breathing,
                     unit: HealthUnit(one: "breath per minute", many: "breaths per minute"),
-                    note: "Slower than your waking rate for everybody. It is a separate "
+                    note: "Measured during sleep, in different conditions from a waking count. It is a separate "
                         + "number from the one you count yourself."
                 )
             }

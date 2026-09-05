@@ -19,7 +19,9 @@ public extension Technique {
             return summaryLine(rounds: recommendedRounds, ["\(stages.count) stages"])
         }
         return summaryLine(rounds: recommendedRounds, [
-            stage.openEnded ? "open-ended" : "\(stage.cycles) cycles",
+            stage
+                .openEnded ? "open-ended" :
+                "\(stage.cycles) \(stage.cycles == 1 ? "cycle" : "cycles")",
             stage.phases.map(\.duration.inSeconds).joined(separator: "-"),
         ])
     }
@@ -36,7 +38,7 @@ public extension TechniqueDraft {
             return summaryLine(rounds: rounds, ["\(stages.count) stages"])
         }
         return summaryLine(rounds: rounds, [
-            "\(stage.cycles) cycles",
+            "\(stage.cycles) \(stage.cycles == 1 ? "cycle" : "cycles")",
             stage.phases.map(\.duration.inSeconds).joined(separator: "-"),
         ])
     }

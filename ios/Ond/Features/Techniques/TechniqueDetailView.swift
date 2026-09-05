@@ -89,6 +89,8 @@ struct TechniqueDetailView: View {
                 // techniques and has nothing to say about one somebody wrote
                 // this morning.
                 if technique.origin == .catalogue {
+                    TechniqueSources(technique: technique)
+
                     TechniqueCoachDoor(
                         technique: technique,
                         assistant: assistant,
@@ -176,7 +178,11 @@ struct TechniqueDetailView: View {
         }
 
         if let mechanism = technique.mechanismContent {
-            topics.append(.init(id: "mechanism", title: "How it works", content: mechanism))
+            topics.append(.init(
+                id: "mechanism",
+                title: "How the default pattern works",
+                content: mechanism
+            ))
         } else if let description = technique.closingNote {
             topics.append(.init(
                 id: "description",

@@ -375,11 +375,8 @@ struct SubscriptionStoreTests {
         #expect(store.tier == .free, "and nothing was granted")
     }
 
-    /// The other half of the same rule: an ordinary failure stays silent, so the
-    /// notice above means what it says rather than appearing on every dropped
-    /// connection.
-    @Test("An ordinary purchase failure leaves the paywall as it was")
-    func anOrdinaryFailureIsSilent() async {
+    @Test("An ordinary purchase failure gives retry feedback")
+    func anOrdinaryFailureGivesFeedback() async {
         let front = FakeStoreFront(failingWith: StoreFrontError.unverified)
         let store = SubscriptionStore(
             front: front,
@@ -391,6 +388,7 @@ struct SubscriptionStoreTests {
 
         #expect(!store.isUnavailable)
         #expect(store.purchaseState == .idle)
+        #expect(store.feedback == .purchaseFailed)
     }
 
     /// A fresh store over the same defaults, which is what a cold launch is.

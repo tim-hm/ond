@@ -124,7 +124,7 @@ struct RestingRateTestView: View {
         }
     }
 
-    private func result(breathsPerMinute rate: Int, isLowest: Bool) -> some View {
+    private func result(breathsPerMinute rate: Int, isLowest _: Bool) -> some View {
         VStack(spacing: Theme.Spacing.standard) {
             Text("\(rate)")
                 .displayNumeral(size: 72)
@@ -134,13 +134,12 @@ struct RestingRateTestView: View {
                 .font(.callout)
                 .foregroundStyle(Theme.Ink.secondary)
 
-            Text(isLowest ? "Your slowest yet." : "Recorded.")
+            Text("Recorded.")
                 .font(.title3.weight(.semibold))
 
             Text(
-                "Twelve to twenty is the usual range at rest, and slow breathing practice "
-                    + "tends to bring it down over weeks rather than days. One reading tells "
-                    + "you less than several readings over a month."
+                "Readings can vary with the conditions in which you take them. "
+                    + "A lower count does not establish better health or more effective practice."
             )
             .font(.callout)
             .foregroundStyle(Theme.Ink.secondary)
@@ -152,16 +151,13 @@ struct RestingRateTestView: View {
     /// person spent a minute on this and is owed an account of where it went.
     private func implausible(breaths: Int) -> some View {
         VStack(spacing: Theme.Spacing.standard) {
-            Text(breaths < Self.plausible.lowerBound ? "Too few to read" : "Too many to read")
+            Text("Reading not saved")
                 .font(.title3.weight(.semibold))
 
             Text(
-                breaths < Self.plausible.lowerBound
-                    ? "\(breaths) in a minute is slower than resting breathing goes, so this "
-                    + "one isn't recorded. If you were practising rather than resting, "
-                    + "that is the reason. Take it before you practise instead."
-                    : "\(breaths) in a minute is faster than resting breathing goes. Settle "
-                    + "for a few minutes and take it again."
+                "\(breaths) breaths per minute is outside the range önd records. "
+                    + "You can try again when comfortable. This count cannot assess "
+                    + "the cause of any breathing symptoms."
             )
             .font(.callout)
             .foregroundStyle(Theme.Ink.secondary)

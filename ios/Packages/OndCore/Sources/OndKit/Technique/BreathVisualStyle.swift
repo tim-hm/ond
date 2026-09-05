@@ -16,8 +16,8 @@ public enum BreathVisualStyle: String, Sendable, CaseIterable, Identifiable {
 
     public var title: String {
         switch self {
-        case .scaling: "Scaling"
-        case .sweeping: "Sweeping"
+        case .scaling: "Expanding orb"
+        case .sweeping: "Progress ring"
         }
     }
 

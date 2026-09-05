@@ -67,7 +67,7 @@ struct MomentListView: View {
             ContentUnavailableView {
                 Label("No moments yet", systemImage: "checklist")
             } description: {
-                Text("They download with the catalogue, the first time this phone can reach it.")
+                Text("We couldn’t load the Moments. Try again.")
             } actions: {
                 Button("Try again") {
                     Task {

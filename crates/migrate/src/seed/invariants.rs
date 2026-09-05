@@ -511,7 +511,10 @@ fn the_techniques_that_need_a_warning_carry_one() {
         .filter(|technique| !technique.safety_note.is_empty())
         .map(|technique| technique.slug)
         .collect();
-    assert_eq!(carry_a_note, vec!["bellows-breath", WIM_HOF]);
+    assert_eq!(
+        carry_a_note,
+        vec!["pursed-lip-breathing", "bellows-breath", WIM_HOF]
+    );
 
     for slug in [WIM_HOF, "bellows-breath"] {
         let technique = technique(slug);
@@ -535,10 +538,10 @@ fn the_protocols_that_need_a_warning_carry_one() {
     /// Each warned route, in seed order, and the hazards its note must
     /// still name.
     const WARNED: &[(&str, &[&str])] = &[
-        ("when-youre-winded", &["doctor", "severe", "emergency"]),
+        ("when-youre-winded", &["medical", "severe", "urgent"]),
         (
             "when-you-cant-get-a-satisfying-breath",
-            &["doctor", "severe", "emergency"],
+            &["medical", "severe", "urgent"],
         ),
         ("with-your-child", &["hold", "fast"]),
     ];
@@ -800,7 +803,7 @@ const DECIDED: &[Resolution] = &[
         DeliverySurface::FullScreen,
         CopyRegister::Plain,
         &[],
-        60_000,
+        15_000,
     ),
     (
         "riding-out-a-craving",

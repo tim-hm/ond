@@ -74,7 +74,10 @@ struct RestingRateRecordingTests {
         #expect(model.lowestRestingRate == 11)
 
         #expect(await model.record(restingBreaths: 18) == false, "faster than 11")
-        #expect(model.lowestRestingRate == 11, "and the card still shows the slowest")
+        #expect(model.lowestRestingRate == 11, "the ranking value stays separate")
+        #expect(model.latestRestingRate == 18, "the check-in card shows the latest reading")
+        await model.refresh()
+        #expect(model.latestRestingRate == 18)
     }
 
     /// A refresh folds the store rather than trusting what the last recording

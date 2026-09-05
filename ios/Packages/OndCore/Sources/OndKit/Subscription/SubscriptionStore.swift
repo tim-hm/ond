@@ -68,6 +68,24 @@ public final class SubscriptionStore: PersonalStore {
 
     public private(set) var purchaseState: PurchaseState = .idle
 
+    public enum Feedback: Sendable, Equatable {
+        case purchaseFailed
+        case restoreFailed
+        case restored
+        case noSubscription
+
+        public var message: String {
+            switch self {
+            case .purchaseFailed: "We couldn't complete this purchase. Please try again."
+            case .restoreFailed: "We couldn't restore purchases. Please try again."
+            case .restored: "Your subscription is restored."
+            case .noSubscription: "No active subscription was found for this Apple account."
+            }
+        }
+    }
+
+    public private(set) var feedback: Feedback?
+
     /// How far the last submission got — the only question the coach screen
     /// asks. The verifier's reason belongs in the log line at the catch,
     /// where it is already in hand.
@@ -202,6 +220,7 @@ public final class SubscriptionStore: PersonalStore {
     /// the server's, so the screen changes the moment the sheet dismisses.
     public func purchase(_ plan: SubscriptionPlan) async {
         guard purchaseState != .working else { return }
+        feedback = nil
         purchaseState = .working
 
         do {
@@ -216,6 +235,8 @@ public final class SubscriptionStore: PersonalStore {
             case .cancelled:
                 purchaseState = .idle
             }
+        } catch StoreFrontError.cancelled {
+            purchaseState = .idle
         } catch StoreFrontError.productUnavailable {
             purchaseState = .unavailable
             // At `error`, unlike everything else this store logs: it is the one
@@ -232,10 +253,7 @@ public final class SubscriptionStore: PersonalStore {
                 )
         } catch {
             purchaseState = .idle
-            // Not surfaced. What is left here is either the person's own
-            // cancellation dressed differently or an App Store outage, and a
-            // paywall that shows a technical error has already lost the sale it
-            // was there for.
+            feedback = .purchaseFailed
             Self.logger.notice("purchase failed: \(error.diagnostic, privacy: .public)")
         }
     }
@@ -250,19 +268,21 @@ public final class SubscriptionStore: PersonalStore {
         // Ask to Buy is still outstanding must not clear the notice that
         // explains why nothing has happened yet.
         let resting = purchaseState
+        feedback = nil
         purchaseState = .working
         defer { purchaseState = resting }
 
         do {
             try await front.restore()
+            await refresh()
+            feedback = tier > .free ? .restored : .noSubscription
+        } catch StoreFrontError.cancelled {
+            await refresh()
         } catch {
+            feedback = .restoreFailed
             Self.logger.notice("restore failed: \(error.diagnostic, privacy: .public)")
+            await refresh()
         }
-
-        // Regardless of the outcome: `AppStore.sync()` throws when the person
-        // dismisses the password prompt, and the entitlement may still have
-        // arrived through `updates` while it was open.
-        await refresh()
     }
 
     /// Drops the cached tier and re-derives it; it cancels nothing. Deleting an
@@ -271,6 +291,7 @@ public final class SubscriptionStore: PersonalStore {
     /// subscriber the free tier. Clearing `settled` lets the refresh resubmit
     /// the transaction onto the new identity this run, which a merge relies on.
     public func erase() async {
+        feedback = nil
         tier = .free
         nonRenewingExpirationDate = nil
         settled.removeAll()

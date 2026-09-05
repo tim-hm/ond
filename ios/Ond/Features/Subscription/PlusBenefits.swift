@@ -78,12 +78,12 @@ struct PlusBenefits: View {
             limit: "The wrist taps the rhythm while the phone draws it."
         ),
         Benefit(
-            title: "Health trends over months",
-            limit: "Ranges and counts, with no readiness score."
+            title: "Recent Health trends",
+            limit: "Recent averages and changes from earlier readings."
         ),
         Benefit(
             title: "Leaderboards, if you want them",
-            limit: "Off by default. Streaks, comfortable pauses and minutes.",
+            limit: "Off by default. Streaks, pauses, resting breathing rate and minutes.",
             mark: Theme.Ink.tertiary
         ),
     ]

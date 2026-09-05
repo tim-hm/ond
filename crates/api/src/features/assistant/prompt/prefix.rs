@@ -1,16 +1,13 @@
 //! The half of the prompt every caller shares, and the only half worth
 //! caching. Built from data that changes only when the seed does, so the
-//! catalogue, routes and measurement bands cannot drift from what the app
+//! catalogue and routes cannot drift from what the app
 //! shows. What is written out rather than derived — persona, how-to-write
 //! rules, card etiquette, refusals — is here because no database holds it.
 
 use std::fmt::Write as _;
 use std::sync::{Arc, LazyLock, OnceLock};
 
-use super::super::types::{
-    BOLT_BAND_BUILDING, BOLT_BAND_SOLID, BOLT_BAND_STRONG, BOLT_BAND_TARGET,
-    RESTING_RATE_BAND_BRISK, RESTING_RATE_BAND_SLOW, RESTING_RATE_BAND_TYPICAL, goal_phrase,
-};
+use super::super::types::goal_phrase;
 use crate::features::technique::types::{
     DeliverySurface, PhaseKind, PlayableStage, Reference, Technique,
 };
@@ -21,19 +18,9 @@ use crate::features::technique::types::{
 /// back into a full-price write. The measurement briefings stay on this side
 /// because they are how to *read* a rate and a pause, never anybody's figures.
 pub fn catalogue_prefix(catalogue: &[Technique], reference: &Reference) -> String {
-    let typical_top = RESTING_RATE_BAND_BRISK - 1;
-    let aiming_at = RESTING_RATE_BAND_SLOW - 1;
-
     render(&[
         ("catalogue", &catalogue_lines(catalogue)),
         ("moments", &reference_lines(reference)),
-        ("resting_typical", &RESTING_RATE_BAND_TYPICAL.to_string()),
-        ("resting_typical_top", &typical_top.to_string()),
-        ("resting_aim", &aiming_at.to_string()),
-        ("bolt_building", &BOLT_BAND_BUILDING.to_string()),
-        ("bolt_solid", &BOLT_BAND_SOLID.to_string()),
-        ("bolt_strong", &BOLT_BAND_STRONG.to_string()),
-        ("bolt_target", &BOLT_BAND_TARGET.to_string()),
     ])
 }
 
@@ -205,10 +192,16 @@ pub(super) fn reference_lines(reference: &Reference) -> String {
             };
             let _ = writeln!(
                 lines,
-                "- {} → {}, {} minutes, {}{}{}",
+                "- {} → {}, {}, {}{}{}",
                 occasion.slug,
                 occasion.technique_slug,
-                occasion.duration_ms / 60_000,
+                if occasion.duration_ms % 60_000 == 0 {
+                    let minutes = occasion.duration_ms / 60_000;
+                    let unit = if minutes == 1 { "minute" } else { "minutes" };
+                    format!("{minutes} {unit}")
+                } else {
+                    format!("{} seconds", seconds(occasion.duration_ms))
+                },
                 match occasion.surface {
                     DeliverySurface::FullScreen => "full screen",
                     // The distinction the coach could not previously express at
@@ -388,15 +381,15 @@ mod tests {
             "the comfortable-pause briefing is in the prefix"
         );
         assert!(
-            prefix.contains("never to gatekeep"),
-            "the calibration clause is in the prefix"
+            prefix.contains("Do not invent reference ranges"),
+            "the measurement interpretation boundary is in the prefix"
         );
         assert!(
-            prefix.contains("say so plainly"),
-            "the disagreement instruction is in the prefix"
+            prefix.contains("without judging gaps"),
+            "the non-judgemental practice instruction is in the prefix"
         );
         assert!(
-            prefix.contains("never remark on its absence"),
+            prefix.contains("do not speculate about its absence"),
             "the heart-trend framing — including the never-mention-absence \
              rule — is in the prefix"
         );
@@ -597,7 +590,7 @@ mod tests {
             "belly or diaphragm expansion to somebody whose message is",
             "Pursed lips and a slow, small, unhurried breath out",
             "alternate-nostril breathing for something happening right now",
-            "stretch the physiological sigh past a round or two",
+            "Do not increase its cycle or round count",
         ];
 
         for refusal in refusals {
@@ -606,7 +599,7 @@ mod tests {
 
         assert_eq!(
             block.matches("Never ").count(),
-            9,
+            8,
             "a refusal was added or dropped without this test moving with it"
         );
     }
@@ -629,7 +622,7 @@ mod tests {
 
         for instruction in [
             "new, severe, or not settling",
-            "a doctor, or an emergency number",
+            "urgent medical help",
             "attention on the breath is itself the unpleasant part",
             "they can stop at any point",
         ] {

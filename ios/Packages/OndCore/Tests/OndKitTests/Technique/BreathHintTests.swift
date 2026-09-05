@@ -22,8 +22,8 @@ struct BreathHintTests {
 
         #expect(opening.manner == .curledTongue)
         #expect(opening.passage == .mouth)
-        #expect(opening.hint.line == "Through a curled tongue")
-        #expect(opening.hint.glance == "Curled tongue")
+        #expect(opening.hint.line == "Over your tongue or teeth")
+        #expect(opening.hint.glance == "Tongue or teeth")
         // The cue above it is untouched: the shape belongs on the second line,
         // and "Breathe in" is what a glance through half-closed eyes needs.
         #expect(opening.instruction == "Breathe in")
@@ -85,7 +85,7 @@ struct BreathHintTests {
             breath: .inhale(through: .mouth),
             breathesFast: true
         )
-        #expect(hint.line == "Through a curled tongue")
+        #expect(hint.line == "Over your tongue or teeth")
 
         #expect(BreathHint(manner: nil, breath: .holdOut, breathesFast: true).line == "Lungs empty")
     }

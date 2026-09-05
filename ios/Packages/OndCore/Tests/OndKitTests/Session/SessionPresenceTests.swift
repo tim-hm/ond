@@ -176,7 +176,7 @@ struct SessionPresenceTests {
 
         let presence = try #require(SessionPresence(of: model, at: Self.now))
 
-        #expect(presence.caption(of: "Cooling Breath") == "Cooling Breath · Curled tongue")
+        #expect(presence.caption(of: "Cooling Breath") == "Cooling Breath · Tongue or teeth")
     }
 
     /// A technique with nothing to add captions its own name and nothing else —

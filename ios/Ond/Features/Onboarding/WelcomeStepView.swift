@@ -43,9 +43,8 @@ struct WelcomeStepView: View {
 
             Spacer(minLength: Theme.Spacing.loose)
 
-            Text("Fall asleep faster, steady yourself before something hard, "
-                + "and come down from a hard day, with exercises drawn from "
-                + "what the research supports.")
+            Text("Wind down for sleep, prepare for a demanding moment, "
+                + "or take a quiet break. Follow the guide with movement, sound and touch.")
                 .font(.body)
                 .foregroundStyle(Theme.Ink.secondary)
         }

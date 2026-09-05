@@ -28,7 +28,7 @@ public enum HomeStateLine {
             guard let interval else { return false }
             return interval.start <= record.startedAt && record.startedAt < interval.end
         }
-        guard !week.isEmpty else { return "Nothing this week yet." }
+        guard !week.isEmpty else { return "A fresh week." }
 
         if week.count == 1 {
             let lone = week[0]

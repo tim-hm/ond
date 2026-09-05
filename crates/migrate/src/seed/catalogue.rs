@@ -10,6 +10,10 @@ use super::{
     exhale, hold_in, hold_out, inhale, open_ended_stage, shaped_exhale, shaped_inhale, stage,
 };
 
+const BREATHLESSNESS_CAUTION: &str = "Do not use this exercise to assess unexplained breathlessness. \
+    Seek medical advice if it is new or not settling. Seek urgent medical help if breathing is \
+    suddenly difficult, severe, or accompanied by chest pain.";
+
 const fn prose(lead: &'static str) -> ReadingContentSeed {
     ReadingContentSeed::prose(lead)
 }
@@ -234,10 +238,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                     .with_haptic(HapticPattern::Sip),
                 exhale(Passage::Nose, 5000, (4000, 8000)),
             ],
-            // The summary promises "one or two rounds"; three is the generous
-            // end of that, and the technique loses its point when stretched
-            // into a session.
-            3,
+            2,
         )],
         recommended_rounds: 1,
         requires_subscription: false,
@@ -316,7 +317,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             ],
         ),
         evidence_grade: EvidenceGrade::Moderate,
-        safety_note: "",
+        safety_note: BREATHLESSNESS_CAUTION,
         preparation: prose(
             "Part your lips gently, as though you were about to whistle or cool a spoonful of soup.",
         ),
@@ -465,8 +466,8 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         ),
         evidence_grade: EvidenceGrade::Limited,
         preparation: prose(""),
-        safety_note: "Sitting down only. Stop at the first sign of lightheadedness. Never in \
-                      water, never while driving.",
+        safety_note: "Sitting down only. Stop and breathe normally if you feel dizzy, lightheaded or tingly. \
+                      Never in water, never while driving.",
         goal: TechniqueGoal::Energy,
         stages: &[stage(
             &[
@@ -505,8 +506,8 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         preparation: prose(""),
         safety_note: "Sitting or lying down, always. Never in water, never in the bath, never \
                       driving or standing. Fast breathing can make you faint with no warning. \
-                      Tingling in the hands and face is ordinary; dizziness means stop. Never \
-                      push a hold to the limit. This app does not measure one.",
+                      Stop and breathe normally if you feel dizzy, lightheaded or tingly. Never \
+                      push a hold to the limit. End each hold while comfortable.",
         goal: TechniqueGoal::Energy,
         stages: &[
             stage(
@@ -680,8 +681,8 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
             "A good breath feels quiet and comfortable. It does not need to be large.",
             &[
                 "Let your ribs and belly move without forcing them.",
-                "Make the breath smaller if you feel air hunger, tingling or dizziness.",
-                "Stop if those feelings do not settle.",
+                "Stop and breathe normally if you feel dizzy, lightheaded or tingly.",
+                "Shorten the count or stop if you feel short of air.",
             ],
         ),
     },
@@ -775,7 +776,7 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
         slug: "when-breathing-is-the-problem",
         question: "When breathing itself is the problem",
         answer: prose(
-            "Some people cannot get a breath that feels satisfying, even with healthy lungs. Frequent sighing, a tight chest or never feeling full can be part of this common and treatable breathing pattern.",
+            "An unsatisfying breath can have several causes, including a breathing-pattern problem. An app cannot tell you the cause. Seek medical advice if this is new or persistent, and urgent help if breathing is suddenly difficult, severe or accompanied by chest pain.",
         ),
     },
     FoundationSeed {
@@ -813,7 +814,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "five-minutes-today",
         name: "Five minutes today",
-        summary: "Build the regular five-minute habit that the strongest daily-practice evidence supports.",
+        summary: "Build a regular five-minute breathing habit.",
         // The only entry that is not a situation, and first because of it: the
         // evidence for breathing at all is evidence for regularity, so the
         // reason somebody opens the app on an ordinary day deserves a door of
@@ -918,14 +919,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         surface: DeliverySurface::FullScreen,
         register: CopyRegister::Plain,
         phase_durations_ms: &[],
-        // Here rather than on the exercise because the hazard is the moment:
-        // somebody practising on a calm afternoon needs the first sentence and
-        // none of the second.
-        safety_note: "Practise this while you are comfortable rather than meeting it for the \
-                      first time out of breath. A shape you already know is far easier to find. \
-                      Breathlessness that is new, that is severe, or that is not settling is a \
-                      matter for a doctor rather than an app, and breathlessness that arrives \
-                      suddenly or alongside chest pain is a matter for an emergency number.",
+        safety_note: BREATHLESSNESS_CAUTION,
         // Two minutes rather than the exercise's own three: somebody out of
         // breath is counting this in breaths until they can talk again, and the
         // offer should not ask for longer than that.
@@ -943,16 +937,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         surface: DeliverySurface::FullScreen,
         register: CopyRegister::Plain,
         phase_durations_ms: &[],
-        // Here rather than on the exercise, on `when-youre-winded`'s reasoning:
-        // somebody breathing an extended exhale on an ordinary evening needs
-        // none of this. The red-flag sentence is word for word that route's,
-        // deliberately — two moments, one piece of clinical advice, and a
-        // reworded copy of it would be a second answer to the same question.
-        safety_note: "A breath that will not satisfy is common, and most of the time nothing \
-                      serious is behind it. Breathlessness that is new, that is severe, or that is \
-                      not settling is a matter for a doctor rather than an app, and breathlessness \
-                      that arrives suddenly or alongside chest pain is a matter for an emergency \
-                      number.",
+        safety_note: BREATHLESSNESS_CAUTION,
         duration_ms: 300_000,
     },
     OccasionSeed {
@@ -984,11 +969,9 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "in-a-tight-spot",
         name: "In a tight spot",
-        summary: "Use a discreet slow rhythm to create a little more room in a scanner, lift or crowded journey.",
+        summary: "Use a discreet slow rhythm in a lift or on a crowded journey.",
         technique_slug: "extended-exhale",
         goal: TechniqueGoal::Calm,
-        // Discreet because the moment is: somebody inside a scanner cannot hold
-        // a lit phone, and somebody on a packed train would rather nobody saw.
         surface: DeliverySurface::Discreet,
         register: CopyRegister::Plain,
         phase_durations_ms: &[],
@@ -1084,16 +1067,14 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "a-moment-to-reset",
         name: "A moment to reset",
-        summary: "Use one quiet minute of sighs to take the edge off a sudden spike wherever you are.",
+        summary: "Try two gentle sighs for a brief pause after a sudden spike.",
         technique_slug: "physiological-sigh",
         goal: TechniqueGoal::Reset,
         surface: DeliverySurface::FullScreen,
         register: CopyRegister::Plain,
         phase_durations_ms: &[],
         safety_note: "",
-        // The technique works in seconds rather than minutes, and the offer
-        // should say so — a five-minute reset is a different promise.
-        duration_ms: 60_000,
+        duration_ms: 15_000,
     },
     OccasionSeed {
         slug: "riding-out-a-craving",

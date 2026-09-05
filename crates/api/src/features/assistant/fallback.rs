@@ -41,12 +41,11 @@ pub fn recommendations(
         })
         .collect();
 
-    if let (Some(lead), Some((stated, practised))) =
+    if let (Some(lead), Some((stated, _))) =
         (list.first_mut(), goal_gap(catalogue, profile, practice))
     {
         lead.reason = format!(
-            "You've been practising to {}, but you said you want to {} — start here.",
-            goal_phrase(practised),
+            "You said you want to {}. You could try this.",
             goal_phrase(stated)
         );
     }
@@ -98,7 +97,7 @@ fn reason(technique: &Technique, profile: &ProfileSnapshot) -> String {
         )
     } else {
         format!(
-            "A steady place to start, and it will help you {}.",
+            "A steady exercise to try when you want to {}.",
             goal_phrase(technique.goal)
         )
     }
@@ -176,11 +175,8 @@ mod tests {
         }
     }
 
-    /// The history-aware sentence: sleep is the stated goal, calm is where the
-    /// minutes went, so the lead reason names the gap instead of repeating the
-    /// goal back — and the lead technique still serves the stated goal.
     #[test]
-    fn an_unpractised_first_goal_gets_a_corrective_lead() {
+    fn an_unpractised_first_goal_gets_a_relevant_lead() {
         let list = recommendations(
             &catalogue(),
             &profile(vec![TechniqueGoal::Sleep]),
@@ -190,12 +186,10 @@ mod tests {
         assert_eq!(list[0].technique_slug.as_str(), "four-seven-eight");
         assert_eq!(
             list[0].reason,
-            "You've been practising to settle in the moment, but you said you want to \
-             wind down towards sleep — start here."
+            "You said you want to wind down towards sleep. You could try this."
         );
-        // Only the lead is corrective; the rest keep the ordinary shapes.
         assert!(list[1].reason.ends_with('.'));
-        assert!(!list[1].reason.contains("start here"));
+        assert!(!list[1].reason.contains("You could try this"));
     }
 
     /// No practice at all means nothing to contrast, so nobody's first day
@@ -224,7 +218,7 @@ mod tests {
             &practice_of("four-seven-eight", 2, 6),
         );
 
-        assert!(!list[0].reason.contains("start here"));
+        assert!(!list[0].reason.contains("You could try this"));
     }
 
     /// A slug the catalogue cannot resolve proves nothing about their goals,
@@ -237,6 +231,6 @@ mod tests {
             &practice_of("moon-breathing", 5, 12),
         );
 
-        assert!(!list[0].reason.contains("start here"));
+        assert!(!list[0].reason.contains("You could try this"));
     }
 }

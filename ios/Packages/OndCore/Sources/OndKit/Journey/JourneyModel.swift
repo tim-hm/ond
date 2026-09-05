@@ -35,8 +35,9 @@ public final class JourneyModel {
     /// The best controlled pause on this device, `nil` before the first test.
     public private(set) var personalBest: Int?
     /// The slowest resting rate on this device, `nil` before the first count.
-    /// Lowest is the good end — see `RestingRateRecording.lowest()`.
     public private(set) var lowestRestingRate: Int?
+    public private(set) var latestPause: Int?
+    public private(set) var latestRestingRate: Int?
 
     public private(set) var leaderboard: LeaderboardState = .idle
     public var board: LeaderboardBoard = .streak
@@ -108,8 +109,10 @@ public final class JourneyModel {
         let generation = refreshGeneration
 
         let recorded = await sessions.recordedSessions()
-        let best = await scores.personalBest()
-        let slowest = await rates.lowest()
+        let recordedScores = await scores.recordedScores()
+        let recordedRates = await rates.recordedRates()
+        let best = recordedScores.map(\.seconds).max()
+        let slowest = recordedRates.map(\.breathsPerMinute).min()
         let (folded, newestFirst) = await Self.fold(recorded)
 
         // Newest wins. The fold now suspends, so a refresh that read the
@@ -121,6 +124,8 @@ public final class JourneyModel {
         history = newestFirst
         personalBest = best
         lowestRestingRate = slowest
+        latestPause = recordedScores.max { $0.measuredAt < $1.measuredAt }?.seconds
+        latestRestingRate = recordedRates.max { $0.measuredAt < $1.measuredAt }?.breathsPerMinute
     }
 
     /// Bumped at the top of every [`refresh()`](JourneyModel.refresh), so an
@@ -187,6 +192,8 @@ public final class JourneyModel {
     public func record(boltSeconds seconds: Int) async -> Bool {
         let previous = personalBest
         await scores.record(BoltScore(seconds: seconds))
+        refreshGeneration += 1
+        latestPause = seconds
         // Derived from what is already in hand rather than re-read: the file was
         // just written, and the new best can only be one of these two.
         personalBest = max(previous ?? 0, seconds)
@@ -205,6 +212,8 @@ public final class JourneyModel {
     public func record(restingBreaths breaths: Int) async -> Bool {
         let previous = lowestRestingRate
         await rates.record(RestingRate(breathsPerMinute: breaths))
+        refreshGeneration += 1
+        latestRestingRate = breaths
         lowestRestingRate = min(previous ?? breaths, breaths)
 
         Task { await queue.sync() }

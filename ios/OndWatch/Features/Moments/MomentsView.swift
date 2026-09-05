@@ -71,7 +71,7 @@ struct MomentsView: View {
             ContentUnavailableView {
                 Label("No moments yet", systemImage: "checklist")
             } description: {
-                Text("They download with the catalogue, the first time this watch can reach it.")
+                Text("We couldn’t load the Moments. Try again.")
             }
         } else {
             WristLoadingView()
@@ -99,7 +99,7 @@ struct MomentsView: View {
                 .foregroundStyle(Theme.Ink.tertiary)
             }
         }
-        .accessibilityHint("Taps the rhythm quietly, with nothing on screen and no sound.")
+        .accessibilityHint("Taps the rhythm without sound. You don’t need to watch the screen.")
     }
 
     /// The discreet moments the catalogue can resolve. Rebuilt per pass rather

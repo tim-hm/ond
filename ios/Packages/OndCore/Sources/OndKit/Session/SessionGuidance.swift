@@ -13,7 +13,7 @@ public enum SessionGuidance: String, Sendable, CaseIterable, Identifiable {
     public var title: String {
         switch self {
         case .full: "Full guidance"
-        case .essentials: "Just the visuals"
+        case .essentials: "Minimal text"
         }
     }
 }

@@ -58,24 +58,6 @@ pub const fn gender_phrase(gender: Gender) -> &'static str {
     }
 }
 
-/// The coarse BOLT bands the assistant reasons with, as each band's lower
-/// edge in seconds — the published Oxygen Advantage bands (Patrick McKeown,
-/// 2015): under 10 is very easily unsettled, 10–20 building, 20–30 solid,
-/// 30–40 strong, 40 the programme's target. Drives `prompt::catalogue_prefix`.
-pub const BOLT_BAND_BUILDING: u32 = 10;
-pub const BOLT_BAND_SOLID: u32 = 20;
-pub const BOLT_BAND_STRONG: u32 = 30;
-pub const BOLT_BAND_TARGET: u32 = 40;
-
-/// The coarse resting-rate bands, as each band's lower edge in breaths a
-/// minute. Clinical, unlike the BOLT bands: 12–20 is the adult resting range
-/// (American Lung Association). The bottom band is the resonance frequency —
-/// around six, where slow breathing maximises RSA and baroreflex sensitivity
-/// (Russo et al. 2017; Zaccaro et al. 2018) — the aim, not a rate to get under.
-pub const RESTING_RATE_BAND_SLOW: u32 = 7;
-pub const RESTING_RATE_BAND_TYPICAL: u32 = 12;
-pub const RESTING_RATE_BAND_BRISK: u32 = 21;
-
 /// The coarse trends a request carried, after clamping — what
 /// `prompt::health_lines` renders and nothing else reads. Special-category
 /// data (GDPR Art. 9): built per request, dropped with it, never persisted,
