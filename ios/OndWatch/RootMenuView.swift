@@ -14,6 +14,7 @@ struct RootMenuView: View {
     let journey: JourneyModel
 
     @Environment(WatchSettings.self) private var settings
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// Read for the tier alone: the shelf must not offer an exercise the phone
     /// would put behind the paywall.
@@ -56,6 +57,9 @@ struct RootMenuView: View {
                 SessionView(model: session(for: technique)) {
                     Task { await journey.sync() }
                 }
+                #if DEBUG
+                .environment(\.dynamicTypeSize, WatchSessionPreview.textSize ?? dynamicTypeSize)
+                #endif
             }
             .interactiveDismissDisabled()
         }
@@ -69,6 +73,12 @@ struct RootMenuView: View {
         // A lapsed or renewed subscription changes what this door may offer,
         // and it arrives from the phone rather than from anything tapped here.
         .onChange(of: phone.entitledTier) { _, _ in fold() }
+        .task(id: loaded.map(\.id)) {
+            #if DEBUG
+                guard chosen == nil, let slug = WatchSessionPreview.slug else { return }
+                chosen = loaded.first { $0.slug.rawValue == slug }
+            #endif
+        }
     }
 
     /// The catalogue, or nothing until it lands.
@@ -128,7 +138,16 @@ struct RootMenuView: View {
     /// session is a one-shot object, and one composed when this screen appeared
     /// would already have been used by the time somebody comes back.
     private func session(for technique: Technique) -> SessionModel {
-        SessionModel(
+        #if DEBUG
+            if WatchSessionPreview.slug != nil {
+                return SessionModel(
+                    technique: technique,
+                    cues: WatchHapticController(settings: settings),
+                    recorder: WatchSessionPreview.Recorder()
+                )
+            }
+        #endif
+        return SessionModel(
             technique: technique,
             cues: WatchHapticController(settings: settings),
             recorder: sessions

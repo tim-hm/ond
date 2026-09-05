@@ -185,7 +185,7 @@ Screened every `.swift` file in the seven shipping native roots below. Read the 
 | [OndWatch/Features/Moments/DiscreetSessionView.swift](../../ios/OndWatch/Features/Moments/DiscreetSessionView.swift)           | C      |
 | [OndWatch/Features/Moments/MomentsView.swift](../../ios/OndWatch/Features/Moments/MomentsView.swift)                           | C      |
 | [OndWatch/Features/Onboarding/WristConsentView.swift](../../ios/OndWatch/Features/Onboarding/WristConsentView.swift)           | C      |
-| [OndWatch/Features/Session/BreathRing.swift](../../ios/OndWatch/Features/Session/BreathRing.swift)                             | N      |
+| [OndWatch/Features/Session/WatchAirOrb.swift](../../ios/OndWatch/Features/Session/WatchAirOrb.swift)                           | N      |
 | [OndWatch/Features/Session/ExtendedRuntime.swift](../../ios/OndWatch/Features/Session/ExtendedRuntime.swift)                   | C      |
 | [OndWatch/Features/Session/PulseShareView.swift](../../ios/OndWatch/Features/Session/PulseShareView.swift)                     | C      |
 | [OndWatch/Features/Session/SessionSummaryView.swift](../../ios/OndWatch/Features/Session/SessionSummaryView.swift)             | C      |

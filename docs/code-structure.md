@@ -115,7 +115,7 @@ The other half of the seam is what is deliberately not shared. The extension's v
 
 ### What the two apps share
 
-`OndWatch` is a second app over the same package. Everything platform-neutral is already in `OndKit` and the watch composes the same instances — the session timeline, the catalogue cache, the local session store, the sync queue. Views are never shared: a wrist is not a small phone, and `BreathRing` exists precisely because there is only room for one shape where the phone has two.
+`OndWatch` is a second app over the same package. Everything platform-neutral is already in `OndKit` and the watch composes the same instances — the session timeline, the catalogue cache, the local session store, the sync queue. Views are never shared: a wrist is not a small phone, and `WatchAirOrb` exists precisely because there is only room for one shape where the phone has two.
 
 What falls between the two is a mapping from a domain type onto a design token. `OndUI` cannot hold one by the invariant above, so `OndStyle` does: it depends on both products, which is exactly what lets it name a `TechniqueGoal` and an accent in the same function. `GoalAccent` lives there and both apps read it, so the wrist and the hand cannot drift to different colours for the same technique.
 

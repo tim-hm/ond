@@ -114,6 +114,8 @@ mise run ios:device:watch
 
 Nothing boots a simulator for you, because naming one here would tie the repo to the machine that wrote it. Boot whichever you want with `open -a Simulator`, or by name from `xcrun simctl list devices available`; the `sim` tasks then pick the booted device of the right platform out of the list. Booting both halves of a pair is supported and is how the phone and the watch are tested against each other — which is why the tasks select by platform rather than passing simctl a bare `booted`, a word that resolves only while exactly one simulator is up.
 
+For Watch session layout checks, boot one Watch simulator, get its UUID from `mise run release:devices`, then run `mise run ios:preview:watch <UUID> box-breathing normal`. Replace `normal` with `large` or `accessibility` to check larger text. This debug preview opens the real session view with an unsaved recorder and skips extended runtime; it cannot verify recording, background guidance, or battery use. Run `mise run ios:sim:watch` to return to the normal app.
+
 Only `ios:sim:phone` syncs the StoreKit configuration, and it has to: `storeKitConfiguration` in `project.yml` is a property of the scheme, so a launch that does not go through Xcode resolves no products and every purchase fails as `productUnavailable`. On hardware there is no such file — purchases go through a sandbox Apple ID and a device build meets the real paywall.
 
 The `device` tasks need `OND_DEV_TEAM` set, and refuse with an explanation rather than a signing error when it is missing. Some notes on what "reachable" means:

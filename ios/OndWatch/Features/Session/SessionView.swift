@@ -59,6 +59,8 @@ struct SessionView: View {
         }
         .wristGround(ground)
         .navigationBarBackButtonHidden()
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden)
         .task(id: pendingWarning) { await prepare() }
         .onDisappear {
             runtime.invalidate()
@@ -93,6 +95,12 @@ struct SessionView: View {
     private func begin() {
         guard pendingWarning == nil, !isPrepared else { return }
         isPrepared = true
+        #if DEBUG
+            if WatchSessionPreview.slug != nil {
+                model.start()
+                return
+            }
+        #endif
         runtime.start()
         model.start()
     }

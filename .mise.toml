@@ -734,6 +734,16 @@ depends = ["ios:build:watch"]
 dir = "{{config_root}}"
 run = "cargo run --quiet -p toolkit -- ios sim watch"
 
+[tasks."ios:preview:watch"]
+description = "Build and open an unsaved Watch session preview"
+depends = ["ios:sim:watch"]
+usage = '''
+arg "<device>" help="watchOS simulator UUID"
+arg "<technique>" default="box-breathing"
+arg "<text>" default="normal" help="normal, large, or accessibility"
+'''
+run = 'xcrun simctl launch --terminate-running-process "$usage_device" xyz.holmie.ond.watchkitapp --preview-session "$usage_technique" --preview-text "$usage_text"'
+
 [tasks."ios:device:phone"]
 description = "Build, install, and launch the phone app on a connected iPhone"
 depends = ["ios:gen"]

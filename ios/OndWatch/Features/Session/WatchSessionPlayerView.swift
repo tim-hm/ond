@@ -11,15 +11,11 @@ struct WatchSessionPlayerView: View {
     private static let countSize: CGFloat = 13
     private static let countStep = 1.0
 
-    /// Pause and End are always on screen: two small discs at the foot are
-    /// quieter than any affordance standing in for them — a capsule naming a
-    /// menu is louder on a screen whose point is near-emptiness, and costs a
-    /// tap and a guess to reach the two actions behind it.
     var body: some View {
         if dynamicTypeSize.isAccessibilitySize {
             ScrollView {
                 VStack(spacing: Theme.Spacing.close) {
-                    header
+                    remainingTime
                     if model.isInHold {
                         hold
                     } else {
@@ -29,79 +25,75 @@ struct WatchSessionPlayerView: View {
                 }
             }
         } else {
-            VStack(spacing: 0) {
-                header
-                visual
+            GeometryReader { proxy in
+                VStack(spacing: Theme.Spacing.close) {
+                    if model.isInHold {
+                        hold
+                    } else {
+                        phase
+                    }
 
-                if model.isInHold {
-                    hold
-                } else {
-                    phase
+                    visual
+                    controls
                 }
-
-                controls
+                .frame(width: proxy.size.width, height: proxy.size.height)
             }
+            .ignoresSafeArea(.container, edges: .bottom)
         }
     }
 
-    /// The remaining time, as quiet chrome at the top of the face — the number
-    /// the session ring used to carry. Only where the plan knows its own end:
-    /// an open-ended stage makes "left" a number nobody stands behind.
+    /// Open-ended stages have no reliable remaining duration.
     @ViewBuilder
-    private var header: some View {
+    private var remainingTime: some View {
         if !model.technique.hasOpenEndedStage {
             TimelineView(.periodic(from: .now, by: 1)) { _ in
                 Text("\(model.remaining.formatted(.time(pattern: .minuteSecond))) left")
                     // A text style, not a fixed size, so the one number
                     // on the face grows with the wrist's text setting.
-                    .font(.footnote.weight(.semibold))
-                    .textCase(.uppercase)
-                    .kerning(1.1)
+                    .font(.caption2.weight(.medium))
                     .monospacedDigit()
+                    .multilineTextAlignment(.center)
                     .foregroundStyle(Theme.Ink.secondary)
             }
         }
     }
 
-    /// `TimelineView(.animation)` reads the elapsed time back off the
-    /// session's clock every frame, so the visual follows the taps' timeline
-    /// rather than an animation beside it; pausing stops the redraws too.
-    /// Rested under Reduce Motion — `BreathRing` parks the breath and sweeps a
-    /// ring, at `Theme.Motion.restfulFrameInterval` rather than every frame.
+    /// The session clock freezes the orb during pauses and holds.
     private var visual: some View {
-        // The face does not resize, so the fit is read once per layout rather
-        // than inside the frame timeline, where it would cost a layout pass a
-        // frame for an answer that cannot change.
-        GeometryReader { proxy in
-            let room = min(proxy.size.width, proxy.size.height)
-            let side = max(BreathRing.leastSide, min(BreathRing.designSide, room))
+        let motion = AirOrbMotion(timeline: model.timeline)
+        let sweeping = settings.breathVisual.drawn(underReduceMotion: reduceMotion) == .sweeping
+
+        return GeometryReader { proxy in
+            let room = max(0, min(proxy.size.width, proxy.size.height) - Theme.Spacing.close)
+            let side = min(WatchAirOrb.designSide, room)
 
             TimelineView(.animation(
-                minimumInterval: settings.breathVisual
-                    .drawn(underReduceMotion: reduceMotion) == .sweeping
-                    ? Theme.Motion.restfulFrameInterval : nil,
-                paused: model.status != .running
+                minimumInterval: Theme.Motion.restfulFrameInterval,
+                paused: model
+                    .status != .running || (!sweeping && model.currentBeat?.kind.isHold == true)
             )) { _ in
                 let elapsed = model.elapsed
+                let beat = model.timeline.beat(at: elapsed)
 
-                BreathRing(
-                    beat: model.timeline.beat(at: elapsed),
-                    elapsed: elapsed,
-                    timeline: model.timeline,
-                    accent: model.accent,
-                    side: side
-                )
+                WatchAirOrb(frame: motion.frame(at: elapsed, stationary: sweeping), side: side)
+                    .overlay {
+                        if sweeping {
+                            PhaseArc(
+                                fraction: beat?.fraction(at: elapsed) ?? 0,
+                                tint: beat?.kind.isHold == true ? Theme.Breath.hold : model.accent,
+                                lineWidth: 3
+                            )
+                            .frame(width: side, height: side)
+                        }
+                    }
             }
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
-        // The phase text below is the accessible description of all this.
+        .clipped()
         .accessibilityHidden(true)
     }
 
-    /// The phase word in the display face, the passage where it matters, and
-    /// the seconds under both — below the orb, because a shape that scales
-    /// cannot hold a line of unpredictable length. Ticking once a second,
-    /// which is as often as the count changes; the word itself only changes
-    /// at a boundary.
+    /// Keep one detail row reserved so hints and hold counts do not move the orb.
     private var phase: some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             let elapsed = model.elapsed
@@ -110,21 +102,19 @@ struct WatchSessionPlayerView: View {
 
             VStack(spacing: Theme.Spacing.tight) {
                 Text(model.status == .paused ? "Paused" : beat?.instruction ?? "")
-                    .displaySerif(size: Theme.Metrics.wristDisplaySize)
+                    .displaySerif(size: 22)
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                    .minimumScaleFactor(0.85)
 
-                // The glance form, held to one line: a 40mm case is 162pt
-                // wide, and a wrapped hint would push the count under it on
-                // one beat of the cycle — the jump `hintsAnyBeat` reserves
-                // the line to prevent.
-                if model.timeline.hintsAnyBeat {
-                    Text(beat?.hint.glance ?? " ")
-                        .font(.caption2.weight(.semibold))
-                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
-                        .foregroundStyle(Theme.Ink.secondary)
+                HStack(spacing: Theme.Spacing.close) {
+                    if model.timeline.hintsAnyBeat {
+                        Text(beat?.hint.glance ?? " ")
+                            .font(.caption2.weight(.semibold))
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                            .foregroundStyle(Theme.Ink.secondary)
+                    }
+                    countLine(count)
                 }
-
-                countLine(count)
             }
             .foregroundStyle(Theme.Ink.primary)
             .accessibilityElement()
@@ -228,7 +218,7 @@ struct WatchSessionPlayerView: View {
     /// by glyph alone, as on the phone, and End carries no destructive role —
     /// ending a session destroys nothing; it hands over a summary.
     private var controls: some View {
-        HStack(spacing: Theme.Spacing.standard) {
+        HStack(spacing: Theme.Spacing.close) {
             control(
                 model.status == .paused ? "play.fill" : "pause.fill",
                 label: model.status == .paused ? "Resume" : "Pause"
@@ -240,11 +230,15 @@ struct WatchSessionPlayerView: View {
                 }
             }
 
+            if !dynamicTypeSize.isAccessibilitySize {
+                remainingTime
+            }
+
             control("stop.fill", label: "End") {
                 model.end()
             }
         }
-        .padding(.bottom, Theme.Spacing.close)
+        .padding(.bottom, Theme.Spacing.standard)
     }
 
     private func control(
