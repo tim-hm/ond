@@ -10,6 +10,7 @@ This is the implementation follow-up to the [release review](2026-09-04-release-
 | Phone fallback | Impact generators are prepared before Core Haptics starts. Engine or pattern failures can therefore use the fallback. Debug cue preview includes an engine-failure switch for hardware testing. |
 | Audio | Pause stops phase tones as well as bells. Sound-only guidance is available. Settings explains Silent Mode behaviour and offers an unsaved cue preview, with current and rounded sound candidates and a five-minute comfort check. The default sound family is unchanged. |
 | Orb | Removed whole-session arcs and independent background motion. The phone core has a softer glow. The Watch uses one core and one fixed reference ring. Hold tint begins at the hold boundary. Side and stacked-breath instructions remain. |
+| Phase text | Phone instructions and qualifiers fade out together for 80 ms, then the new words fade in for 140 ms in the same slots. Replacement happens while invisible. New steps cancel pending handoffs; pause, resume and Reduce Motion update immediately. VoiceOver still receives the current phase immediately. |
 | Watch | Skippable three-second preparation, explicit runtime-loss pause/retry/end state, bounded startup wait, large-text layout, purpose beside exercise duration, numbered safety points, local guide preference, and current/boundary-only/fewer-pulse auditions, including a five-minute comfort check. |
 | Practice graph | Dates, a minutes axis, selected-day values, and one adjustable accessibility element. Zero-practice days represent zero minutes. |
 | History | Explicit minute and second units distinguish session duration from its start time. |
@@ -44,6 +45,10 @@ The subtitle failure capture shows the intended text and background. The palette
 
 The UI suite retains its existing exemptions, including Settings contrast and Dynamic Type checks and some system chrome/snapshot findings. Automated checks cannot establish complete accessibility, tactile comfort, sound quality, wrist-down reliability or production readiness. Watch layouts were source/build reviewed; physical Watch review remains outstanding. Icon A is now applied locally; launcher appearance on hardware remains part of the release review. Live provider smoke tests, real purchases, release signing, deployment and App Store submission were not run.
 
+Phase-text commit verification, 2026-09-05: `check:mac` passed, including strict Swift checks, all 1,062 tests in 156 suites, and both app builds. The focused active-session UI/accessibility case and diagram parity passed. After the release-polish commit, the full gate passed generated-file parity, Rust formatting/Clippy, SQL cache validation and its preliminary documentation/tooling checks. It then stalled while starting the Rust test binaries; those processes remained idle for over four minutes without test results and were stopped. This latest full gate is incomplete, and its backend integration stage did not run. The earlier Rust/integration results above remain historical evidence.
+
+The required generation attempt completed protobuf, catalogue, diagrams and icons, but its SQL cache rebuild was stopped after a compiler stall. Its temporary cache deletions were restored; the subsequent SQL cache validation passed. Formatting completed successfully. Review the new phase-text timing on a device before release; the automated UI case verifies controls and accessibility, not frame-by-frame animation quality.
+
 ## Decisions and physical checks needed from you
 
 Icon A follow-up, 2026-09-05: 1,062 Swift tests passed, including the updated palette and geometry checks. Strict Swift lint, the phone build (including the embedded Watch app and complication), diagram parity and Markdown checks passed. Regenerated and visually inspected the Watch and web touch PNGs. The icon assets now add intentional generated changes alongside the catalogue change recorded above. The earlier UI-audit finding remains open; this icon follow-up did not rerun the UI suite or full gate.
@@ -59,7 +64,7 @@ Icon A follow-up, 2026-09-05: 1,062 Swift tests passed, including the updated pa
 
 ## Remaining product experiments
 
-A complete line-by-line copy audit remains outstanding. The proposed non-overlapping phase-label transition has not been implemented; the phone still uses its existing 400 ms crossfade.
+A complete line-by-line copy audit remains outstanding. The non-overlapping phone phase-label transition is implemented; its feel still needs device review with the other visual comfort checks above.
 
 Shorter onboarding, a one- or two-minute first practice, the timing of the trial offer, post-practice reminders, physiological leaderboards, broader palette changes, and acquisition experiments still need the beta observation or product decision specified in the original review. Existing functional architecture was retained. New analytics, pricing changes, deployments and external publication were not introduced.
 

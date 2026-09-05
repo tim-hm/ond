@@ -47,13 +47,13 @@ struct SessionWords: View {
                         SessionSlots(
                             action: action(at: moment),
                             qualifier: qualifier(at: moment),
-                            count: count(at: moment)
+                            count: count(at: moment),
+                            isPaused: moment.isPaused
                         )
                     }
                 }
-                // One element wearing two strings rather than a branch per
-                // state: a branch gives the slots a second identity, and
-                // SwiftUI then replaces them where they were to crossfade.
+                // VoiceOver receives the current phase without waiting for
+                // the visible instruction's fade to finish.
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(spoken.label)
                 .accessibilityValue(spoken.value)
