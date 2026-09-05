@@ -85,28 +85,14 @@ struct RootMenuView: View {
         ).stops
     }
 
-    /// The wordmark, and the time beside it — the one number a watch face is
-    /// always asked for, and the reason this screen can stand alone at all.
     private var masthead: some View {
-        HStack(alignment: .firstTextBaseline) {
-            // Lowercase, and never uppercased: the name is önd, and ÖND is a
-            // different word wearing its hat.
-            Text("önd")
-                .displaySerif(size: Theme.Metrics.wristDisplaySize)
-                .foregroundStyle(Theme.Ink.primary)
-
-            Spacer(minLength: Theme.Spacing.tight)
-
-            // Untinted, as the refresh spec §7 asks: this stands for the
-            // system's own clock.
-            Text(.now, style: .time)
-                .font(.caption2)
-                .monospacedDigit()
-                .foregroundStyle(Theme.Ink.primary)
-        }
-        .listRowInsets(EdgeInsets())
-        .listRowBackground(Color.clear)
-        .accessibilityAddTraits(.isHeader)
+        Text("önd")
+            .displaySerif(size: Theme.Metrics.wristDisplaySize)
+            .foregroundStyle(Theme.Ink.primary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            .accessibilityAddTraits(.isHeader)
     }
 
     @ViewBuilder
