@@ -23,4 +23,9 @@ public enum AmbientBreath {
         let progress = time.truncatingRemainder(dividingBy: cycle) / cycle
         return 0.5 - 0.5 * cos(progress * 2 * .pi)
     }
+
+    public static func airflow(at time: TimeInterval, cycle: Double = restingCycle) -> Double {
+        let angularSpeed = 4 * Double.pi / cycle
+        return time * 0.192 - sin(time * angularSpeed) * 0.18 / angularSpeed
+    }
 }

@@ -60,7 +60,7 @@ struct HomeView: View {
     /// live presentation is the one order SwiftUI does not promise to honour.
     @State private var isLeavingForExercises = false
 
-    private static let orbSide: CGFloat = 230
+    private static let orbSide: CGFloat = 280
 
     /// Where the resting breath is held under Reduce Motion: a quarter of the
     /// way round, which is half full — a breath mid-way rather than the empty
@@ -268,8 +268,8 @@ struct HomeView: View {
                 .timeIntervalSince(orbStarted)
             let fullness = AmbientBreath.fullness(at: elapsed, cycle: AmbientBreath.restingCycle)
             SmokeOrb(
-                scale: 0.76 + 0.20 * fullness,
-                swirl: reduceMotion ? 0 : elapsed * 0.18,
+                scale: AirOrbMotion.scale(forLevel: fullness),
+                swirl: reduceMotion ? 0 : AmbientBreath.airflow(at: elapsed),
                 side: Self.orbSide
             )
         }

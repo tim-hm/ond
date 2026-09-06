@@ -61,10 +61,7 @@ struct HealthSettingsSection: View {
             Toggle(isOn: $coachReadsHealthTrends) {
                 settingsLabel(
                     "Heart and sleep data",
-                    description: "Summaries can be sent to Amazon Bedrock for coaching after AI sharing permission. "
-                        +
-                        (healthTrendsNeedsPlus ? SubscriptionTier
-                            .plusRequirementNote : "Raw readings stay on this device.")
+                    description: healthTrendsNeedsPlus ? SubscriptionTier.plusRequirementNote : nil
                 )
             }
             .accessibilityIdentifier("settings-health-watch-trends")
@@ -80,6 +77,12 @@ struct HealthSettingsSection: View {
             .accessibilityIdentifier("settings-health-mindful-minutes")
         } header: {
             Text("Health")
+        } footer: {
+            Text(
+                "If you allow AI sharing, önd can send heart and sleep summaries to Amazon Bedrock for coaching. "
+                    + "Raw readings stay on this device."
+            )
+            .accessibilityIdentifier("settings-health-sharing-note")
         }
         .listRowBackground(Theme.Surface.raised)
     }

@@ -136,20 +136,17 @@ final class OndAppUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Appearance"].exists)
 
         reveal(app.staticTexts["Practice"])
+        XCTAssertFalse(app.buttons["Try the cues"].exists)
         reveal(app.staticTexts["Health"])
 
         assertHealthChoice("settings-health-check-ins", title: "Mood before and after")
         assertHealthChoice("settings-health-live-heart-rate", title: "Live heart rate")
         assertHealthChoice("settings-health-watch-trends", title: "Heart and sleep data")
-
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
-            .press(
-                forDuration: 0.05,
-                thenDragTo: app.coordinate(
-                    withNormalizedOffset: CGVector(dx: 0.5, dy: 0.62)
-                )
-            )
-        reveal(app.switches["settings-health-watch-trends"])
+        reveal(app.staticTexts["settings-health-sharing-note"])
+        let settings = XCTAttachment(screenshot: app.screenshot())
+        settings.name = "settings-health-footer"
+        settings.lifetime = .keepAlways
+        add(settings)
 
         try app.performAccessibilityAudit { issue in
             // iOS 26 scales the compact snapshots of custom Picker and Toggle
@@ -374,6 +371,7 @@ final class OndAppUITests: XCTestCase {
         for (name, shot) in [
             ("smoke-motion-start", first),
             ("smoke-motion-next", guide.screenshot()),
+            ("airflow-session", app.screenshot()),
         ] {
             let attachment = XCTAttachment(screenshot: shot)
             attachment.name = name

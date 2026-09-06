@@ -39,7 +39,7 @@ struct WelcomeStepView: View {
 
             Spacer(minLength: Theme.Spacing.loose)
 
-            AmbientOrb(accent: Theme.Accent.brand)
+            AmbientOrb()
 
             Spacer(minLength: Theme.Spacing.loose)
 

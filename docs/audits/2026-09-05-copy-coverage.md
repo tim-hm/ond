@@ -95,7 +95,7 @@ Screened every `.swift` file in the seven shipping native roots below. Read the 
 | [Ond/Features/Session/AmbientField.swift](../../ios/Ond/Features/Session/AmbientField.swift)                         | N      |
 | [Ond/Features/Session/BreathVisual.swift](../../ios/Ond/Features/Session/BreathVisual.swift)                         | C      |
 | [Ond/Features/Session/CountdownView.swift](../../ios/Ond/Features/Session/CountdownView.swift)                       | C      |
-| [Ond/Features/Session/CuePreviewView.swift](../../ios/Ond/Features/Session/CuePreviewView.swift)                     | C      |
+| `Ond/Features/Session/CuePreviewView.swift` (removed 6 September 2026)                                               | C      |
 | [Ond/Features/Session/HapticController.swift](../../ios/Ond/Features/Session/HapticController.swift)                 | C      |
 | [Ond/Features/Session/MoodScale.swift](../../ios/Ond/Features/Session/MoodScale.swift)                               | C      |
 | [Ond/Features/Session/PlayfulBreathVisual.swift](../../ios/Ond/Features/Session/PlayfulBreathVisual.swift)           | N      |

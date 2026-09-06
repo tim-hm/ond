@@ -17,6 +17,12 @@ final class FirstLaunchUITests: XCTestCase {
                 .waitForExistence(timeout: 10)
         )
 
+        XCTAssertTrue(app.otherElements["welcome-breath-guide"].exists)
+        let welcome = XCTAttachment(screenshot: app.screenshot())
+        welcome.name = "welcome-airflow"
+        welcome.lifetime = .keepAlways
+        add(welcome)
+
         let progress = app.descendants(matching: .any)["Setup progress"]
         XCTAssertTrue(progress.exists)
         XCTAssertEqual(progress.value as? String, "Step 1 of 5")

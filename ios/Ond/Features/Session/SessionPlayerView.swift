@@ -13,7 +13,6 @@ struct SessionPlayerView: View {
 
     @Environment(SessionSettings.self) private var settings
     @Environment(PulseMonitor.self) private var pulse
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
@@ -24,7 +23,7 @@ struct SessionPlayerView: View {
                         header
                         SessionWords(model: model)
                         if !SessionWords.speak(for: model, under: settings.guidance) {
-                            breathGuide
+                            breathGuide()
                         }
                         if pulse.expectsReadings {
                             PulseBadge()
@@ -42,30 +41,27 @@ struct SessionPlayerView: View {
     }
 
     private var standardPlayer: some View {
-        VStack(spacing: Theme.Spacing.loose) {
-            // The two flexible bands take an equal share of the slack, which
-            // puts the guide between them at the screen's centre whatever the
-            // header and the transport controls measure.
+        VStack(spacing: Theme.Spacing.standard) {
             header
                 .padding(.top, Theme.Spacing.loose)
-                .frame(maxHeight: .infinity, alignment: .top)
+                .padding(.horizontal, Theme.Spacing.loose)
 
-            breathGuide
+            GeometryReader { proxy in
+                breathGuide(extent: min(proxy.size.width * 0.94, proxy.size.height))
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+            }
+
             SessionWords(model: model)
+                .padding(.horizontal, Theme.Spacing.loose)
 
-            // Inside the bands so the slack falls beneath it and the rate
-            // joins the exercise, not the transport controls. Its own row so
-            // it survives Just the visuals' wordless screen. `expectsReadings`
-            // is the only pulse property read here: the rate itself stays
-            // inside the badge — see `PulseBadge`.
             if pulse.expectsReadings {
                 PulseBadge()
             }
 
             controls
-                .frame(maxHeight: .infinity, alignment: .bottom)
+                .padding(.horizontal, Theme.Spacing.loose)
         }
-        .padding(Theme.Spacing.loose)
+        .padding(.vertical, Theme.Spacing.loose)
     }
 
     /// The name and the remaining time. The name is fixed for the session;
@@ -94,19 +90,20 @@ struct SessionPlayerView: View {
         }
     }
 
-    /// Freeze the air globe during holds; other visual modes keep their phase cues.
-    private var breathGuide: some View {
+    private func breathGuide(extent: CGFloat = BreathVisual.extent) -> some View {
         let motion = AirOrbMotion(timeline: model.timeline)
-        let drawsArc = BreathVisual.drawsArc(reduceMotion: reduceMotion, settings)
-        let holdsOrb = !drawsArc && model.timeline.register != .playful
-            && model.currentBeat?.kind.isHold == true
 
         return TimelineView(.animation(
             minimumInterval: Theme.Motion.restfulFrameInterval,
-            paused: model.status != .running || holdsOrb
+            paused: model.status != .running && model.status != .holding
         )) { _ in
             let elapsed = model.elapsed
-            breathVisual(beat: model.timeline.beat(at: elapsed), elapsed: elapsed, motion: motion)
+            breathVisual(
+                beat: model.timeline.beat(at: elapsed),
+                elapsed: elapsed,
+                motion: motion,
+                extent: extent
+            )
         }
     }
 
@@ -152,14 +149,17 @@ struct SessionPlayerView: View {
     private func breathVisual(
         beat: SessionTimeline.Beat?,
         elapsed: Duration,
-        motion: AirOrbMotion
+        motion: AirOrbMotion,
+        extent: CGFloat
     ) -> some View {
         BreathVisual(
             beat: beat,
             elapsed: elapsed,
+            realElapsed: model.realElapsed,
             motion: motion,
             accent: model.accent,
-            register: model.timeline.register
+            register: model.timeline.register,
+            availableExtent: extent
         )
         .speaksPhase(beat, at: elapsed)
         .accessibilityHidden(SessionWords.speak(for: model, under: settings.guidance))

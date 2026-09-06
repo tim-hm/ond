@@ -6,9 +6,11 @@ import SwiftUI
 struct BreathVisual: View {
     let beat: SessionTimeline.Beat?
     let elapsed: Duration
+    let realElapsed: Duration
     let motion: AirOrbMotion
     let accent: Color
     let register: CopyRegister
+    var availableExtent: CGFloat = Self.extent
 
     static let extent: CGFloat = 300
 
@@ -24,7 +26,7 @@ struct BreathVisual: View {
 
     /// Give the guide's space to larger text without enlarging it for smaller text.
     private var fitted: CGFloat {
-        Self.extent * min(max(Self.extent / grown, Self.mostShrink), 1)
+        availableExtent * min(max(Self.extent / grown, Self.mostShrink), 1)
     }
 
     var body: some View {
@@ -77,8 +79,7 @@ struct BreathVisual: View {
     private func orb(travels: Bool, extent: CGFloat) -> some View {
         SessionOrb(
             beat: beat,
-            frame: motion.frame(at: elapsed, stationary: !travels),
-            coreTravels: travels,
+            frame: motion.frame(at: elapsed, realElapsed: realElapsed, stationary: !travels),
             extent: extent
         )
     }

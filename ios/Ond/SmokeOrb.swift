@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SmokeOrb: View {
-    static let diameterFraction = 0.92
+    static let diameterFraction = 1.08
 
     let scale: Double
     let swirl: Double

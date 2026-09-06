@@ -7,7 +7,6 @@ struct PracticeSettingsSection: View {
     let settings: SessionSettings
     let stacksPickers: Bool
     let reduceMotion: Bool
-    @State private var showsCuePreview = false
 
     /// Why a row is switched off, said on the row itself. Every row in this
     /// section that can be disabled keeps its label and its value and states
@@ -63,7 +62,6 @@ struct PracticeSettingsSection: View {
             }
             // A haptic dial under a cueless mode would be connected to nothing.
             .disabled(!settings.cueMode.playsHaptics)
-            Button("Try the cues") { showsCuePreview = true }
             if settings.cueMode.playsAudio {
                 Text("Sound plays in Silent Mode and mixes with other audio.")
                     .font(.caption)
@@ -73,6 +71,5 @@ struct PracticeSettingsSection: View {
             Text("Practice")
         }
         .listRowBackground(Theme.Surface.raised)
-        .sheet(isPresented: $showsCuePreview) { CuePreviewView(settings: settings) }
     }
 }

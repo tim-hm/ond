@@ -21,22 +21,31 @@ public struct AirOrbMotion: Sendable {
         }
     }
 
-    public func frame(at elapsed: Duration, stationary: Bool = false) -> Frame {
+    public func frame(
+        at elapsed: Duration,
+        realElapsed: Duration? = nil,
+        stationary: Bool = false
+    ) -> Frame {
         guard !stationary, let beat = timeline.beat(at: elapsed) else {
             return Frame(scale: 0.84, swirl: 0)
         }
         let fraction = beat.fraction(at: elapsed)
         let eased = fraction * fraction * (3 - 2 * fraction)
         let travel = beat.kind.isHold ? 0 : eased * (beat.breathing / .seconds(1))
-        // Exclude holds and turn gaps so motion resumes from the frozen frame.
         let moving = movingStarts[beat.id] + travel
+        // Real time advances during open holds and freezes when the session pauses.
+        let drift = (realElapsed ?? elapsed) / .seconds(1) * 0.012
         return Frame(
             scale: Self.scale(forFullness: beat.lungFullness(at: elapsed)),
-            swirl: moving * 0.18
+            swirl: moving * 0.18 + drift
         )
     }
 
     public static func scale(forFullness fullness: Double) -> Double {
-        0.62 + 0.38 * SessionTimeline.Beat.level(ofFullness: fullness)
+        scale(forLevel: SessionTimeline.Beat.level(ofFullness: fullness))
+    }
+
+    public static func scale(forLevel level: Double) -> Double {
+        0.42 + 0.58 * min(max(level, 0), 1)
     }
 }

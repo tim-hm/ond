@@ -58,7 +58,6 @@ struct WatchSessionPlayerView: View {
         }
     }
 
-    /// The session clock freezes the orb during pauses and holds.
     private var visual: some View {
         let motion = AirOrbMotion(timeline: model.timeline)
         let sweeping = settings.breathVisual.drawn(underReduceMotion: reduceMotion) == .sweeping
@@ -69,23 +68,26 @@ struct WatchSessionPlayerView: View {
 
             TimelineView(.animation(
                 minimumInterval: Theme.Motion.restfulFrameInterval,
-                paused: model
-                    .status != .running || (!sweeping && model.currentBeat?.kind.isHold == true)
+                paused: model.status != .running && model.status != .holding
             )) { _ in
                 let elapsed = model.elapsed
                 let beat = model.timeline.beat(at: elapsed)
 
-                WatchAirOrb(frame: motion.frame(at: elapsed, stationary: sweeping), side: side)
-                    .overlay {
-                        if sweeping {
-                            PhaseArc(
-                                fraction: beat?.fraction(at: elapsed) ?? 0,
-                                tint: beat?.kind.isHold == true ? Theme.Breath.hold : model.accent,
-                                lineWidth: 3
-                            )
-                            .frame(width: side, height: side)
-                        }
+                WatchAirOrb(
+                    frame: motion
+                        .frame(at: elapsed, realElapsed: model.realElapsed, stationary: sweeping),
+                    side: side
+                )
+                .overlay {
+                    if sweeping {
+                        PhaseArc(
+                            fraction: beat?.fraction(at: elapsed) ?? 0,
+                            tint: beat?.kind.isHold == true ? Theme.Breath.hold : model.accent,
+                            lineWidth: 3
+                        )
+                        .frame(width: side, height: side)
                     }
+                }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
