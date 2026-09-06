@@ -411,12 +411,13 @@ final class OndAppUITests: XCTestCase {
         return try XCTUnwrap(UIImage(cgImage: cropped).pngData())
     }
 
-    func testWithYourChildIsAPlayfulMomentRatherThanAnExercise() {
+    func testWithYourChildIsAPlayfulMomentRatherThanAnExercise() throws {
         app.terminate()
         app.launchArguments = [
             "--ui-testing",
             // "sphere" is the key Scaling is stored under, not a stale value.
             "-session.breathVisual", "sphere",
+            "-session.guidance", "full",
             "-session.moodCheck", "NO",
         ]
         app.launch()
@@ -454,7 +455,40 @@ final class OndAppUITests: XCTestCase {
                 .waitForExistence(timeout: 8)
         )
         XCTAssertTrue(app.staticTexts["Smell the flower"].exists)
-        XCTAssertTrue(app.staticTexts["Blow out the candle"].waitForExistence(timeout: 5))
+        let guide = app.descendants(matching: .any)["breath-guide-playful"].firstMatch
+        let frame = guide.frame
+        let flower = XCTAttachment(screenshot: app.screenshot())
+        flower.name = "garden-inhale"
+        flower.lifetime = .keepAlways
+        add(flower)
+        XCTAssertTrue(app.staticTexts["Breathe out gently"].waitForExistence(timeout: 5))
+
+        let instruction = app.descendants(matching: .any)["session-instruction"].firstMatch
+        let exhale = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS[c] 'gently' AND value == '3'"),
+            object: instruction
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [exhale], timeout: 8), .completed)
+        let candle = XCTAttachment(screenshot: app.screenshot())
+        candle.name = "garden-exhale"
+        candle.lifetime = .keepAlways
+        add(candle)
+        XCTAssertEqual(guide.frame, frame)
+
+        let first = try pixels(in: frame)
+        let moving = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in (try? self.pixels(in: frame)) != first },
+            object: nil
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [moving], timeout: 3), .completed)
+        app.buttons["Pause"].tap()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 3))
+        let frozen = try pixels(in: frame)
+        let changed = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in (try? self.pixels(in: frame)) != frozen },
+            object: nil
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 2), .timedOut)
     }
 
     func testExerciseDetailKeepsActionsInTheReadingFlow() throws {

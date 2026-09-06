@@ -406,7 +406,7 @@ Screened every `.swift` file in the seven shipping native roots below. Read the 
 | [OndStyle/FigureShape.swift](../../ios/Packages/OndCore/Sources/OndStyle/FigureShape.swift)               | N      |
 | [OndStyle/FigureStrokes.swift](../../ios/Packages/OndCore/Sources/OndStyle/FigureStrokes.swift)           | N      |
 | [OndStyle/GoalAccent.swift](../../ios/Packages/OndCore/Sources/OndStyle/GoalAccent.swift)                 | N      |
-| [OndStyle/PlayfulShapes.swift](../../ios/Packages/OndCore/Sources/OndStyle/PlayfulShapes.swift)           | N      |
+| `OndStyle/PlayfulShapes.swift` (retired 6 September 2026)                                                 | N      |
 | [OndStyle/SessionPresenceCue.swift](../../ios/Packages/OndCore/Sources/OndStyle/SessionPresenceCue.swift) | C      |
 
 ### OndUI

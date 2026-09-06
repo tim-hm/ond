@@ -351,8 +351,8 @@ private let inks = ColorToken.allCases.filter { $0.rawValue.hasPrefix("Ink/") }
 private let accents = ColorToken.allCases.filter { $0.rawValue.hasPrefix("Accent/") }
 /// The accents something can ask for a quieter version of, derived with three
 /// exclusions so a sixth goal accent is measured the day it lands. `Accent/Caution`
-/// never strokes a figure; `Accent/Play` is drawn at strengths of its own and never
-/// softened; `Accent/Brand` softened lands under 3:1 on the light ground, so only
+/// never strokes a figure; `Accent/Play` is never softened;
+/// `Accent/Brand` softened lands under 3:1 on the light ground, so only
 /// the site softens it — by a shallower fraction `SitePaletteTests` holds.
 private let softenable = accents.filter {
     ![.accentCaution, .accentPlay, .accentBrand].contains($0)

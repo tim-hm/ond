@@ -41,11 +41,10 @@ struct BreathVisual: View {
                 PlayfulBreathVisual(
                     kind: beat?.kind,
                     level: level,
-                    tint: tint,
+                    progress: beat?.fraction(at: elapsed) ?? 0,
+                    time: realElapsed / .seconds(1),
                     extent: fitted
                 )
-                .padding(Theme.Spacing.close)
-                .animation(.easeInOut(duration: 0.4), value: isStill)
                 .accessibilityIdentifier("breath-guide-playful")
             } else {
                 orb(travels: true, extent: fitted)
