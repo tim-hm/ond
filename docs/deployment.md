@@ -15,7 +15,7 @@ web/              the marketing one-pager, rsynced by deploy:website and served 
 
 There are two public hostnames on one box, split by name rather than by path: **`api.ondbreathe.app`** reverse-proxies to the API container, and **`ondbreathe.app`** serves the marketing page from `/srv/web`. Each name is written once, as a Route53 record in `infra/main.tf`; deploy:api exports both (`api_host`, `web_host`) and renders them into the Caddyfile, so a site block cannot request a certificate for a name no record answers.
 
-The split costs a record and buys two things worth more than it. The app compiles its base URL in (`AppConfiguration.defaultBaseURL`), so only an App Store release can change the host it asks for; a separate record is what lets the API move to different infrastructure without moving the marketing page with it. And it leaves the page independently frontable — a CDN over the apex is the ordinary answer to a launch spike, and one that buffered responses would break the assistant's stream.
+The split keeps the two services independent. The app compiles its base URL in (`AppConfiguration.defaultBaseURL`), so only an App Store release can change the host it asks for; a separate record is what lets the API move to different infrastructure without moving the marketing page with it. And it leaves the page independently frontable — a CDN over the apex is the ordinary answer to a launch spike, without caching private API responses.
 
 DNS is applied from `infra/`, not edited at the registrar: the hosted zone and both `A` records land with the address they point at, so a record aimed at a released IP is not a state this repo can reach. The registrar holds one thing, the NS delegation, set once from the `name_servers` output.
 
@@ -125,42 +125,6 @@ The container gets exactly the two variables `crates/api/src/config.rs` reads, a
 | `OND_ENV`      | yes      | Literal `production` in `infra/box/compose.yaml` — JSON logs, no permissive CORS |
 | `DATABASE_URL` | yes      | Assembled in the same file from the generated `POSTGRES_PASSWORD`                |
 
-**The assistant has no variable, and that is the design.** It calls Amazon Bedrock directly, signing each call with the `ond-api` instance profile that `infra/main.tf` attaches — reachable from inside the container because `http_put_response_hop_limit` is 2, the same reason the backup cron's `aws s3 cp` works. So there is no key on the box, nothing to add after a rebuild, and nothing to rotate. Where the box cannot sign for Bedrock at all — a laptop with no AWS identity, a CI runner — the API boots normally and the assistant answers from its rule-based fallback; every RPC still returns a real answer, flagged so the client can say so.
-
-The two things that _are_ configuration live in code and in OpenTofu: which model, in `BEDROCK_MODEL_ID`; and which regions its inference profile may route to, in `assistant_profile_regions`. See [the assistant's permission](#the-assistants-permission) below.
-
-## The assistant's permission
-
-`aws_iam_role_policy.invoke_model` in `infra/main.tf` is what lets the box call the coach's model. It grants `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream` — the streaming one is not optional, because the chat RPC streams — over two ARN families, and both are required:
-
-- the **inference profile**, `arn:aws:bedrock:eu-west-2:<account>:inference-profile/eu.anthropic.…`, which is where the call is addressed; and
-- the **underlying foundation model** in every region that profile may forward to, `arn:aws:bedrock:<destination>::foundation-model/anthropic.…`.
-
-A policy granting only the first is the failure worth knowing about. It is valid, it plans, it applies — and then every call comes back `AccessDenied`, on the box, because an invocation is authorised against both. The foundation-model id is derived from the profile id rather than written twice, so those two cannot drift.
-
-**Whether it actually works is `/about`'s `assistant` field**, and reading it is the check to make after any change to this policy:
-
-| Value         | What it means                                                                                              |
-| :------------ | :--------------------------------------------------------------------------------------------------------- |
-| `live`        | Bedrock has answered in this process — the coach's replies are coming from the model                       |
-| `untried`     | A model is installed and calls will be attempted, but none has succeeded yet. Nothing is proven either way |
-| `interrupted` | The model is installed but its breaker is open: recent calls failed, and the rules answer for the cooldown |
-| `fallback`    | This process could not sign for a model at boot, and will answer from the rules until it is restarted      |
-
-**Every one of those is derived from what calls did, never from what is configured**, and that rule is the whole design rather than an implementation detail. A field that read `bedrock` because `config.rs` names Bedrock would be this outage wearing a new hat: the configuration was correct the entire time, and the IAM grant behind it was missing.
-
-So `live` is evidence and the other three are not. Credentials that resolve are not credentials that are _authorised_: with no `invoke_model` grant the instance profile still signed, so the API installed a Bedrock client and would have called itself live for as long as nobody asked it anything — and nobody could, because a chat request needs önd+. In code the rule is that `GuardedModelClient` is the only thing that can produce `live`, on a call that actually returned; every other implementation defaults to `untried` and cannot promote itself.
-
-So the reading to expect on a fresh deploy is `untried`, and it turns `live` the first time a Coach-tier request is answered — which is that same request being _shown_ to have come from Bedrock, by `curl`, with no log on the box. `fallback` in production is the other failure worth knowing, and it means the box could not sign at all.
-
-The destination list is `assistant_profile_regions`, and it has **no default on purpose**. It is read from the inference profile's detail page in the Bedrock console, and a guessed list fails only when Bedrock happens to route to the region that was left out — so a plan that stops for a missing value is where that mistake belongs. The same list is what `web/privacy.html` asserts about where coach requests are processed, which is the other reason not to infer it. It lives in `infra/terraform.tfvars` beside `ssh_public_key` and `tailscale_auth_key`:
-
-```hcl
-assistant_profile_regions = ["eu-west-1", "eu-central-1", ...]  # from the console
-```
-
-Changing the model means changing `BEDROCK_MODEL_ID` in `crates/api/src/config.rs` and `assistant_inference_profile` here together, then re-reading the destination list — a different profile can have a different one. That constant's doc comment carries the standing constraint on which models may be adopted at all.
-
 ## Inside the module
 
 `infra/main.tf` is one file and its comments say what each resource is for. The three arguments too long to sit beside a resource are here.
@@ -189,7 +153,6 @@ One day rather than thirty, because the current-version expiry _is_ the retentio
 | :----------------------------- | :-------------------------------------------------------------------------------- | :------------------------------------ |
 | `write-backups`                | `s3:PutObject`, `s3:ListBucket`                                                   | the dumps bucket                      |
 | `store-logs`                   | `s3:ListBucket`, `GetObject`, `PutObject`, `DeleteObject`, `AbortMultipartUpload` | the logs bucket                       |
-| `invoke-model`                 | `bedrock:InvokeModel`, `InvokeModelWithResponseStream`                            | one inference profile and its model   |
 | `publish-alarms`               | `sns:Publish`                                                                     | the `ond-alarms` topic                |
 | `put-metrics`                  | `cloudwatch:PutMetricData`                                                        | the `Ond` namespace, by IAM condition |
 | `AmazonSSMManagedInstanceCore` | Session Manager                                                                   | AWS's managed policy, unchanged       |
@@ -212,11 +175,10 @@ The heartbeat alarm is the one that needs none of this. Its metric is written by
 
 Three AWS profiles, and the split is the point:
 
-| Profile   | Who                                           | May run                                                    |
-| :-------- | :-------------------------------------------- | :--------------------------------------------------------- |
-| `holmie`  | the account root                              | `infra:bootstrap:*`, once, and nothing else                |
-| `ond`     | the `ond-tofu` IAM user                       | everything: `infra:plan`, `infra:apply`, `deploy:*`        |
-| `ond-dev` | the `ond-dev` role, assumed by that same user | `dev` and `assistant:smoke` — invoke Bedrock, nothing else |
+| Profile  | Who                     | May run                                             |
+| :------- | :---------------------- | :-------------------------------------------------- |
+| `holmie` | the account root        | `infra:bootstrap:*`, once, and nothing else         |
+| `ond`    | the `ond-tofu` IAM user | everything: `infra:plan`, `infra:apply`, `deploy:*` |
 
 The mise tasks pin `AWS_PROFILE` themselves, so none is something to remember or export. `ond-dev` exists because `mise run dev` idles all day holding whatever credential it was given, and before the role that credential was AdministratorAccess; its stanza is in docs/contributing.md, and it holds no keys — the `ond` credential is the one set on the laptop.
 
@@ -260,19 +222,19 @@ Editing the backend literal on its own — without step 2 having created the buc
 ## First launch (deliberate, in order)
 
 1. Bootstrap, above.
-2. Create `infra/terraform.tfvars` (gitignored) with the required variables: `ssh_public_key`, `tailscale_auth_key`, and `assistant_profile_regions`. None has a default — `tofu plan` prompts for a missing one and fails outright under `-input=false` — and `infra/variables.tf` says on each why a committed default would be the wrong thing. Mint the auth key single-use and tagged `tag:server`; see [Reachability](#reachability) for what each of those buys.
+2. Create `infra/terraform.tfvars` (gitignored) with the required variables: `ssh_public_key`, `tailscale_auth_key`. None has a default — `tofu plan` prompts for a missing one and fails outright under `-input=false` — and `infra/variables.tf` says on each why a committed default would be the wrong thing. Mint the auth key single-use and tagged `tag:server`; see [Reachability](#reachability) for what each of those buys.
 3. `mise run infra:init` — downloads providers and modules, and reaches the S3 backend.
 4. `mise run infra:plan` — read the plan — then `mise run infra:apply`. The apply creates the `ond-dev` role; add its `[profile ond-dev]` stanza to `~/.aws/config` now (docs/contributing.md shows it), or `mise run dev` answers from the rule-based fallback until you do.
 5. Delegate the domain: set the four addresses from the `name_servers` output as `ondbreathe.app`'s nameservers at the registrar, then wait until `dig +short ondbreathe.app` and `dig +short api.ondbreathe.app` both answer with the `elastic_ip`. Do this before the first deploy — Caddy requests a certificate per site block on first boot, and issuance fails (then retries with backoff) until each name resolves. The `A` records themselves were applied in step 4; delegation is what makes the world able to read them.
 6. `mise run deploy:api` — builds the arm64 image locally, ships it over SSH (`docker save | docker load`, no registry), rsyncs `infra/box/`, runs `migrate` as a one-shot container, brings the stack up. From a machine on the tailnet: the SSH it uses goes to `ond-api`, which resolves nowhere else. If it does not resolve, the box has not joined — [Reachability](#when-the-tailnet-is-what-broke), not this step.
 7. `mise run deploy:website` — rsyncs `web/` to `/srv/ond/web/`. Separate from step 6 because the two share no version or schema, and it needs none of that step's gates. Run it after step 6 on a first launch: step 6 is what creates `/srv/ond/web` owned by `ubuntu`, and without it `docker compose` creates that path as root and the rsync cannot write to it.
-8. `curl https://api.ondbreathe.app/health` → `{"status":"ok"}`, and `/about` for the build time, the environment and the assistant's resolved mode. `curl -I https://ondbreathe.app` should answer the page, confirming both certificates issued.
+8. `curl https://api.ondbreathe.app/health` → `{"status":"ok"}`, and `/about` for the build time and environment. `curl -I https://ondbreathe.app` should answer the page, confirming both certificates issued.
 
 Every subsequent release is step 6, step 7, or both — whichever surface changed. Neither implies the other: editing `web/` and running `deploy:api` ships nothing, which is the cost of the narrower default and the reason each task names its surface.
 
 ## The two halves of a release
 
-A release is a module and a container, and only one of them is `deploy:api`'s job. Nothing used to connect the two, so an infrastructure change could merge, deploy, pass every check and be believed live while the `tofu apply` that would have applied it was a command somebody had to remember. `aws_iam_role_policy.invoke_model` sat unapplied that way for a day, and the coach answered every request from its rule-based fallback.
+A release is a module and a container, and only one of them is `deploy:api`'s job. Nothing used to connect the two, so an infrastructure change could merge, deploy, pass every check and be believed live while the `tofu apply` that would have applied it was a command somebody had to remember. The deploy drift check keeps code and infrastructure changes aligned.
 
 `mise run infra:drift` is what connects them. It runs `tofu plan -detailed-exitcode` — read-only, so it is safe on `deploy:api`'s critical path — and fails when the plan is not empty. `deploy:api` depends on it, which means the box cannot be shipped to while the module describing it is pending.
 
@@ -308,7 +270,7 @@ Restores into the live database; for a from-scratch rebuild, apply migrations fi
 - **S3 state, no DynamoDB.** OpenTofu locks against S3 itself (`use_lockfile`), so the lock table every Terraform tutorial provisions is dead weight. `infra/bootstrap` keeps local state only because it creates the bucket.
 - **An IAM user, not SSO, and not least privilege.** One account and one operator do not justify standing up Identity Center. `AdministratorAccess` because this user's only job is applying a module that creates IAM roles, buckets, EC2 and EBS — scoping it would mean enumerating every service the module might ever grow into, and the enumeration would be stale immediately. The security this buys is not a smaller blast radius; it is a credential that can be rotated and revoked, which a root key cannot.
 - **Provenance via build arg.** `.dockerignore` excludes `.git`, so `build.rs` cannot read the commit inside a container. `deploy:api` passes it as `GIT_COMMIT_HASH`, and `build.rs` prefers that over git — otherwise the commit reads `"unknown"` in the one environment where the question matters.
-- **The commit is on the metrics listener, not on `/about`.** Caddy proxies every path on the API host, so `/about` answers anybody; this repository is public, so an exact commit turns "is that deployment affected" into a lookup. The hash is a label of `ond_build_info` instead, on the port nothing publishes — the same reasoning that put `/metrics` there. `/about` keeps `built_at`, `environment` and `assistant`, which are what an operator checks after a deploy and none of which names a revision.
+- **The commit is on the metrics listener, not on `/about`.** Caddy proxies every path on the API host, so `/about` answers anybody; this repository is public, so an exact commit turns "is that deployment affected" into a lookup. The hash is a label of `ond_build_info` instead, on the port nothing publishes — the same reasoning that put `/metrics` there. `/about` keeps `built_at` and `environment`, which are what an operator checks after a deploy and none of which names a revision.
 - **The reported commit is `origin/main`, and the tree has to match it.** Deploys run from the `gitbutler/workspace` branch, whose `HEAD` is a synthetic commit on no branch — a hash nobody can look up, which is worthless as an answer to "what is on the box". So `deploy:api` reports `origin/main` and refuses to build when the working tree differs from it, listing what drifted. `DEPLOY_DRIFT_ACK="<why>"` overrides that for a hotfix that cannot wait for a PR; the acknowledged build reports `<hash>-dirty`, so the shortcut stays visible in `ond_build_info` long after the incident.
 - **A tailnet, not a narrowed CIDR and not a bastion.** 22/tcp used to be open to `admin_cidr`, which is a residential prefix: it is re-issued by the ISP, it covers every other subscriber on it, and it strands the operator on the day it renews. A bastion is a second box to patch and a second key to lose. The tailnet is neither — nothing is exposed, the credential is a device rather than an address, and the same enrolment is what makes an internal dashboard reachable without ever publishing it. What it costs is a dependency on a third party being up between the laptop and the box, which is why the SSM path stays.
 - **The box self-heals, and now says so when it cannot.** `restart: unless-stopped` covers crashes. Alertmanager publishes the Prometheus rules to an SNS topic and one email subscription takes them, signed with the instance profile so no credential lands on the box. What that could never cover is the box itself going away, so a Route 53 health check probes the public endpoint from outside and a five-minute heartbeat into CloudWatch alarms on its own silence. See [observability.md](observability.md).

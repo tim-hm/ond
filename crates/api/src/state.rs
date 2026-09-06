@@ -6,11 +6,8 @@ use sqlx::PgPool;
 
 use crate::config::Config;
 use crate::features::account::verifier::IdentityTokenVerifier;
-use crate::features::assistant::model::ModelClient;
-use crate::features::assistant::prompt::PrefixCache;
 use crate::features::entitlement::cache::CensusCache;
 use crate::features::entitlement::verifier::TransactionVerifier;
-use crate::features::technique::cache::CuratedCache;
 use crate::features::user_technique::cache::PhaseLimitsCache;
 use crate::throttle::Throttle;
 
@@ -23,16 +20,8 @@ pub struct AppState {
     pub pool: PgPool,
     pub config: Config,
 
-    /// The language model, chosen once at startup. Injected exactly as the
-    /// pool is: it is the other thing in this process that talks to something
-    /// outside it, and a handler holding a concrete client would be a handler
-    /// no test could point somewhere harmless.
-    pub assistant: Arc<dyn ModelClient>,
-
-    /// The App Store signature checker. Injected for the same reason as the
-    /// model, with the opposite emphasis: this seam lets a test supply a
-    /// transaction Apple never signed. Nothing configures it — the trust
-    /// anchor is compiled in — so the field exists purely as the seam.
+    /// Tests inject a verifier to supply transactions Apple never signed.
+    /// The production verifier uses a compiled-in Apple trust anchor.
     pub entitlement: Arc<dyn TransactionVerifier>,
 
     /// The Sign in with Apple credential checker. Here for the same reason as
@@ -48,24 +37,7 @@ pub struct AppState {
     /// [`AppState::with_throttle`].
     pub throttle: Throttle,
 
-    /// The widest interval the seeded catalogue puts each kind of phase in,
-    /// derived once per process. Two readers: the `user_technique` handler and
-    /// the assistant, whose save-this-pattern card is validated against these
-    /// limits so the server can never propose an exercise the create RPC would
-    /// refuse — hence one cache on the object both handlers hold.
     pub phase_limits: PhaseLimitsCache,
-
-    /// The seeded techniques and the curated routes into them, derived once
-    /// per process. Here on [`AppState::phase_limits`]' terms: the same
-    /// tables, the same "only a migration changes this, and a migration
-    /// restarts the process" invariant, and the assistant as a second reader.
-    pub curated: CuratedCache,
-
-    /// The assistant's cacheable prompt prefix, rendered once per process from
-    /// [`AppState::curated`]. Here rather than beside the data it is built
-    /// from, because building it there would make `technique` depend on
-    /// `assistant`, which already depends on `technique`.
-    pub assistant_prefix: PrefixCache,
 
     /// The population scan behind the private metrics endpoint. Feature-owned
     /// because active-subscription meaning and gross monthly value are
@@ -79,18 +51,10 @@ impl AppState {
     pub fn new(
         pool: PgPool,
         config: Config,
-        assistant: Arc<dyn ModelClient>,
         entitlement: Arc<dyn TransactionVerifier>,
         account: Arc<dyn IdentityTokenVerifier>,
     ) -> Arc<Self> {
-        Self::with_throttle(
-            pool,
-            config,
-            assistant,
-            entitlement,
-            account,
-            Throttle::new(),
-        )
+        Self::with_throttle(pool, config, entitlement, account, Throttle::new())
     }
 
     /// The same state with the rate limiter supplied rather than built. The
@@ -101,7 +65,6 @@ impl AppState {
     pub fn with_throttle(
         pool: PgPool,
         config: Config,
-        assistant: Arc<dyn ModelClient>,
         entitlement: Arc<dyn TransactionVerifier>,
         account: Arc<dyn IdentityTokenVerifier>,
         throttle: Throttle,
@@ -109,13 +72,10 @@ impl AppState {
         Arc::new(Self {
             pool,
             config,
-            assistant,
             entitlement,
             account,
             throttle,
             phase_limits: PhaseLimitsCache::new(),
-            curated: CuratedCache::new(),
-            assistant_prefix: PrefixCache::new(),
             census: CensusCache::new(),
         })
     }

@@ -19,19 +19,21 @@ struct SubscriptionTerms: View {
     var body: some View {
         VStack(spacing: Theme.Spacing.close) {
             if store.isAwaitingApproval {
-                Text("Waiting for approval. This starts as soon as approval arrives.")
+                Text("Waiting for purchase approval. Access will update when Apple confirms it.")
                     .font(.footnote)
                     .foregroundStyle(Theme.Ink.secondary)
                     .multilineTextAlignment(.center)
             }
 
-            // The one purchase failure worth a line on screen, because it is the
-            // one a person cannot read from the button: nothing happened, and
-            // trying again will not change that. Says what it cost rather than
-            // why it failed — the cause is the developer's, and the log carries
-            // it.
             if store.isUnavailable {
                 Text("This isn't on sale right now. Nothing was charged.")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.Ink.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            if let feedback = store.feedback {
+                Text(feedback.message)
                     .font(.footnote)
                     .foregroundStyle(Theme.Ink.secondary)
                     .multilineTextAlignment(.center)

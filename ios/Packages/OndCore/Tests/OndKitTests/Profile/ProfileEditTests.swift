@@ -72,9 +72,7 @@ struct ProfileEditTests {
         #expect(model.draft.displayName.allSatisfy { $0 == "🌊" }, "no scalar was split in half")
     }
 
-    /// The same rule on the other free-text field, which the coach reads and the
-    /// column `CHECK` bounds.
-    @Test("A coach note is clamped by the same measure")
+    @Test("A legacy profile note is clamped by the same measure")
     func aNoteIsClampedToo() {
         let model = ProfileEditModel(store: store())
 
@@ -119,9 +117,6 @@ struct ProfileEditTests {
         #expect(!model.isSaving)
     }
 
-    /// The goals list is an answer rather than a set: the coach's prompt reads
-    /// it back "in their own order", so a re-pick has to land at the end rather
-    /// than back where it first was.
     @Test("Goals keep the order they were picked in")
     func goalsKeepTheirOrder() {
         let model = ProfileEditModel(store: store())

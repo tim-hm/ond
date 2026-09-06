@@ -2,14 +2,13 @@ import Foundation
 
 /// What your heart was doing around the last few sessions you practised.
 /// Context, never a score. Nothing is stored: every number is read from Health
-/// as the card is drawn and discarded with the view, which is why readings
-/// arrive as a parameter. A practice with no reading still gets a bar, so
-/// absence is drawn and never zero-filled. Pure, and given "now".
+/// as the card is drawn and discarded with the view. Missing readings remain nil.
 public struct PracticeHeartline: Sendable, Equatable {
     /// One practice, and what the heart was doing across it.
     public struct Mark: Sendable, Equatable, Identifiable {
         /// The session's own id, so a redraw keeps each bar in place.
         public let id: UUID
+        public let startedAt: Date
 
         /// The average across the practice and its settle, rounded to whole
         /// beats — or nil where Health had nothing, which is a watch that was
@@ -105,6 +104,7 @@ public struct PracticeHeartline: Sendable, Equatable {
         marks = practices.map { practice in
             Mark(
                 id: practice.id,
+                startedAt: practice.startedAt,
                 beatsPerMinute: byWindow[Self.heartWindow(around: practice)]
                     .map { Int($0.rounded()) },
                 isToday: calendar.isDate(practice.startedAt, inSameDayAs: now)

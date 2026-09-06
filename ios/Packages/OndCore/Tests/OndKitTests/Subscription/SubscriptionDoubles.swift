@@ -11,6 +11,7 @@ final class FakeStoreFront: StoreFront, @unchecked Sendable {
     private let lock = NSLock()
     private var entitlements: [SubscriptionTransaction]
     private var purchaseError: (any Error)?
+    private let restoreError: (any Error)?
     private let purchaseOutcome: PurchaseOutcome
     private(set) var purchased: [SubscriptionPlan] = []
 
@@ -28,12 +29,14 @@ final class FakeStoreFront: StoreFront, @unchecked Sendable {
     init(
         entitlements: [SubscriptionTransaction] = [],
         failingWith error: (any Error)? = nil,
+        restoreError: (any Error)? = nil,
         purchaseOutcome: PurchaseOutcome = .cancelled,
         isEligibleForTrial: Bool = true,
         sellsNothing: Bool = false
     ) {
         self.entitlements = entitlements
         purchaseError = error
+        self.restoreError = restoreError
         self.purchaseOutcome = purchaseOutcome
         self.isEligibleForTrial = isEligibleForTrial
         self.sellsNothing = sellsNothing
@@ -52,8 +55,8 @@ final class FakeStoreFront: StoreFront, @unchecked Sendable {
         return [
             SubscriptionProduct(
                 plan: .monthly,
-                displayPrice: "£1.99",
-                price: 1.99,
+                displayPrice: "£0.99",
+                price: 0.99,
                 introductoryOffer: IntroductoryOffer(
                     trialDays: 7,
                     isEligible: isEligibleForTrial
@@ -61,8 +64,8 @@ final class FakeStoreFront: StoreFront, @unchecked Sendable {
             ),
             SubscriptionProduct(
                 plan: .yearly,
-                displayPrice: "£14.99",
-                price: 14.99,
+                displayPrice: "£9.99",
+                price: 9.99,
                 introductoryOffer: IntroductoryOffer(
                     trialDays: 7,
                     isEligible: isEligibleForTrial
@@ -92,7 +95,11 @@ final class FakeStoreFront: StoreFront, @unchecked Sendable {
         return purchaseOutcome
     }
 
-    func restore() async throws {}
+    func restore() async throws {
+        if let restoreError {
+            throw restoreError
+        }
+    }
 }
 
 /// Delays its first entitlement snapshot so tests can put another read, or an

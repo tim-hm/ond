@@ -42,19 +42,11 @@ pub(super) struct About {
     /// running the environment I think it is" is otherwise unverifiable from
     /// outside the process.
     environment: &'static str,
-
-    /// Where the coach's replies are coming from — `live`, `untried`,
-    /// `interrupted` or `fallback`, as `AssistantMode` defines them. Reported
-    /// because the alternative is invisible: a deployment that cannot reach
-    /// the model boots clean and answers every RPC from the rules, with one
-    /// `warn` in the logs as the only record. This makes the same fact a `curl`.
-    assistant: &'static str,
 }
 
 pub(super) async fn about(State(state): State<Arc<AppState>>) -> Json<About> {
     Json(About {
         built_at: BUILD_INFO.built_at,
         environment: state.config.environment.as_str(),
-        assistant: state.assistant.mode().as_str(),
     })
 }

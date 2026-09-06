@@ -50,11 +50,6 @@ pub enum VerificationError {
     Unavailable(String),
 }
 
-/// What the account feature needs from a credential checker, and nothing else.
-/// `tonic::async_trait` rather than a native `async fn`, matching
-/// `assistant::model::ModelClient`: async trait functions are not
-/// `dyn`-compatible, and this is used through `dyn` so the composition root
-/// picks the implementation and no test can reach Apple by accident.
 #[tonic::async_trait]
 pub trait IdentityTokenVerifier: Send + Sync {
     /// Checks `identity_token` and returns the Apple account it names. Every

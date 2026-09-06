@@ -21,8 +21,10 @@ final class SessionAudioPlayer {
     private var roundBell: AVAudioPlayer?
     private var completionPlayer: AVAudioPlayer?
     private var silence: AVAudioPlayer?
+    private let style: SessionSoundStyle
 
-    init() {
+    init(style: SessionSoundStyle = .current) {
+        self.style = style
         // Here rather than in `prepare()`, which runs on the frame the count-in
         // ends: the buffers are lazy, so the first session of a launch would
         // synthesise all of them on the main actor at exactly that moment. The
@@ -50,7 +52,8 @@ final class SessionAudioPlayer {
             return
         }
 
-        players = SessionTones.cue.compactMapValues(player(for:))
+        players = (style == .current ? SessionTones.cue : SessionTones.roundedCue)
+            .compactMapValues(player(for:))
         stageBell = player(for: SessionTones.stage)
         stageBell?.volume = Self.bellVolume
         roundBell = player(for: SessionTones.round)
@@ -69,6 +72,10 @@ final class SessionAudioPlayer {
     /// on the way out. `pause()` rather than `stop()` on the loop: stopping
     /// rewinds it, and this player is never anywhere worth returning to.
     func pause() {
+        for player in players.values {
+            player.pause()
+        }
+        completionPlayer?.pause()
         silence?.pause()
         // Paused but never resumed: the tail of a bell struck before a pause is
         // nothing anybody is waiting for.
@@ -167,6 +174,19 @@ enum SessionTones {
         .holdOut: ToneSynthesizer.wav([ToneSynthesizer.Note(262, duration: 0.28)]),
     ]
 
+    static let roundedCue: [PhaseKind: Data] = [
+        .inhale: ToneSynthesizer.wav([
+            .init(330, duration: 0.55, attack: 0.08, gain: 0.7),
+            .init(440, start: 0.12, duration: 0.55, attack: 0.08, gain: 0.5),
+        ]),
+        .exhale: ToneSynthesizer.wav([
+            .init(330, duration: 0.65, attack: 0.08, gain: 0.7),
+            .init(247, start: 0.12, duration: 0.7, attack: 0.08, gain: 0.5),
+        ]),
+        .holdIn: ToneSynthesizer.wav([.init(494, duration: 0.25, attack: 0.04, gain: 0.65)]),
+        .holdOut: ToneSynthesizer.wav([.init(220, duration: 0.3, attack: 0.04, gain: 0.65)]),
+    ]
+
     /// The bell between stages of a multi-stage practice: a cue says what to
     /// do with this breath, this says the shape of the practice has changed.
     /// Wim Hof's rounds are the case it exists for — nothing else marks the
@@ -191,6 +211,7 @@ enum SessionTones {
     static func warm() {
         _ = silenceLoop
         _ = cue
+        _ = roundedCue
         _ = stage
         _ = round
         _ = completion

@@ -10,7 +10,6 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
 mod account;
-mod assistant;
 mod entitlement;
 mod harness;
 mod health;

@@ -48,7 +48,7 @@ struct TechniqueWordsTests {
     func aLengthIsSpelledToOneUnit() {
         #expect(technique("box-breathing").plannedDuration.spelled == "5 minutes")
         #expect(technique("box-breathing").plannedDuration.glanceable == "5 min")
-        #expect(technique("physiological-sigh").plannedDuration.spelled == "22 seconds")
+        #expect(technique("physiological-sigh").plannedDuration.spelled == "15 seconds")
     }
 
     /// A session leaves the two holds reading alike, because the breath before a
@@ -114,13 +114,13 @@ struct TechniqueWordsTests {
         #expect(steps.map(\.count) == ["4s", "7s", "8s"])
     }
 
-    @Test("Sigh copy treats a mouth exhale as optional")
-    func sighCopyMakesTheMouthOptional() {
+    @Test("Sigh copy distinguishes comfortable options from the studied passage")
+    func sighCopyDistinguishesTheStudiedPassage() {
         let physiological = technique("physiological-sigh").mechanismContent?.plainText ?? ""
         let cyclic = technique("cyclic-sighing").mechanismContent?.plainText ?? ""
 
-        #expect(physiological.contains("using the nose works too"))
-        #expect(cyclic.contains("using the nose works too"))
+        #expect(physiological.contains("nose or mouth"))
+        #expect(cyclic.contains("The trial used a mouth exhale; this app defaults to the nose"))
     }
 
     /// The case the single `passageNote` sentence this replaced gave up on. It went
@@ -202,7 +202,7 @@ struct TechniqueWordsTests {
         #expect(dialled.preparationContent == curated.preparationContent)
         // And the words that hang off it survive with it.
         #expect(SessionTimeline(technique: dialled).beats[0].hint.line
-            == "Through a curled tongue")
+            == "Over your tongue or teeth")
     }
 
     /// The how-to rows the exercise page prints, where the mechanic replaces the
@@ -213,7 +213,7 @@ struct TechniqueWordsTests {
     @Test("A shaped breath's step names the shape, not the passage")
     func aShapedBreathsStepNamesTheShape() {
         #expect(technique("cooling-breath").stages[0].steps.map(\.instruction) == [
-            "Breathe in through a curled tongue",
+            "Breathe in over your tongue or teeth",
             "Breathe out",
         ])
         #expect(technique("pursed-lip-breathing").stages[0].steps.map(\.instruction) == [

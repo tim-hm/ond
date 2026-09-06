@@ -36,10 +36,6 @@ pub async fn plus(user: Option<&str>) -> Result<()> {
         id
     };
 
-    // `returning` rather than trusting the exit status: UPDATE 0 is a
-    // success, so a typo'd id would otherwise look exactly like a granted one
-    // — and this task exists for the case where the coach already appears
-    // broken.
     let granted: Option<Uuid> = sqlx::query_scalar(
         "update users set subscription_tier = 'PLUS', \
          subscription_until = now() + interval '1 year' where id = $1 returning id",

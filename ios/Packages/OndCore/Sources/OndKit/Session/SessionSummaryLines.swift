@@ -28,7 +28,7 @@ public enum SessionSummaryLines {
     /// spoken to rather than told. Discarded is one line in both — there is no
     /// playful way to say nothing was kept.
     public static func headline(for outcome: Outcome, register: CopyRegister) -> String {
-        guard case let .kept(record) = outcome else { return "Too short to keep." }
+        guard case let .kept(record) = outcome else { return "Practice ended — not saved." }
 
         return switch register {
         case .plain: "All done."
@@ -45,7 +45,10 @@ public enum SessionSummaryLines {
         exercise: String,
         register: CopyRegister
     ) -> String {
-        guard case let .kept(record) = outcome else { return "Nothing was recorded." }
+        guard case let .kept(record) = outcome
+        else {
+            return "Practices ended before \(SessionRecord.minimumRecordedDuration.spokenLength) are not saved."
+        }
 
         return switch register {
         case .plain:

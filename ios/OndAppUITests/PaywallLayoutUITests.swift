@@ -54,7 +54,7 @@ final class PaywallLayoutUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(
-            app.staticTexts["Everything that works offline stays free. Forever."]
+            app.staticTexts["paywall-headline"]
                 .waitForExistence(timeout: 10)
         )
     }

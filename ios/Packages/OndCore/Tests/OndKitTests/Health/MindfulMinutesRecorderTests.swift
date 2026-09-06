@@ -36,13 +36,9 @@ struct MindfulMinutesRecorderTests {
         )
     }
 
-    /// Also the default-on proof: the suite's defaults hold no preference at
-    /// all, which is every install before the switch is ever touched. No
-    /// authorization call to assert before the write: the store asks for its
-    /// own grant, so there is no ordering left for a caller to get wrong —
-    /// see `HealthStore`.
     @Test("A recorded session credits exactly the span it was breathed")
     func recordWritesToHealth() async {
+        defaults.set(true, forKey: MindfulMinutesRecorder.preferenceKey)
         let session = session(minutes: 5)
         await recorder.record(session)
 
@@ -66,6 +62,13 @@ struct MindfulMinutesRecorderTests {
         #expect(await health.calls.isEmpty, "Health is not touched at all")
     }
 
+    @Test("A fresh install records practice without contacting Health")
+    func defaultDoesNotRequestHealth() async {
+        await recorder.record(session())
+        #expect(store.recorded.count == 1)
+        #expect(await health.calls.isEmpty)
+    }
+
     /// The switch is read per session, not held from init — flipping it must
     /// not wait for a relaunch.
     @Test("Flipping the switch takes effect on the next session")
@@ -84,6 +87,7 @@ struct MindfulMinutesRecorderTests {
     /// cannot say so, and a false 29-minute credit is worse than none.
     @Test("A discreet session is kept but never credited to Health")
     func discreetStaysOutOfHealth() async {
+        defaults.set(true, forKey: MindfulMinutesRecorder.preferenceKey)
         let session = SessionRecord(
             techniqueSlug: "coherent-breathing",
             startedAt: Self.startedAt,

@@ -141,8 +141,8 @@ struct SubscriptionStoreTests {
 
         await store.loadProducts()
 
-        // 14.99 against 12 x 1.99 = 23.88, which is 37.2% off.
-        #expect(store.annualSaving == 37)
+        // 9.99 against 12 x 0.99 = 11.88, which is 15.9% off.
+        #expect(store.annualSaving == 15)
     }
 
     /// Every launch and every foreground calls `refresh`. Sending the same
@@ -264,10 +264,6 @@ struct SubscriptionStoreTests {
         #expect(server.received == ["jws-real"])
     }
 
-    /// The cache is what stops the catalogue re-locking itself on every cold
-    /// launch, so it has to survive one — and it has to survive one in both
-    /// directions. A cache that only ever went up would leave an ex-subscriber
-    /// on Coach forever.
     @Test("The tier survives a launch, and so does losing it")
     func theTierSurvivesALaunch() async {
         let front = FakeStoreFront(entitlements: [transaction(plan: .yearly)])
@@ -375,11 +371,8 @@ struct SubscriptionStoreTests {
         #expect(store.tier == .free, "and nothing was granted")
     }
 
-    /// The other half of the same rule: an ordinary failure stays silent, so the
-    /// notice above means what it says rather than appearing on every dropped
-    /// connection.
-    @Test("An ordinary purchase failure leaves the paywall as it was")
-    func anOrdinaryFailureIsSilent() async {
+    @Test("An ordinary purchase failure gives retry feedback")
+    func anOrdinaryFailureGivesFeedback() async {
         let front = FakeStoreFront(failingWith: StoreFrontError.unverified)
         let store = SubscriptionStore(
             front: front,
@@ -391,6 +384,7 @@ struct SubscriptionStoreTests {
 
         #expect(!store.isUnavailable)
         #expect(store.purchaseState == .idle)
+        #expect(store.feedback == .purchaseFailed)
     }
 
     /// A fresh store over the same defaults, which is what a cold launch is.

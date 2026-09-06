@@ -28,9 +28,9 @@ struct ProfileView: View {
             } header: {
                 Text("What we call you")
             } footer: {
-                Text("Onboarding asked for this, and this is where it changes. Clear "
-                    + "it and the app stops using it. Nobody else ever sees it. The "
-                    + "leaderboard name at the bottom is the one they do see.")
+                Text(
+                    "Your first name personalises your home screen. It is not shown to other people."
+                )
             }
             .listRowBackground(Theme.Surface.raised)
 
@@ -42,18 +42,7 @@ struct ProfileView: View {
                 Text("What brings you here")
             } footer: {
                 Text("Pick as many as you like. It decides what we show you "
-                    + "first, and it is the first thing your coach reads.")
-            }
-            .listRowBackground(Theme.Surface.raised)
-
-            Section {
-                Picker("Experience", selection: $model.draft.experienceLevel) {
-                    OptionalPickerOptions<ExperienceLevel>()
-                }
-            } footer: {
-                Text("Every exercise is available either way. It only sets how "
-                    + "much your coach assumes you already know. What a session "
-                    + "puts on screen is Guidance, back in Settings.")
+                    + "first.")
             }
             .listRowBackground(Theme.Surface.raised)
 
@@ -61,30 +50,10 @@ struct ProfileView: View {
                 Picker("Born", selection: $model.draft.birthYearBand) {
                     OptionalPickerOptions<BirthYearBand>()
                 }
-
-                Picker("Gender", selection: $model.draft.gender) {
-                    OptionalPickerOptions<Gender>()
-                }
             } header: {
                 Text("About you")
             } footer: {
-                Text("Your decade and gender let your coach read a breath-test "
-                    + "score against the right baseline, and your decade decides "
-                    + "which age-band leaderboard you can compare within.")
-            }
-            .listRowBackground(Theme.Surface.raised)
-
-            Section {
-                TextField(
-                    "Anything you'd like your coach to know?",
-                    text: $model.draft.intentNote,
-                    axis: .vertical
-                )
-                .lineLimit(3 ... 6)
-            } header: {
-                Text("Note for your coach")
-            } footer: {
-                Text("Why you are here, in your own words. Only your coach reads it.")
+                Text("Your birth decade selects your optional age-band leaderboard.")
             }
             .listRowBackground(Theme.Surface.raised)
 
@@ -95,9 +64,9 @@ struct ProfileView: View {
             } header: {
                 Text("Display name")
             } footer: {
-                Text("The only thing other people see on a leaderboard. Your "
-                    + "goals, notes and history stay private. Leave it empty to "
-                    + "stay invisible, which is where every profile starts.")
+                Text("Other people see your display name and the value being ranked. "
+                    + "Your other profile details are not shown on the board. "
+                    + "Leave this empty to stay off the boards.")
             }
             .listRowBackground(Theme.Surface.raised)
         }
@@ -111,11 +80,6 @@ struct ProfileView: View {
         }
     }
 
-    /// One goal as a tappable row.
-    ///
-    /// A checkmark rather than a `Toggle`, because the order they were picked in
-    /// is carried to the coach: a column of switches reads as five independent
-    /// settings, where a list you add to reads as an answer being built.
     private func goalRow(_ goal: TechniqueGoal) -> some View {
         Button {
             model.toggle(goal)

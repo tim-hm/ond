@@ -141,7 +141,7 @@ struct TechniqueFigureWordsTests {
         #expect(SeededCatalogue.figure("coherent-breathing").description
             .hasSuffix("Repeated 27 times."))
         #expect(SeededCatalogue.figure("physiological-sigh").description
-            .hasSuffix("Repeated 3 times."))
+            .hasSuffix("Repeated 2 times."))
     }
 
     /// Bellows breath is the one exercise whose phases last exactly a second,
@@ -165,17 +165,16 @@ struct TechniqueFigureWordsTests {
         #expect(description.contains("Breathe out through your right nostril"))
     }
 
-    /// An open-ended hold has no scheduled length to state — stating the
-    /// dialled one would promise what the session does not keep — but its band
-    /// is an example worth saying, the same one the label prints.
-    @Test("The retention is described as the person's to end, with its band")
+    @Test("The retention gives permission to stop without a target")
     func describesTheRetention() {
         let description = SeededCatalogue
             .figure("wim-hof-rounds", stage: SeededCatalogue.retention)
             .description
 
-        #expect(description.contains("as long as you can"))
-        #expect(description.contains("typically 30 seconds to 2 minutes"))
+        #expect(description.contains("only while comfortable"))
+        #expect(description.contains("when you need to breathe"))
+        #expect(!description.contains("as long as you can"))
+        #expect(!description.contains("typically"))
         #expect(!description.contains("60 seconds"))
     }
 }

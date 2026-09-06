@@ -63,23 +63,22 @@ struct BreathGlyphPoseTests {
         #expect(isClose(rest.ringScale, 0.62))
     }
 
-    @Test("the hold crossfades across the boundary, not at it")
-    func holdStraddlesTheBoundary() {
-        // The box hold starts at 4s. Half the 0.8s window either side.
-        let before = BreathGlyph.Pose(timeline: box, elapsed: .seconds(3.5))
+    @Test("the hold tint never anticipates the instruction")
+    func holdStartsAtTheBoundary() {
+        let before = BreathGlyph.Pose(timeline: box, elapsed: .seconds(3.9))
         let boundary = BreathGlyph.Pose(timeline: box, elapsed: .seconds(4))
         let after = BreathGlyph.Pose(timeline: box, elapsed: .seconds(4.5))
         let mid = BreathGlyph.Pose(timeline: box, elapsed: .seconds(6))
 
         #expect(before.holdPresence == 0)
-        #expect(isClose(boundary.holdPresence, 0.5))
-        #expect(after.holdPresence == 1)
+        #expect(boundary.holdPresence == 0)
+        #expect(isClose(after.holdPresence, 0.625))
         #expect(mid.holdPresence == 1)
 
-        // And out again over the hold's end at 8s.
+        // Exhale clears the hold tint at the same boundary as the word.
         let leaving = BreathGlyph.Pose(timeline: box, elapsed: .seconds(8))
         let gone = BreathGlyph.Pose(timeline: box, elapsed: .seconds(8.5))
-        #expect(isClose(leaving.holdPresence, 0.5))
+        #expect(leaving.holdPresence == 0)
         #expect(gone.holdPresence == 0)
     }
 

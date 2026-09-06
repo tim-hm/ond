@@ -6,7 +6,6 @@ use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, SystemTime};
 
 use api::account::IdentityTokenVerifier;
-use api::assistant::{DisabledModelClient, ModelClient};
 use api::config::{Config, Environment};
 use api::entitlement::{AppStoreVerifier, TransactionVerifier};
 use api::state::AppState;
@@ -35,11 +34,6 @@ const ABANDONED_AFTER: Duration = Duration::from_hours(1);
 pub struct TestDatabase {
     pub pool: PgPool,
 
-    /// Who [`Self::given_subscriber`] has already put on the paid tier. The
-    /// quota suites call the subscribing helpers fifty times over, so without
-    /// this the assistant suite spends fifty round trips writing one row. A
-    /// set rather than a flag because a test can have two callers, one of
-    /// which may deliberately not be subscribed.
     subscribed: Mutex<HashSet<String>>,
 }
 
@@ -162,24 +156,8 @@ impl TestDatabase {
         }
     }
 
-    /// The router the binary serves, over this database. No language model
-    /// behind the seam: a test that is not about the assistant must behave the
-    /// same whether or not a key is in the environment. `DisabledModelClient`
-    /// is not a stub for the occasion — it is what a deployment without a key runs.
     pub fn app(&self) -> Router {
         build_app(self.pool.clone())
-    }
-
-    /// The same router with a scripted model behind the seam. Paired with
-    /// [`Self::app`] rather than folded into one argument: the model is the
-    /// one thing that varies, and twenty unrelated tests should not carry it.
-    pub fn app_with_model(&self, assistant: Arc<dyn ModelClient>) -> Router {
-        build_app_with(
-            self.pool.clone(),
-            assistant,
-            Arc::new(AppStoreVerifier),
-            ScriptedIdentityVerifier::refusing(),
-        )
     }
 
     /// Puts somebody on the paid tier, once per database however often it is
@@ -206,7 +184,6 @@ impl TestDatabase {
     pub fn app_with_verifier(&self, entitlement: Arc<dyn TransactionVerifier>) -> Router {
         build_app_with(
             self.pool.clone(),
-            Arc::new(DisabledModelClient),
             entitlement,
             ScriptedIdentityVerifier::refusing(),
         )
@@ -216,12 +193,7 @@ impl TestDatabase {
     /// seam — load-bearing twice over: no test can hold a token Apple signed,
     /// *and* the real verifier would ask Apple for the key to check it with.
     pub fn app_with_identity(&self, account: Arc<dyn IdentityTokenVerifier>) -> Router {
-        build_app_with(
-            self.pool.clone(),
-            Arc::new(DisabledModelClient),
-            Arc::new(AppStoreVerifier),
-            account,
-        )
+        build_app_with(self.pool.clone(), Arc::new(AppStoreVerifier), account)
     }
 
     /// The scrape listener's router, which is a different router on a different
@@ -236,7 +208,6 @@ impl TestDatabase {
                 port: 0,
                 metrics_port: 0,
             },
-            Arc::new(DisabledModelClient),
             Arc::new(AppStoreVerifier),
             ScriptedIdentityVerifier::refusing(),
             Throttle::default(),
@@ -251,7 +222,6 @@ impl TestDatabase {
     pub fn app_with_stopped_throttle(&self) -> Router {
         build_app_with_throttle(
             self.pool.clone(),
-            Arc::new(DisabledModelClient),
             Arc::new(AppStoreVerifier),
             ScriptedIdentityVerifier::refusing(),
             Throttle::with_clock(stopped_clock),

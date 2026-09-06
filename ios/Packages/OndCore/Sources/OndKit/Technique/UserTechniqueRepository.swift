@@ -188,48 +188,6 @@ extension Technique {
 }
 
 extension TechniqueDraft {
-    /// The inverse of [`proto`], for the coach's offer to save a pattern. Nil
-    /// rather than an error: the server ran this draft through the create
-    /// RPC's validator, so every refusal here is a draft that call would have
-    /// refused too — there is no card to show. `internal` because
-    /// `AssistantRepository` is the only caller.
-    init?(coachProposal proto: Ond_V1_TechniqueDraft) {
-        guard let goal = TechniqueGoal(proto: proto.goal) else { return nil }
-
-        var stages: [DraftStage] = []
-        for stage in proto.stages {
-            var phases: [DraftPhase] = []
-            for phase in stage.phases {
-                let movement: Movement
-                switch phase.movement {
-                case let .inhale(passage):
-                    guard let passage = try? Passage(breathing: passage) else { return nil }
-                    movement = .inhale(through: passage)
-                case let .exhale(passage):
-                    guard let passage = try? Passage(breathing: passage) else { return nil }
-                    movement = .exhale(through: passage)
-                case .hold:
-                    movement = .hold
-                case .none:
-                    return nil
-                }
-                phases.append(DraftPhase(
-                    movement: movement,
-                    duration: .milliseconds(Int(phase.durationMs))
-                ))
-            }
-            stages.append(DraftStage(phases: phases, cycles: Int(stage.cycles)))
-        }
-
-        self.init(
-            name: proto.name,
-            summary: proto.summary,
-            goal: goal,
-            stages: stages,
-            rounds: Int(proto.rounds)
-        )
-    }
-
     var proto: Ond_V1_TechniqueDraft {
         var message = Ond_V1_TechniqueDraft()
         message.name = name

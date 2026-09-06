@@ -242,13 +242,12 @@ public nonisolated struct Ond_V1_Profile: Sendable {
   /// catalogue is grouped by; a parallel enum would need mapping and would drift.
   public var goals: [Ond_V1_TechniqueGoal] = []
 
+  /// Legacy preview data. Not collected by the release app.
   public var experienceLevel: Ond_V1_ExperienceLevel = .unspecified
 
   public var reminderIntensity: Ond_V1_ReminderIntensity = .never
 
-  /// Why they are here, in their own words. Optional and free-form: M6's
-  /// assistant reads it as context, and nothing else parses it. Empty is the
-  /// normal state.
+  /// Legacy preview data. Not collected by the release app.
   public var intentNote: String = String()
 
   /// What the leaderboards call this person, and the whole of the opt-in to
@@ -263,9 +262,7 @@ public nonisolated struct Ond_V1_Profile: Sendable {
   /// and a birth year would be a more precise fact than that use needs.
   public var birthYearBand: Ond_V1_BirthYearBand = .unspecified
 
-  /// Gender, if they said. It exists so the assistant can calibrate how it
-  /// reads a breath-test score — the reference ranges differ by sex — and
-  /// nothing else reads it.
+  /// Legacy preview data. Not collected by the release app.
   public var gender: Ond_V1_Gender = .unspecified
 
   /// What to call this person, if they said; empty is the whole of "they did

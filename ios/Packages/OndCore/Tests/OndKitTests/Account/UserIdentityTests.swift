@@ -66,7 +66,7 @@ struct UserIdentityTests {
     }
 
     private func streamHeaders(from interceptor: IdentityInterceptor) async throws -> Headers {
-        let request = try request("AssistantService/Chat", message: ())
+        let request = try request("ProfileService/GetProfile", message: ())
         return await withCheckedContinuation { continuation in
             interceptor.handleStreamStart(request) { result in
                 continuation.resume(returning: (try? result.get())?.headers ?? [:])

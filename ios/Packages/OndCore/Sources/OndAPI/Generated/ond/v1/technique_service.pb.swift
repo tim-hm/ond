@@ -720,8 +720,6 @@ public nonisolated struct Ond_V1_FoundationTopic: Sendable {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// Stable key ("nose-or-mouth"), so a client — or M6's assistant, citing the
-  /// same rows — can reference a topic without pinning its wording.
   public var slug: String = String()
 
   /// Phrased as the question someone actually asks, not as a heading.

@@ -166,6 +166,7 @@ public enum PurchaseOutcome: Sendable, Equatable {
 }
 
 public enum StoreFrontError: LocalizedError, Equatable {
+    case cancelled
     /// A successful App Store lookup returned no requested product. In the
     /// simulator this means the run scheme is not pointed at `Ond.storekit`; on
     /// a device it means the product is not yet approved in App Store Connect.
@@ -183,6 +184,7 @@ public enum StoreFrontError: LocalizedError, Equatable {
     /// operation couldn't be completed" and names neither case.
     public var errorDescription: String? {
         switch self {
+        case .cancelled: "Purchase cancelled"
         case .productUnavailable: "the App Store has no such product"
         case .unverified: "StoreKit would not verify the transaction"
         }

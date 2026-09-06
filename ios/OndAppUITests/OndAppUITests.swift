@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 
 @MainActor
@@ -13,7 +14,7 @@ final class OndAppUITests: XCTestCase {
 
     func testHomeMeetsTheSystemAccessibilityAudit() throws {
         XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 10))
-        for tab in ["Home", "Moments", "Exercises", "Progress", "Coach"] {
+        for tab in ["Home", "Moments", "Exercises", "Progress"] {
             XCTAssertTrue(app.tabBars.buttons[tab].exists, "the \(tab) tab should stay visible")
         }
 
@@ -38,6 +39,23 @@ final class OndAppUITests: XCTestCase {
 
         app.buttons["all-exercises-row"].tap()
         XCTAssertTrue(app.staticTexts["Exercises"].waitForExistence(timeout: 5))
+    }
+
+    func testPracticeResourcesRemainAvailableWithoutCoach() {
+        XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.tabBars.buttons["Coach"].exists)
+        app.tabBars.buttons["Exercises"].tap()
+        let basics = app.buttons["basics-door"]
+        XCTAssertTrue(basics.waitForExistence(timeout: 5))
+        basics.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["reading-what-matters-most-heading"]
+            .waitForExistence(timeout: 5))
+        app.tabBars.buttons["Progress"].tap()
+        let checkIns = app.buttons["check-ins-door"]
+        XCTAssertTrue(checkIns.waitForExistence(timeout: 5))
+        checkIns.tap()
+        XCTAssertTrue(app.staticTexts["Resting breathing rate"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Comfortable pause"].exists)
     }
 
     /// - Parameter sheet: pass over the audit's "text may be clipped"
@@ -70,7 +88,7 @@ final class OndAppUITests: XCTestCase {
             "--ui-testing",
             "-plus.tier", "0",
             "-session.wristPulse", "NO",
-            "-health.coachReadsHealthTrends", "NO",
+            "-health.readsHealthTrends", "NO",
         ]
         app.launch()
 
@@ -89,8 +107,16 @@ final class OndAppUITests: XCTestCase {
     /// button instead — which is where `tapSwitchControl` aims.
     private func reveal(_ element: XCUIElement) {
         let tabBar = app.tabBars.firstMatch
-        for _ in 0 ..< 8 where !element.isHittable || element.frame.intersects(tabBar.frame) {
-            app.swipeUp()
+        for _ in 0 ..< 24 where !element.isHittable || element.frame.intersects(tabBar.frame) {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+            let finish = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+            if element.exists, !element.frame.isEmpty,
+               element.frame.maxY < app.navigationBars["Settings"].frame.maxY + 48
+            {
+                finish.press(forDuration: 0.05, thenDragTo: start)
+            } else {
+                start.press(forDuration: 0.05, thenDragTo: finish)
+            }
         }
         XCTAssertTrue(element.isHittable, "\(element) should appear in Settings")
     }
@@ -101,7 +127,7 @@ final class OndAppUITests: XCTestCase {
 
     private func assertPaywallOpensAndCloses() {
         XCTAssertTrue(
-            app.staticTexts["Everything that works offline stays free. Forever."]
+            app.staticTexts["paywall-headline"]
                 .waitForExistence(timeout: 5)
         )
         app.buttons["Not now"].tap()
@@ -127,20 +153,17 @@ final class OndAppUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Appearance"].exists)
 
         reveal(app.staticTexts["Practice"])
+        XCTAssertFalse(app.buttons["Try the cues"].exists)
         reveal(app.staticTexts["Health"])
 
         assertHealthChoice("settings-health-check-ins", title: "Mood before and after")
         assertHealthChoice("settings-health-live-heart-rate", title: "Live heart rate")
         assertHealthChoice("settings-health-watch-trends", title: "Heart and sleep data")
-
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
-            .press(
-                forDuration: 0.05,
-                thenDragTo: app.coordinate(
-                    withNormalizedOffset: CGVector(dx: 0.5, dy: 0.62)
-                )
-            )
-        reveal(app.switches["settings-health-watch-trends"])
+        reveal(app.staticTexts["settings-health-sharing-note"])
+        let settings = XCTAttachment(screenshot: app.screenshot())
+        settings.name = "settings-health-footer"
+        settings.lifetime = .keepAlways
+        add(settings)
 
         try app.performAccessibilityAudit { issue in
             // iOS 26 scales the compact snapshots of custom Picker and Toggle
@@ -253,7 +276,7 @@ final class OndAppUITests: XCTestCase {
         // The empty journal this harness launches on: the chart draws its
         // baseline and says so, and nothing that needs a row draws at all.
         XCTAssertTrue(app.descendants(matching: .any)["practice-chart"].exists)
-        XCTAssertTrue(app.staticTexts["This chart fills in once you have practised."].exists)
+        XCTAssertTrue(app.staticTexts["Your practice minutes will appear here."].exists)
         XCTAssertFalse(app.buttons["leaderboards-door"].exists)
 
         try app.performAccessibilityAudit { issue in
@@ -298,12 +321,120 @@ final class OndAppUITests: XCTestCase {
         try app.performAccessibilityAudit()
     }
 
-    func testWithYourChildIsAPlayfulMomentRatherThanAnExercise() {
+    func testBreathingInstructionsKeepTheirPositionAcrossHoldAndPause() {
+        app.terminate()
+        app.launchArguments = [
+            "--ui-testing",
+            "-session.breathVisual", "sphere",
+            "-session.guidance", "full",
+            "-session.moodCheck", "NO",
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["home-breathe"].waitForExistence(timeout: 10))
+        let home = XCTAttachment(screenshot: app.screenshot())
+        home.name = "smoke-orb-home"
+        home.lifetime = .keepAlways
+        add(home)
+
+        app.tabBars.buttons["Exercises"].tap()
+        app.staticTexts["Box Breathing"].tap()
+        app.buttons["Begin"].tap()
+        XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 10))
+
+        let instruction = app.descendants(matching: .any)["session-instruction"].firstMatch
+        XCTAssertTrue(instruction.waitForExistence(timeout: 5))
+        let initial = instruction.frame
+        let hold = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS[c] 'hold'"),
+            object: instruction
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [hold], timeout: 12), .completed)
+        XCTAssertEqual(instruction.frame.midY, initial.midY, accuracy: 1)
+        let held = XCTAttachment(screenshot: app.screenshot())
+        held.name = "smoke-orb-hold"
+        held.lifetime = .keepAlways
+        add(held)
+
+        let empty = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS[c] 'lungs empty'"),
+            object: instruction
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [empty], timeout: 16), .completed)
+        XCTAssertEqual(instruction.frame.midY, initial.midY, accuracy: 1)
+        let gathered = XCTAttachment(screenshot: app.screenshot())
+        gathered.name = "smoke-orb-exhaled"
+        gathered.lifetime = .keepAlways
+        add(gathered)
+
+        app.buttons["Pause"].tap()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 3))
+        XCTAssertEqual(instruction.frame.midY, initial.midY, accuracy: 1)
+    }
+
+    func testSmokeOrbAnimatesWithinItsFixedFrame() throws {
+        app.terminate()
+        app.launchArguments = [
+            "--ui-testing",
+            "-session.breathVisual", "sphere",
+            "-session.guidance", "essentials",
+            "-session.moodCheck", "NO",
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["home-breathe"].waitForExistence(timeout: 10))
+        app.buttons["home-breathe"].tap()
+        XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 10))
+
+        let guide = app.otherElements["breath-guide-orb"]
+        XCTAssertTrue(guide.waitForExistence(timeout: 5))
+        let frame = guide.frame
+        let first = guide.screenshot()
+        let moving = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                guide.screenshot().pngRepresentation != first.pngRepresentation
+            },
+            object: nil
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [moving], timeout: 4), .completed)
+        XCTAssertEqual(guide.frame, frame)
+        for (name, shot) in [
+            ("smoke-motion-start", first),
+            ("smoke-motion-next", guide.screenshot()),
+            ("airflow-session", app.screenshot()),
+        ] {
+            let attachment = XCTAttachment(screenshot: shot)
+            attachment.name = name
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+
+        app.buttons["Pause"].tap()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 3))
+        let frozen = try pixels(in: frame)
+        let changed = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                (try? self.pixels(in: frame)) != frozen
+            },
+            object: nil
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 2), .timedOut)
+    }
+
+    private func pixels(in frame: CGRect) throws -> Data {
+        let image = try XCTUnwrap(app.screenshot().image.cgImage)
+        let scale = CGFloat(image.width) / app.frame.width
+        let crop = frame.offsetBy(dx: -app.frame.minX, dy: -app.frame.minY)
+            .applying(CGAffineTransform(scaleX: scale, y: scale))
+        let cropped = try XCTUnwrap(image.cropping(to: crop))
+        return try XCTUnwrap(UIImage(cgImage: cropped).pngData())
+    }
+
+    func testWithYourChildIsAPlayfulMomentRatherThanAnExercise() throws {
         app.terminate()
         app.launchArguments = [
             "--ui-testing",
             // "sphere" is the key Scaling is stored under, not a stale value.
             "-session.breathVisual", "sphere",
+            "-session.guidance", "full",
             "-session.moodCheck", "NO",
         ]
         app.launch()
@@ -341,7 +472,40 @@ final class OndAppUITests: XCTestCase {
                 .waitForExistence(timeout: 8)
         )
         XCTAssertTrue(app.staticTexts["Smell the flower"].exists)
-        XCTAssertTrue(app.staticTexts["Blow out the candle"].waitForExistence(timeout: 5))
+        let guide = app.descendants(matching: .any)["breath-guide-playful"].firstMatch
+        let frame = guide.frame
+        let flower = XCTAttachment(screenshot: app.screenshot())
+        flower.name = "garden-inhale"
+        flower.lifetime = .keepAlways
+        add(flower)
+        XCTAssertTrue(app.staticTexts["Breathe out gently"].waitForExistence(timeout: 5))
+
+        let instruction = app.descendants(matching: .any)["session-instruction"].firstMatch
+        let exhale = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS[c] 'gently' AND value == '3'"),
+            object: instruction
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [exhale], timeout: 8), .completed)
+        let candle = XCTAttachment(screenshot: app.screenshot())
+        candle.name = "garden-exhale"
+        candle.lifetime = .keepAlways
+        add(candle)
+        XCTAssertEqual(guide.frame, frame)
+
+        let first = try pixels(in: frame)
+        let moving = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in (try? self.pixels(in: frame)) != first },
+            object: nil
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [moving], timeout: 3), .completed)
+        app.buttons["Pause"].tap()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 3))
+        let frozen = try pixels(in: frame)
+        let changed = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in (try? self.pixels(in: frame)) != frozen },
+            object: nil
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 2), .timedOut)
     }
 
     func testExerciseDetailKeepsActionsInTheReadingFlow() throws {
@@ -386,16 +550,6 @@ final class OndAppUITests: XCTestCase {
 
             return false
         }
-
-        let coach = app.buttons["Ask the coach about Box Breathing"]
-        for _ in 0 ..< 3 where !coach.isHittable {
-            app.swipeUp()
-        }
-
-        XCTAssertTrue(coach.isHittable)
-        XCTAssertGreaterThanOrEqual(coach.frame.height, 44)
-        XCTAssertTrue(begin.isHittable, "Begin stays pinned while the reading scrolls")
-        XCTAssertGreaterThan(coach.frame.minY, app.staticTexts["Evidence"].frame.minY)
     }
 
     func testReadingLayoutsKeepTheirVoiceOverOrderAtLargeText() {
@@ -436,23 +590,23 @@ final class OndAppUITests: XCTestCase {
 
         app.terminate()
         app.launch()
-        XCTAssertTrue(app.tabBars.buttons["Coach"].waitForExistence(timeout: 10))
-        app.tabBars.buttons["Coach"].tap()
-        app.buttons["The basics"].tap()
+        XCTAssertTrue(app.tabBars.buttons["Exercises"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Exercises"].tap()
+        app.buttons["basics-door"].tap()
         let paragraph = app.descendants(matching: .any)["reading-belly-or-chest-lead"]
         XCTAssertTrue(paragraph.waitForExistence(timeout: 5))
         XCTAssertFalse(paragraph.label.isEmpty)
     }
 
     func testBasicsLeadsWithPracticeAndMeetsTheAccessibilityAudit() throws {
-        app.tabBars.buttons["Coach"].tap()
+        app.tabBars.buttons["Exercises"].tap()
 
-        let basics = app.buttons["The basics"]
+        let basics = app.buttons["basics-door"]
         XCTAssertTrue(basics.waitForExistence(timeout: 10))
         basics.tap()
 
-        let lead = app.staticTexts["How exact does it need to be?"]
-        XCTAssertTrue(lead.waitForExistence(timeout: 10))
+        let lead = app.descendants(matching: .any)["reading-what-matters-most-heading"]
+        XCTAssertTrue(lead.waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertTrue(lead.isHittable, "the practice-first message should appear without scrolling")
 
         try app.performAccessibilityAudit { issue in

@@ -21,11 +21,6 @@ common:
       store: inmemory
   storage:
     s3:
-      # Region only, and no credentials: the AWS SDK's default chain finds the
-      # instance profile through the metadata endpoint, reachable from inside
-      # this container because http_put_response_hop_limit is 2. The same reason
-      # the assistant can sign for Bedrock and the backup can write to S3, and
-      # the same result — no key on this box to add or rotate.
       region: __REGION__
       bucketnames: __LOGS_BUCKET__
       s3forcepathstyle: false

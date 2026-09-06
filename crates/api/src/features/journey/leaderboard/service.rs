@@ -56,11 +56,6 @@ pub async fn get_leaderboard(
     user_id: UserId,
     request: pb::GetLeaderboardRequest,
 ) -> Result<pb::GetLeaderboardResponse, JourneyError> {
-    // Before the request is even parsed. A board is a fold across every user
-    // this server holds, computed here because it cannot be computed on a
-    // device — the same side of the line the assistant's model call sits on —
-    // and an unentitled caller should not be told which of their fields was
-    // malformed on the way to being refused anyway.
     entitlement::require(pool, user_id, Tier::Plus, SUBSCRIPTION_REFUSAL).await?;
 
     let board = board_from_proto(request.board)?;

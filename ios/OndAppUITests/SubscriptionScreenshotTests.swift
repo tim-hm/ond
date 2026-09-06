@@ -78,7 +78,7 @@ final class SubscriptionScreenshotTests: XCTestCase {
     /// never prices a tile, and a shot of the offer without prices is still
     /// better than no shot at all.
     private var offerArrived: XCUIElement {
-        app.staticTexts["Everything that works offline stays free. Forever."]
+        app.staticTexts["paywall-headline"]
     }
 
     /// Launches at the free tier, which is what makes either screen appear.

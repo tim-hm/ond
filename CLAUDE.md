@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    `mise run check` enforces the mechanical rules through `check:comments`. Review decides whether a comment is necessary.
 
 3. **Ergonomics and DX**: Prioritise intuitive API design and developer experience.
-4. **Minimal Environment Footprint**: Environment variables are for secrets and essential boot-time context only. The backend reads exactly two — `OND_ENV` and `DATABASE_URL`. Everything else is derived in `crates/api/src/config.rs` — including which provider, region, and model the assistant calls, because a model id that could differ between a laptop and a deployment is exactly the drift this rule exists to prevent. There is no provider key: the assistant signs its Bedrock calls with the EC2 instance profile, which the AWS SDK finds through its default credential chain without being told, and where that chain resolves to nothing the assistant answers from its rule-based fallback. Every new variable is a value that can differ between the two without anything noticing.
+4. **Minimal Environment Footprint**: Environment variables are for secrets and essential boot-time context only. The backend reads exactly two — `OND_ENV` and `DATABASE_URL`. Everything else is derived in `crates/api/src/config.rs`. The release has no model provider or AI calls. Every new variable can differ between a laptop and deployment without anything noticing.
 5. **Derivation by Convention**: Ports, log format, and CORS policy derive from `OND_ENV`. Prefer deriving over configuring.
 6. **Code Structure**: Follow [docs/code-structure.md](docs/code-structure.md) — feature-first (not layer-first), three-tier escalation, and the naming conventions defined there.
 

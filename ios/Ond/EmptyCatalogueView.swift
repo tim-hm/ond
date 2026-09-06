@@ -10,9 +10,9 @@ struct EmptyCatalogueView: View {
 
     var body: some View {
         ContentUnavailableView {
-            Label("The catalogue is empty", systemImage: "wind")
+            Label("Exercises aren’t available", systemImage: "wind")
         } description: {
-            Text("The server answered, but with no exercises in it.")
+            Text("We couldn’t load the exercises. Try again.")
         } actions: {
             Button("Try again", action: retry)
         }

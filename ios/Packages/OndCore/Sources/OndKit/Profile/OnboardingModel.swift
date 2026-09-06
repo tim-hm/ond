@@ -33,14 +33,8 @@ public final class OnboardingModel {
 
     /// In the order they were picked, which is the order they are shown back.
     public private(set) var goals: [TechniqueGoal] = []
-    public var experienceLevel: ExperienceLevel?
 
-    /// Where the reminder dial arrives: `daily`, not `never`. The row states
-    /// its own position, so somebody who wants no reminder is one tap from
-    /// saying so. It is the one default in this flow that asks iOS for
-    /// something, and the notification prompt is raised on the way out of the
-    /// screen that shows it.
-    public var reminderIntensity: ReminderIntensity = .daily {
+    public var reminderIntensity: ReminderIntensity = .never {
         didSet { hasMovedDial = true }
     }
 
@@ -105,7 +99,7 @@ public final class OnboardingModel {
             optIns.showsWristPulse = settings.showsWristPulse
         }
         if let health {
-            optIns.coachReadsHealthTrends = health.coachReadsHealthTrends
+            optIns.readsHealthTrends = health.readsHealthTrends
             optIns.writesMindfulMinutes = health.writesMindfulMinutes
         }
         self.optIns = optIns
@@ -243,12 +237,13 @@ public final class OnboardingModel {
         }
     }
 
-    /// Passes a step by. The answers given so far are kept, and the side
-    /// effects of leaving a step happen either way. Guarded rather than left
-    /// to the view, because the safety wall having no way around it is a rule,
-    /// and a rule held up by an undrawn button is one refactor from gone.
+    /// Skipping optional permissions discards changes made on that step.
     public func skip() {
         guard canSkip else { return }
+        if step == .optIns {
+            optIns = arrived
+            reminderIntensity = .never
+        }
         advance()
     }
 
@@ -272,15 +267,10 @@ public final class OnboardingModel {
         Task { await dial.seedIfNeeded() }
     }
 
-    /// The answers as they stand, laid over whatever the profile already
-    /// holds. An overlay, not a fresh `Profile`: `UpdateProfile` replaces
-    /// every column, so a value built from the four answers here would erase
-    /// the display name, gender and birth band the server holds. Those stay
-    /// editable in Settings. It is narrowed so the server accepts it.
+    /// Preserve profile fields this flow does not collect, including preview data.
     public var profile: Profile {
         var merged = restoredBase ?? store.profile
         merged.goals = goals
-        merged.experienceLevel = experienceLevel
         merged.reminderIntensity = reminderIntensity
         merged.givenName = givenName.trimmingCharacters(in: .whitespacesAndNewlines)
         return merged.clampedToServerLimits()

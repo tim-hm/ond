@@ -53,16 +53,14 @@ struct HomeView: View {
     /// another tab is selected, and nothing promises a `TimelineView` stops
     /// for a view that is merely hidden — so the orb's clock reads this.
     @State private var isOnScreen = false
+    @State private var orbStarted = Date()
 
     /// Whether the sheet's "All exercises" row was taken. The tab switch waits
     /// for the dismissal rather than racing it: moving the selection under a
     /// live presentation is the one order SwiftUI does not promise to honour.
     @State private var isLeavingForExercises = false
 
-    /// The orb's side. The spec's resting orb, with the outer ring standing
-    /// well clear of the core — the card's inner ring sits too close to read
-    /// as a breath's reach.
-    private static let orbSide: CGFloat = 230
+    private static let orbSide: CGFloat = 280
 
     /// Where the resting breath is held under Reduce Motion: a quarter of the
     /// way round, which is half full — a breath mid-way rather than the empty
@@ -260,24 +258,19 @@ struct HomeView: View {
         }
     }
 
-    /// The breath at rest: the shared geometry at Coherent pace on the
-    /// module's one resting clock, paused wherever motion is unwanted or
-    /// unseen. Reduce Motion holds the reference instant so the still frame is
-    /// a breath mid-way rather than an emptied one. Not a button — the capsule
-    /// below is — and hidden from the assistive layer, which has the button's label.
+    /// Home uses the same smoke volume at Coherent pace, with a still Reduce Motion frame.
     private var orb: some View {
         TimelineView(.animation(
             minimumInterval: Theme.Motion.restfulFrameInterval,
             paused: reduceMotion || !isBreathing
         )) { context in
-            BreathGlyph(
-                side: Self.orbSide,
-                pose: .resting(
-                    at: reduceMotion ? Self.stillInstant : context.date
-                        .timeIntervalSinceReferenceDate
-                ),
-                layers: [.halo, .outerRing, .core],
-                strength: .home
+            let elapsed = reduceMotion ? Self.stillInstant : context.date
+                .timeIntervalSince(orbStarted)
+            let fullness = AmbientBreath.fullness(at: elapsed, cycle: AmbientBreath.restingCycle)
+            SmokeOrb(
+                scale: AirOrbMotion.scale(forLevel: fullness),
+                swirl: reduceMotion ? 0 : AmbientBreath.airflow(at: elapsed),
+                side: Self.orbSide
             )
         }
     }

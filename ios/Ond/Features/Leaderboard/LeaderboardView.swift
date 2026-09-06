@@ -35,10 +35,6 @@ struct LeaderboardView: View {
         plus.tier >= .leaderboards
     }
 
-    /// The offer, in the shape the Coach tab's closed room uses. A board is a
-    /// fold across everybody who practises — this phone cannot compute it and
-    /// the server will not for free, so this is the one screen whose *whole
-    /// content* sits behind the subscription.
     private var locked: some View {
         ContentUnavailableView {
             Label("See where you stand", systemImage: "trophy")

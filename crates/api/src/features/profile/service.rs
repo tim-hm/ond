@@ -10,7 +10,7 @@ use super::errors::ProfileError;
 use super::repository::{self, ProfileRow};
 use super::types::{
     BirthYearBand, ExperienceLevel, Gender, MAX_DISPLAY_NAME_CHARS, MAX_GIVEN_NAME_CHARS,
-    ProfileSnapshot, ReminderIntensity,
+    ReminderIntensity,
 };
 use crate::features::technique::convert::{goal_from_proto, goal_to_proto};
 use crate::identity::UserId;
@@ -78,8 +78,9 @@ pub async fn update_profile(
     user_id: UserId,
     submitted: Option<pb::Profile>,
 ) -> Result<pb::UpdateProfileResponse, ProfileError> {
-    let submitted =
-        submitted.ok_or_else(|| ProfileError::Invalid("`profile` is required".to_owned()))?;
+    let submitted = submitted.ok_or_else(|| {
+        ProfileError::Invalid("The profile could not be read. Try saving it again.".to_owned())
+    })?;
     let mut row = from_proto(submitted)?;
 
     // The stored name can differ from the requested one — somebody already
@@ -92,29 +93,11 @@ pub async fn update_profile(
     })
 }
 
-/// The profile as another feature reads it.
-///
-/// `assistant` derives its prompt and its rule-based fallback from these
-/// answers. Routed through the service so `ProfileRow` stays this feature's own
-/// shape; a consumer holding it would make every `users` column a contract.
-pub async fn snapshot(pool: &PgPool, user_id: UserId) -> Result<ProfileSnapshot, ProfileError> {
-    let row = repository::find_profile(pool, user_id).await?;
-
-    Ok(ProfileSnapshot {
-        goals: row.goals,
-        experience_level: row.experience_level,
-        intent_note: row.intent_note,
-        birth_year_band: row.birth_year_band,
-        gender: row.gender,
-        given_name: row.given_name.filter(|name| !name.is_empty()),
-    })
-}
-
 /// The caller's birth-year band, or `None` if they have not said.
 ///
 /// Standalone because the board queries need the band as a parameter before
 /// they run: an unanswered band refuses the age-band scope outright. Every
-/// other consumer takes the band off [`snapshot`] instead.
+/// caller reads it through this service.
 pub async fn birth_year_band(
     pool: &PgPool,
     user_id: UserId,
@@ -154,7 +137,9 @@ fn from_proto(profile: pb::Profile) -> Result<ProfileRow, ProfileError> {
     let mut goals = Vec::with_capacity(profile.goals.len());
     for raw in profile.goals {
         let goal = goal_from_proto(raw).ok_or_else(|| {
-            ProfileError::Invalid(format!("`{raw}` is not a goal this server knows"))
+            ProfileError::Invalid(
+                "This goal is not supported. Check for an app update and try again.".to_owned(),
+            )
         })?;
         // Deduplicated rather than rejected: a client sending a goal twice has
         // sent a set with a redundancy, not a contradiction. Insertion order is
@@ -167,7 +152,7 @@ fn from_proto(profile: pb::Profile) -> Result<ProfileRow, ProfileError> {
     let intent_note = profile.intent_note.trim().to_owned();
     if intent_note.chars().count() > MAX_INTENT_NOTE_CHARS {
         return Err(ProfileError::Invalid(format!(
-            "`intent_note` is longer than {MAX_INTENT_NOTE_CHARS} characters"
+            "Keep your note to {MAX_INTENT_NOTE_CHARS} characters or fewer."
         )));
     }
 
@@ -189,7 +174,7 @@ fn from_proto(profile: pb::Profile) -> Result<ProfileRow, ProfileError> {
 /// but its owner, so it can impersonate nobody and collide with nothing. What
 /// is left is [`bounded_line`] — trimmed, bounded, drawable on one line.
 fn given_name_from_proto(submitted: &str) -> Result<Option<String>, ProfileError> {
-    bounded_line(submitted, "given_name", MAX_GIVEN_NAME_CHARS)
+    bounded_line(submitted, "First name", MAX_GIVEN_NAME_CHARS)
 }
 
 /// The rules every single-line name column shares, with no policy in them.
@@ -209,13 +194,13 @@ fn bounded_line(
 
     if value.chars().nth(max_chars).is_some() {
         return Err(ProfileError::Invalid(format!(
-            "`{field}` is longer than {max_chars} characters"
+            "{field} must contain {max_chars} characters or fewer."
         )));
     }
 
     if value.chars().any(char::is_control) {
         return Err(ProfileError::Invalid(format!(
-            "`{field}` may not contain control characters"
+            "{field} must be a single line of visible text."
         )));
     }
 
@@ -228,7 +213,7 @@ fn bounded_line(
 /// Anything else somebody typed is rejected with a reason, never mangled.
 /// Length counts Unicode scalars, matching the column's `CHECK` and the client.
 fn display_name_from_proto(submitted: &str) -> Result<Option<String>, ProfileError> {
-    let Some(name) = bounded_line(submitted, "display_name", MAX_DISPLAY_NAME_CHARS)? else {
+    let Some(name) = bounded_line(submitted, "Display name", MAX_DISPLAY_NAME_CHARS)? else {
         return Ok(None);
     };
 
@@ -236,7 +221,7 @@ fn display_name_from_proto(submitted: &str) -> Result<Option<String>, ProfileErr
     // and one character there is not a name anybody could be recognised by.
     if name.chars().nth(MIN_DISPLAY_NAME_CHARS - 1).is_none() {
         return Err(ProfileError::Invalid(format!(
-            "`display_name` must be between {MIN_DISPLAY_NAME_CHARS} and {MAX_DISPLAY_NAME_CHARS} characters"
+            "Your display name must contain {MIN_DISPLAY_NAME_CHARS} to {MAX_DISPLAY_NAME_CHARS} characters."
         )));
     }
 
@@ -246,7 +231,7 @@ fn display_name_from_proto(submitted: &str) -> Result<Option<String>, ProfileErr
         .any(|fragment| folded.contains(fragment))
     {
         return Err(ProfileError::Invalid(
-            "`display_name` is not one we can show on a leaderboard".to_owned(),
+            "Choose another display name for the leaderboard.".to_owned(),
         ));
     }
 
@@ -278,9 +263,10 @@ fn birth_year_band_from_proto(raw: i32) -> Result<Option<BirthYearBand>, Profile
         Ok(pb::BirthYearBand::Born1980s) => Ok(Some(BirthYearBand::Born1980s)),
         Ok(pb::BirthYearBand::Born1990s) => Ok(Some(BirthYearBand::Born1990s)),
         Ok(pb::BirthYearBand::Born2000s) => Ok(Some(BirthYearBand::Born2000s)),
-        Err(_) => Err(ProfileError::Invalid(format!(
-            "`{raw}` is not a birth year band this server knows"
-        ))),
+        Err(_) => Err(ProfileError::Invalid(
+            "This profile choice is not supported. Check for an app update and try again."
+                .to_owned(),
+        )),
     }
 }
 
@@ -300,9 +286,10 @@ fn gender_from_proto(raw: i32) -> Result<Option<Gender>, ProfileError> {
         Ok(pb::Gender::Female) => Ok(Some(Gender::Female)),
         Ok(pb::Gender::Male) => Ok(Some(Gender::Male)),
         Ok(pb::Gender::NonBinary) => Ok(Some(Gender::NonBinary)),
-        Err(_) => Err(ProfileError::Invalid(format!(
-            "`{raw}` is not a gender this server knows"
-        ))),
+        Err(_) => Err(ProfileError::Invalid(
+            "This profile choice is not supported. Check for an app update and try again."
+                .to_owned(),
+        )),
     }
 }
 
@@ -342,9 +329,10 @@ fn reminder_intensity_from_proto(raw: i32) -> Result<ReminderIntensity, ProfileE
         Ok(pb::ReminderIntensity::Never) => Ok(ReminderIntensity::Never),
         Ok(pb::ReminderIntensity::Gentle) => Ok(ReminderIntensity::Gentle),
         Ok(pb::ReminderIntensity::Daily) => Ok(ReminderIntensity::Daily),
-        Err(_) => Err(ProfileError::Invalid(format!(
-            "`{raw}` is not a reminder intensity this server knows"
-        ))),
+        Err(_) => Err(ProfileError::Invalid(
+            "This profile choice is not supported. Check for an app update and try again."
+                .to_owned(),
+        )),
     }
 }
 

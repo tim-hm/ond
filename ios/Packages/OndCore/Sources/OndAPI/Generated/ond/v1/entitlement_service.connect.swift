@@ -9,11 +9,6 @@ import Connect
 import Foundation
 import SwiftProtobuf
 
-/// EntitlementService turns an App Store purchase into something the server can
-/// act on: the decisions the client must not make, like spending a model call.
-/// The server reads the tier only from the row `SubmitAppStoreTransaction`
-/// wrote, so a modified client claiming önd+ still gets the rules. The
-/// catalogue's lock is deliberately absent — the server enforces only what costs money to serve.
 public protocol Ond_V1_EntitlementServiceClientInterface: Sendable {
 
     /// Verifies a StoreKit signed transaction and stores what it grants. The JWS

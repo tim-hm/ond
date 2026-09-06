@@ -20,24 +20,22 @@ pub(super) fn validate(
     draft: Option<pb::TechniqueDraft>,
     limits: &PhaseLimits,
 ) -> Result<AuthoredTechnique, UserTechniqueError> {
-    let draft =
-        draft.ok_or_else(|| UserTechniqueError::Invalid("`draft` is required".to_owned()))?;
+    let draft = draft.ok_or_else(|| {
+        UserTechniqueError::Invalid(
+            "The exercise could not be read. Try saving it again.".to_owned(),
+        )
+    })?;
 
     let name = draft.name.trim().to_owned();
     if name.is_empty() || width(name.chars().count()) > MAX_NAME_CHARS {
         return Err(UserTechniqueError::Invalid(format!(
-            "`name` must be between 1 and {MAX_NAME_CHARS} characters"
+            "Give your exercise a name of 1 to {MAX_NAME_CHARS} characters."
         )));
     }
 
-    // `profile::service::bounded_line`'s rule, and now for its reason as well as
-    // its own: this name reaches the coach's prompt as a line of its own under a
-    // header, so a newline inside it is a person writing the shape of a header
-    // the server did not write. Nothing legitimate puts a control character in
-    // the name of a breathing exercise.
     if name.chars().any(char::is_control) {
         return Err(UserTechniqueError::Invalid(
-            "`name` may not contain control characters".to_owned(),
+            "Use a single line of visible text for the exercise name.".to_owned(),
         ));
     }
 
@@ -46,19 +44,22 @@ pub(super) fn validate(
     let summary = draft.summary.trim().to_owned();
     if width(summary.chars().count()) > MAX_SUMMARY_CHARS {
         return Err(UserTechniqueError::Invalid(format!(
-            "`summary` must be at most {MAX_SUMMARY_CHARS} characters"
+            "Keep the description to {MAX_SUMMARY_CHARS} characters or fewer."
         )));
     }
 
     let goal = goal_from_proto(draft.goal).ok_or_else(|| {
-        UserTechniqueError::Invalid(format!("`{}` is not a goal this server knows", draft.goal))
+        UserTechniqueError::Invalid(
+            "Choose a goal for this exercise. If saving still fails, check for an app update."
+                .to_owned(),
+        )
     })?;
 
     let rounds = bounded("rounds", draft.rounds, MAX_ROUNDS)?;
 
     if draft.stages.is_empty() || width(draft.stages.len()) > MAX_STAGES {
         return Err(UserTechniqueError::Invalid(format!(
-            "an exercise has between 1 and {MAX_STAGES} stages"
+            "Include 1 to {MAX_STAGES} stages in your exercise."
         )));
     }
 
@@ -99,7 +100,7 @@ fn validate_stage(
 
     if stage.phases.is_empty() || width(stage.phases.len()) > MAX_PHASES_PER_STAGE {
         return Err(UserTechniqueError::Invalid(format!(
-            "stage {position} must have between 1 and {MAX_PHASES_PER_STAGE} phases"
+            "Stage {position} needs 1 to {MAX_PHASES_PER_STAGE} steps."
         )));
     }
 
@@ -141,11 +142,11 @@ fn reject_a_timed_hold_after_fast_breathing(
             }
 
             return Err(UserTechniqueError::Invalid(format!(
-                "stage {} holds for {}ms, and this exercise breathes fast enough that a \
-                 hold is capped at {}ms",
+                "Stage {} holds for {} seconds. This exercise breathes fast, so shorten \
+                 each hold to {} seconds or less.",
                 position + 1,
-                phase.duration_ms,
-                physiology::TIMED_HOLD_CEILING_MS
+                f64::from(phase.duration_ms) / 1000.0,
+                f64::from(physiology::TIMED_HOLD_CEILING_MS) / 1000.0
             )));
         }
     }
@@ -176,7 +177,7 @@ fn validate_phase(
 ) -> Result<AuthoredPhase, UserTechniqueError> {
     let (kind, passage) = movement(phase.movement, *breath).ok_or_else(|| {
         UserTechniqueError::Invalid(format!(
-            "phase {position} of stage {stage} does not say how the breath moves"
+            "Choose breathe in, breathe out or hold for step {position} of stage {stage}."
         ))
     })?;
 
@@ -186,7 +187,7 @@ fn validate_phase(
 
     let limit = limits.range(kind).ok_or_else(|| {
         UserTechniqueError::Invalid(format!(
-            "phase {position} of stage {stage} is of a kind with no safe range to breathe it in"
+            "Step {position} of stage {stage} is not supported. Check for an app update."
         ))
     })?;
 
@@ -195,8 +196,9 @@ fn validate_phase(
     let duration_ms = i32::try_from(phase.duration_ms).unwrap_or(i32::MAX);
     if duration_ms < limit.min_duration_ms || duration_ms > limit.max_duration_ms {
         return Err(UserTechniqueError::Invalid(format!(
-            "phase {position} of stage {stage} must be between {}ms and {}ms",
-            limit.min_duration_ms, limit.max_duration_ms
+            "Step {position} of stage {stage} must last between {} and {} seconds.",
+            f64::from(limit.min_duration_ms) / 1000.0,
+            f64::from(limit.max_duration_ms) / 1000.0
         )));
     }
 
@@ -241,7 +243,7 @@ fn bounded(field: &str, value: u32, max: i32) -> Result<i32, UserTechniqueError>
     let value = i32::try_from(value).unwrap_or(i32::MAX);
     if value < 1 || value > max {
         return Err(UserTechniqueError::Invalid(format!(
-            "`{field}` must be between 1 and {max}"
+            "Choose between 1 and {max} {field}."
         )));
     }
 

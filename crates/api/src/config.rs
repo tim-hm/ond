@@ -1,9 +1,3 @@
-//! Boot-time configuration. Two values come from the environment: `OND_ENV`
-//! and `DATABASE_URL`; everything else derives from the environment name
-//! (CLAUDE.md §1.4–1.5), because a variable can drift between a laptop and a
-//! deployment while a derived value cannot. The assistant needs no provider
-//! key — the EC2 instance profile signs its calls; region and model are constants below.
-
 use std::fmt;
 use std::str::FromStr;
 
@@ -133,20 +127,6 @@ const DEFAULT_METRICS_PORT: u16 = 29103;
 /// app must fail, so the value is the check. One constant so the verifiers
 /// cannot diverge; it has to match `PRODUCT_BUNDLE_IDENTIFIER` in `ios/project.yml`.
 pub const BUNDLE_ID: &str = "xyz.holmie.ond";
-
-/// The AWS region the assistant's calls are signed for and sent to. The box is
-/// in London, so a coach request reaches Bedrock without leaving the region
-/// the deployment lives in; where it goes after that is the inference
-/// profile's business. A constant rather than `AWS_REGION`: a drifting region
-/// would route coach traffic somewhere `web/privacy.html` does not describe.
-pub const BEDROCK_REGION: &str = "eu-west-2";
-
-/// The model, named as an EU cross-region inference profile: Bedrock forwards
-/// each call to a destination region, so `web/privacy.html` says "across
-/// Amazon's EU regions" and the IAM policy in `infra/main.tf` must grant the
-/// foundation model in every destination region (profile-only fails at invoke).
-/// A model requiring provider data sharing makes that page untrue — amend it in the same commit.
-pub const BEDROCK_MODEL_ID: &str = "eu.anthropic.claude-haiku-4-5-20251001-v1:0";
 
 /// Reads `OND_ENV`. Split from [`load`] because it decides the log format, and
 /// the subscriber has to exist before the first thing that can fail —

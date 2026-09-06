@@ -66,16 +66,13 @@ struct HealthTrendsCard: View {
         }
     }
 
-    /// The same invitation, with the price on it. It says what the numbers are
-    /// *for* rather than listing them: Apple's Health app shows anybody their
-    /// own HRV for nothing — what önd+ sells is the coach reasoning from them.
     private var locked: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
             Text(
                 "If you wear an Apple Watch overnight, önd+ can add weekly sleeping "
                     + "breathing rate, resting heart rate and heart rate variability (HRV) "
-                    + "trends to your coach's context, "
-                    + "and draw your heart rate around each session on Home."
+                    + "trends here, "
+                    + "and draw your heart rate around each session in Progress."
             )
             .font(.callout)
             .foregroundStyle(Theme.Ink.secondary)
@@ -91,16 +88,15 @@ struct HealthTrendsCard: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
             Text(
                 "If you wear an Apple Watch overnight, önd can add weekly sleeping breathing "
-                    + "rate, resting heart rate and heart rate variability (HRV) trends to your "
-                    + "coach's context, and draw "
-                    + "your heart rate around each session on Home. Nothing is read until you "
+                    + "rate, resting heart rate and heart rate variability (HRV) trends here, and draw "
+                    + "your heart rate around each session in Progress. Nothing is read until you "
                     + "opt in."
             )
             .font(.callout)
             .foregroundStyle(Theme.Ink.secondary)
 
             Button("Read my heart data") {
-                health.coachReadsHealthTrends = true
+                health.readsHealthTrends = true
                 // The ask is its own call: this button is somebody looking at
                 // the empty card the grant would fill, which is exactly where a
                 // Health sheet belongs.
@@ -110,14 +106,14 @@ struct HealthTrendsCard: View {
         }
     }
 
-    private func trends(_ context: CoachHealthContext) -> some View {
+    private func trends(_ context: HealthTrendSummary) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
             if let breathing = context.sleepingBreathingRate {
                 metric(
                     "Sleeping breathing rate",
                     breathing,
                     unit: HealthUnit(one: "breath per minute", many: "breaths per minute"),
-                    note: "Slower than your waking rate for everybody. It is a separate "
+                    note: "Measured during sleep, in different conditions from a waking count. It is a separate "
                         + "number from the one you count yourself."
                 )
             }

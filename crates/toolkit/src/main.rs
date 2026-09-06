@@ -8,12 +8,14 @@ use std::path::PathBuf;
 
 use anyhow::{Result, bail};
 
+mod app_store;
 mod box_config;
 mod comments;
 mod deploy;
 mod deps;
 mod dev;
 mod devices;
+mod generated;
 mod git;
 mod icons;
 mod ios;
@@ -37,6 +39,10 @@ async fn main() -> Result<()> {
         .collect::<Vec<_>>()
         .as_slice()
     {
+        ["app-store", "read", path] => app_store::read(path).await,
+        ["app-store", "apply", file] => app_store::apply(std::path::Path::new(file)).await,
+        ["generated", "check"] => generated::check(&repo, false),
+        ["generated", "diagrams"] => generated::check(&repo, true),
         ["icons"] => icons::render(&repo),
         ["box", "check", name] => box_config::check(&repo, name),
         ["deploy", "api"] => deploy::api(&repo),

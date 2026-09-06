@@ -2,11 +2,7 @@ import Foundation
 @testable import OndUI
 import Testing
 
-/// The colours that carry a drawing rather than a word, measured at the strength
-/// they are drawn. Apart from `ThemeColorTests` because both are excluded from its
-/// derived sweeps — a colour in no sweep rests on nothing, which is how the hold
-/// stroke went unmeasured. A graphic answers to 1.4.11's 3:1, not AA's 4.5:1;
-/// against `Surface/Ground` throughout, the ground `figureGround()` restores.
+/// Breath marks must meet 3:1 contrast against the figure ground.
 @Suite("The accents that carry a figure")
 struct FigureInkTests {
     /// Every phase of a breath at full strength: the figure's strokes, the
@@ -17,19 +13,6 @@ struct FigureInkTests {
     @Test("every breath colour carries a mark at full strength", arguments: breaths)
     func breathInkIsPerceivableOnItsGround(_ breath: ColorToken) throws {
         try expectPerceivable(breath, at: 1, "the \(breath.rawValue) mark")
-    }
-
-    /// The playful register draws its whole guide in one accent: flower and candle are
-    /// `Accent/Play` fills with no ink, no second mark, and no words a child that age
-    /// can read. **At the strengths actually drawn** — measuring the token at full
-    /// opacity passed 5.51:1 while the wax was drawn at 0.42 and sat at 1.88:1, and
-    /// the wax is the whole picture once the flame is out. The glow is light, no mark.
-    @Test(
-        "the playful guide's marks are perceivable at the strength they are drawn",
-        arguments: [("the wax", 0.78), ("the wick", 0.9), ("the flame's tip", 0.72)]
-    )
-    func playAccentCarriesTheCandle(_ mark: (name: String, alpha: Double)) throws {
-        try expectPerceivable(.accentPlay, at: mark.alpha, mark.name)
     }
 
     /// WCAG 1.4.11's 3:1, measured on `token` blended over the ground at the

@@ -70,13 +70,12 @@ message Profile {
   // catalogue is grouped by; a parallel enum would need mapping and would drift.
   repeated TechniqueGoal goals = 1;
 
+  // Legacy preview data. Not collected by the release app.
   ExperienceLevel experience_level = 2;
 
   ReminderIntensity reminder_intensity = 3;
 
-  // Why they are here, in their own words. Optional and free-form: M6's
-  // assistant reads it as context, and nothing else parses it. Empty is the
-  // normal state.
+  // Legacy preview data. Not collected by the release app.
   string intent_note = 4;
 
   // What the leaderboards call this person, and the whole of the opt-in to
@@ -91,9 +90,7 @@ message Profile {
   // and a birth year would be a more precise fact than that use needs.
   BirthYearBand birth_year_band = 6;
 
-  // Gender, if they said. It exists so the assistant can calibrate how it
-  // reads a breath-test score — the reference ranges differ by sex — and
-  // nothing else reads it.
+  // Legacy preview data. Not collected by the release app.
   Gender gender = 7;
 
   // What to call this person, if they said; empty is the whole of "they did

@@ -13,15 +13,10 @@ use api::account::AppleIdentityVerifier;
 use api::config::Environment;
 use api::entitlement::AppStoreVerifier;
 use api::state::AppState;
-use api::{assistant, config, http, obs};
+use api::{config, http, obs};
 use sqlx::ConnectOptions;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 
-/// Sized against the widest fan-out: one assistant call peaks at ten
-/// connections, because `assistant::service::read_context` joins four reads
-/// and one of them, `journey::sessions::service::practice_snapshot`, joins
-/// seven more. Forty admits four such calls at once. Postgres' own default
-/// `max_connections` is 100, so the migrate binary and a psql session still fit.
 const MAX_DB_CONNECTIONS: u32 = 40;
 
 /// How long a request waits for a connection. sqlx's default thirty seconds
@@ -31,11 +26,6 @@ const MAX_DB_CONNECTIONS: u32 = 40;
 /// deadline for opening the pool — safe, since dev and deploy both wait on `pg_isready`.
 const DB_ACQUIRE_TIMEOUT: Duration = Duration::from_secs(3);
 
-/// How long any one statement may run before Postgres cancels it server-side,
-/// surfacing an error naming the statement — without it ten slow statements
-/// are the whole pool and later callers blame acquire. On the statement, not
-/// an HTTP timeout that would cut the assistant's stream. This process only:
-/// migrate's index builds must not inherit it — hence not in `DATABASE_URL` or on the role.
 const STATEMENT_TIMEOUT: &str = "15s";
 
 /// When sqlx starts calling a statement slow, worth a `warn` carrying its SQL.
@@ -120,12 +110,6 @@ async fn run(environment: Result<Environment>, log_filter: String) -> Result<()>
         "connected to the database"
     );
 
-    // The composition root's one real choice: which side of the assistant's
-    // model seam this process runs. Decided by whether AWS credentials resolve,
-    // and logged there either way — at `warn` in a deployment, where failing to
-    // resolve them means the coach is down rather than absent.
-    let assistant = assistant::install(config.environment).await;
-
     // No equivalent choice for either Apple seam: the trust anchor is compiled
     // in and the sign-in keys come from a fixed endpoint, so every environment
     // runs the same two verifiers. Built rather than named because it owns an
@@ -134,13 +118,7 @@ async fn run(environment: Result<Environment>, log_filter: String) -> Result<()>
     let account =
         AppleIdentityVerifier::new().context("failed to build the Apple identity verifier")?;
 
-    let state = AppState::new(
-        pool,
-        config,
-        assistant,
-        Arc::new(AppStoreVerifier),
-        Arc::new(account),
-    );
+    let state = AppState::new(pool, config, Arc::new(AppStoreVerifier), Arc::new(account));
     let port = state.config.port;
     let metrics_port = state.config.metrics_port;
 

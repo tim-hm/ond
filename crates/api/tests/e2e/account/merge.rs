@@ -13,11 +13,6 @@ use crate::harness::{
     APPLE_ACCOUNT, ScriptedIdentityVerifier, TestDatabase, given_user, sign_in, subscribe,
 };
 
-/// Two devices' worth of practice, arranged so every reparenting rule has
-/// something to act on: an id both sides hold (one record that reached the
-/// server twice — the older identity's copy stays), an id only one side holds
-/// (survives), assistant allowance spent on both (summed — keeping the older
-/// count would let sign-in launder the new device's spend), and a moved authored exercise.
 async fn given_two_devices_with_history(
     pool: &PgPool,
     shared_session: &str,

@@ -16,17 +16,20 @@ public protocol SessionCueing {
     /// first boundary, where the latency would land inside the cue.
     func prepare()
 
-    /// Bracket a pause, and the resume that undoes it. The engines stay warm
-    /// across these — a resume lands on a phase boundary, and re-warming there
-    /// would put the latency inside the cue. What pausing releases is the
-    /// claim on background runtime: left playing, a forgotten pause would hold
-    /// the phone awake for as long as it lasts.
+    /// Pause releases background runtime. Resume reacquires it before restoration.
     func pause()
     func resume()
+
+    /// Restores only the remaining phase texture. Do not replay its boundary cue.
+    func restore(_ beat: SessionTimeline.Beat, at elapsed: Duration)
 
     func play(_ beat: SessionTimeline.Beat)
 
     /// The session reached its end, as opposed to being ended.
     func playCompletion()
     func stop()
+}
+
+public extension SessionCueing {
+    func restore(_: SessionTimeline.Beat, at _: Duration) {}
 }

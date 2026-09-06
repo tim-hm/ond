@@ -2,11 +2,6 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The session's heart rate as one line, on the summary that follows it. No
-/// score, no zone, no sentence claiming they settled: the line either fell or
-/// it did not. Both axes scale to this session alone — `PulseTrace.points()`
-/// says why a fixed axis flattens every settling. It owns its environment read,
-/// like `PulseBadge` and for its reason; absent when there is too little to draw.
 struct PulseCurve: View {
     @Environment(PulseMonitor.self) private var pulse
 
@@ -16,7 +11,7 @@ struct PulseCurve: View {
     var body: some View {
         let trace = pulse.trace
 
-        if let range = trace.range, trace.isWorthDrawing {
+        if let range = trace.plotRange, let measured = trace.range, trace.isWorthDrawing {
             // The figures sit above and below the line because they label the
             // vertical axis. Beside each other under a time axis they read as
             // a start and an end — exactly backwards for a settling, with the
@@ -46,13 +41,27 @@ struct PulseCurve: View {
                 Text("\(range.lowerBound)")
                     .font(.caption)
                     .monospacedDigit()
+
+                HStack {
+                    Text("First reading")
+                    Spacer()
+                    Text((trace.span ?? trace.readings.last?.elapsed ?? .zero)
+                        .formatted(.time(pattern: .minuteSecond)))
+                }
+                .font(.caption)
             }
             .foregroundStyle(Theme.Ink.primary)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Heart rate through the session")
             .accessibilityValue(
-                "Between \(range.lowerBound) and \(range.upperBound) beats per minute"
+                "Between \(measured.lowerBound) and \(measured.upperBound) beats per minute"
             )
+        } else if pulse.expectsReadings {
+            Text(
+                "Too few heart-rate readings to draw this practice. Your session is still recorded."
+            )
+            .font(.caption)
+            .foregroundStyle(Theme.Ink.secondary)
         }
     }
 }

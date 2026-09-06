@@ -210,8 +210,8 @@ mod tests {
     #[test]
     fn a_later_attachment_of_the_same_name_still_parses() {
         assert_eq!(
-            chosen_name("06-coach_1_ABCDEF01-2345-6789-ABCD-EF0123456789.png"),
-            Some("06-coach")
+            chosen_name("06-technique_1_ABCDEF01-2345-6789-ABCD-EF0123456789.png"),
+            Some("06-technique")
         );
     }
 

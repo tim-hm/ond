@@ -10,6 +10,10 @@ use super::{
     exhale, hold_in, hold_out, inhale, open_ended_stage, shaped_exhale, shaped_inhale, stage,
 };
 
+const BREATHLESSNESS_CAUTION: &str = "Do not use this exercise to assess unexplained breathlessness. \
+    Seek medical advice if it is new or not settling. Seek urgent medical help if breathing is \
+    suddenly difficult, severe, or accompanied by chest pain.";
+
 const fn prose(lead: &'static str) -> ReadingContentSeed {
     ReadingContentSeed::prose(lead)
 }
@@ -47,9 +51,9 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         evidence: bullets(
             "Research is growing, though it does not show that the square pattern is uniquely effective.",
             &[
-                "In a 2023 study, five daily minutes for a month improved mood, but less than cyclic sighing.",
-                "Three 2026 studies found benefits during anxiety, public speaking and critical-incident training.",
-                "A 2020 trial found that simply lengthening the breath out worked at least as well.",
+                "A 2023 trial included box breathing among daily five-minute practices followed for a month.",
+                "The breathing groups reported improvements in mood, with the clearest results for cyclic sighing.",
+                "This does not establish that equal counts or holds are needed to feel calmer.",
             ],
         ),
         evidence_grade: EvidenceGrade::Moderate,
@@ -90,7 +94,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             &[
                 "Reviews of slow paced breathing find small to medium reductions in stress and anxiety.",
                 "A blinded trial of about 400 people found no advantage over breathing at 12 breaths per minute.",
-                "A 2026 trial found no added benefit from finding a personal rate instead of using six breaths per minute.",
+                "That trial used ten minutes a day for four weeks, longer than this exercise's default session.",
             ],
         ),
         evidence_grade: EvidenceGrade::Moderate,
@@ -127,9 +131,9 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         evidence: bullets(
             "The wider evidence supports slow breathing, but not the special power of the 4-7-8 counts.",
             &[
-                "A 2025 review of 15 studies reported improvements in stress and anxiety.",
-                "Small clinical studies have also reported better sleep, but they were unblinded and used weak comparisons.",
-                "No study has shown that 4-7-8 works better than another comfortable way to breathe this slowly.",
+                "A 2026 trial in people with tinnitus reported improvements in sleep and psychological symptoms.",
+                "Results in that clinical group do not establish a sleep benefit for healthy people.",
+                "The evidence does not establish these exact counts as the best way to wind down.",
             ],
         ),
         evidence_grade: EvidenceGrade::Moderate,
@@ -170,7 +174,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             "Research supports the slow pace more clearly than the longer breath out.",
             &[
                 "A 2024 study of more than 800 people linked slower breathing with feeling calmer.",
-                "A 12-week trial also found that pace mattered more than the ratio between breathing in and out.",
+                "A 12-week trial found no clear stress benefit from a longer breath out compared with equal counts.",
                 "The longer breath out may still be useful because it makes a slow rhythm easier to follow.",
             ],
         ),
@@ -197,21 +201,21 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     TechniqueSeed {
         slug: "physiological-sigh",
         name: "Physiological Sigh",
-        summary: "One or two double breaths in, then a long breath out, can quickly ease a sudden spike.",
+        summary: "One or two double breaths in, then a long breath out, give you a brief pause during a stressful moment.",
         mechanism: bullets(
-            "A physiological sigh can help your body reset quickly by opening more of the lungs before a long release.",
+            "A physiological sigh pairs a second small sip of air with a longer breath out.",
             &[
-                "The second short breath in reopens small air sacs that may have started to close.",
-                "The long breath out then removes more carbon dioxide in one cycle.",
-                "A mouth breath out may feel more like a sigh, but using the nose works too.",
+                "Keep both breaths in gentle rather than trying to fill your lungs as much as possible.",
+                "Let the longer breath out finish without forcing it.",
+                "You can use your nose or mouth to breathe out, whichever feels comfortable.",
             ],
         ),
         evidence: bullets(
-            "The body process is well understood, but research on one or two sighs is still new.",
+            "Research on a longer sighing practice does not establish the effect of one or two sighs.",
             &[
                 "A 2023 trial tested five minutes a day, not this quick reset.",
-                "A 2026 pilot found that about a minute helped during real anxiety moments.",
-                "Box breathing worked just as well, so the pilot did not show that sighing was special.",
+                "That study's mood findings cannot be assumed for this much shorter exercise.",
+                "Treat this as a brief breathing prompt, not a proven treatment for anxiety.",
             ],
         ),
         evidence_grade: EvidenceGrade::Moderate,
@@ -234,10 +238,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                     .with_haptic(HapticPattern::Sip),
                 exhale(Passage::Nose, 5000, (4000, 8000)),
             ],
-            // The summary promises "one or two rounds"; three is the generous
-            // end of that, and the technique loses its point when stretched
-            // into a session.
-            3,
+            2,
         )],
         recommended_rounds: 1,
         requires_subscription: false,
@@ -254,17 +255,17 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         mechanism: bullets(
             "Cyclic sighing combines the release of a sigh with the steady pace of a five-minute daily practice.",
             &[
-                "Each second sip helps reopen small air sacs before the long breath out.",
+                "Each second sip is small; avoid trying to take the deepest possible breath.",
                 "Ten-second cycles give you six breaths per minute, a pace often used in slow-breathing research.",
-                "A mouth breath out may feel more natural, but using the nose works too.",
+                "A mouth breath out may feel more natural. The trial used a mouth exhale; this app defaults to the nose.",
             ],
         ),
         evidence: bullets(
-            "One promising month-long trial supports this practice, but it has not yet been repeated.",
+            "A month-long trial provides encouraging evidence for a daily sighing practice, with limits.",
             &[
-                "In 2023, five daily minutes improved mood and resting breathing rate more than three comparison practices.",
+                "In 2023, five daily minutes were associated with improved mood and a lower resting breathing rate.",
                 "The trial had about 30 people per group and came from one laboratory.",
-                "Later short-dose studies were mixed, and one found box breathing worked just as well.",
+                "The trial does not establish that this app's fixed timings or nasal exhale give the same results.",
             ],
         ),
         evidence_grade: EvidenceGrade::Moderate,
@@ -310,13 +311,13 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         evidence: bullets(
             "This is common in lung care, but the average benefit is small.",
             &[
-                "A 2024 review of 73 trials found less breathlessness, but the change was too small for most patients to notice.",
-                "Another review found that people walked farther, but exercise training worked just as well.",
+                "A 2024 review covered 73 trials of several breathing methods, mainly in people with lung disease.",
+                "For pursed-lip or diaphragmatic breathing, the average breathlessness change was below the review's threshold for a meaningful clinical benefit.",
                 "Healthy people are rarely studied, so claims about general calm are uncertain.",
             ],
         ),
         evidence_grade: EvidenceGrade::Moderate,
-        safety_note: "",
+        safety_note: BREATHLESSNESS_CAUTION,
         preparation: prose(
             "Part your lips gently, as though you were about to whistle or cool a spoonful of soup.",
         ),
@@ -345,16 +346,16 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             "Humming Breath can give a slow rhythm a soothing sound and a physical vibration you can follow.",
             &[
                 "Humming makes the air in the nose and sinuses vibrate.",
-                "It briefly raises nitric oxide in the nose, which helps regulate airflow and blood vessels.",
+                "It briefly raises measured nitric oxide in the nose; that is not proof of a health benefit.",
                 "The hum naturally keeps the breath out slow and nasal without extra counting.",
             ],
         ),
         evidence: bullets(
             "The effect on nasal nitric oxide is well established; the wider wellbeing claims are less certain.",
             &[
-                "Several small trials report less anxiety or better sleep after humming practices.",
-                "The studies cannot separate the hum from the slow nasal breathing beneath it.",
-                "Claims that humming clears sinus infections rely mainly on a single case report.",
+                "A small 2002 experiment measured much higher nasal nitric oxide during humming than quiet exhalation.",
+                "This measured a physical response, not relief from anxiety or improved sleep.",
+                "The evidence cited here does not establish humming as a treatment for sinus infections.",
             ],
         ),
         evidence_grade: EvidenceGrade::Limited,
@@ -407,8 +408,8 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             "Research is limited, especially on whether the exercise cools more than your mouth.",
             &[
                 "One unblinded trial of about 100 people tracked blood pressure and heart rate variability (HRV) for three months.",
-                "No controlled study has shown that it cools the whole body.",
-                "The safest claim is that many people enjoy the airflow in warm weather.",
+                "That trial studied people with high blood pressure, not whole-body cooling in healthy people.",
+                "A cool feeling in your mouth does not show that your body temperature has fallen.",
             ],
         ),
         evidence_grade: EvidenceGrade::Limited,
@@ -446,27 +447,27 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     TechniqueSeed {
         slug: "bellows-breath",
         name: "Bellows Breath",
-        summary: "A short round of quick nose breathing can give you a sharp lift in energy and focus.",
+        summary: "A short round of quick nose breathing can feel stimulating, but benefits for energy and focus are uncertain.",
         mechanism: bullets(
             "Bellows Breath can create a quick, bright sense of energy by copying the breathing pattern of exertion.",
             &[
                 "Fast, forceful breathing can raise heart rate and adrenaline.",
                 "It also lowers carbon dioxide quickly, which can cause tingling or lightheadedness.",
-                "Keep the bout brief and stay seated. Continuing longer adds risk without adding energy.",
+                "Keep the bout brief and stay seated. Stop and breathe normally if you feel lightheaded or tingly.",
             ],
         ),
         evidence: bullets(
-            "Small studies suggest a short lift in alertness, but we do not know how large it is.",
+            "Small studies of traditional fast breathing do not establish an energy or focus benefit for this short exercise.",
             &[
-                "Trials with a few dozen people found changes in heart rate, alertness and reaction time.",
-                "The studies were not blinded and mainly tested traditional fast breathing.",
-                "Research has not compared it with simple options, such as standing up or taking a short walk.",
+                "A 2018 study tested reaction time in 25 healthy women using several breathing and comparison conditions.",
+                "Its 18-minute sessions differ substantially from this app's brief paced round.",
+                "A stimulating feeling is not evidence of better attention or performance.",
             ],
         ),
         evidence_grade: EvidenceGrade::Limited,
         preparation: prose(""),
-        safety_note: "Sitting down only. Stop at the first sign of lightheadedness. Never in \
-                      water, never while driving.",
+        safety_note: "Sitting down only. Stop and breathe normally if you feel dizzy, lightheaded or tingly. \
+                      Never in water, never while driving.",
         goal: TechniqueGoal::Energy,
         stages: &[stage(
             &[
@@ -494,19 +495,19 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             ],
         ),
         evidence: bullets(
-            "People report a strong effect, but trials have not found clear health or mood benefits.",
+            "A strong sensation does not establish a health benefit. Controlled research gives reason for caution.",
             &[
-                "A blinded study of about 200 people found no clear change in stress, mood or inflammation, and more side effects.",
-                "A study of 84 women found that this method plus cold exposure was no better than a gentler comparison.",
-                "We do not know whether fast breathing and holds cause any wider benefit.",
+                "A 2024 blinded trial assigned 200 healthy young adults to fast breathing with long holds or a gentler breathing comparison.",
+                "Both groups improved in stress, with no clear difference between them in stress or the other mental-health outcomes measured.",
+                "The trial used 20 minutes daily for three weeks. It does not establish benefits for this app's exact sequence.",
             ],
         ),
         evidence_grade: EvidenceGrade::Limited,
         preparation: prose(""),
         safety_note: "Sitting or lying down, always. Never in water, never in the bath, never \
                       driving or standing. Fast breathing can make you faint with no warning. \
-                      Tingling in the hands and face is ordinary; dizziness means stop. Never \
-                      push a hold to the limit. This app does not measure one.",
+                      Stop and breathe normally if you feel dizzy, lightheaded or tingly. Never \
+                      push a hold to the limit. End each hold while comfortable.",
         goal: TechniqueGoal::Energy,
         stages: &[
             stage(
@@ -576,10 +577,10 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             ],
         ),
         evidence: bullets(
-            "No trial has tested this longer pattern, so the focus benefit is based on experience.",
+            "The research cited here does not test this six-count pattern or establish a focus benefit.",
             &[
                 "Slow-breathing research supports the calm rhythm underneath it.",
-                "No study has compared six-count sides with four-count box breathing.",
+                "It does not establish an advantage over four-count box breathing.",
                 "Treat the focus effect as how it may feel, not a proven change in attention.",
             ],
         ),
@@ -619,8 +620,8 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             "Studies exist, but their mixed results do not support a firm claim.",
             &[
                 "A 2024 review found lower blood pressure, but the trials differed widely.",
-                "Small anxiety studies found little or no help when people used it for quick relief.",
-                "No study has separated nostril switching from the slow breath and focus around it.",
+                "A small public-speaking study found no clear reduction in anxiety after a brief practice.",
+                "These studies do not establish an added benefit from nostril switching over comfortable slow breathing.",
             ],
         ),
         evidence_grade: EvidenceGrade::Limited,
@@ -680,8 +681,8 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
             "A good breath feels quiet and comfortable. It does not need to be large.",
             &[
                 "Let your ribs and belly move without forcing them.",
-                "Make the breath smaller if you feel air hunger, tingling or dizziness.",
-                "Stop if those feelings do not settle.",
+                "Stop and breathe normally if you feel dizzy, lightheaded or tingly.",
+                "Shorten the count or stop if you feel short of air.",
             ],
         ),
     },
@@ -775,7 +776,7 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
         slug: "when-breathing-is-the-problem",
         question: "When breathing itself is the problem",
         answer: prose(
-            "Some people cannot get a breath that feels satisfying, even with healthy lungs. Frequent sighing, a tight chest or never feeling full can be part of this common and treatable breathing pattern.",
+            "An unsatisfying breath can have several causes, including a breathing-pattern problem. An app cannot tell you the cause. Seek medical advice if this is new or persistent, and urgent help if breathing is suddenly difficult, severe or accompanied by chest pain.",
         ),
     },
     FoundationSeed {
@@ -792,13 +793,13 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
     },
     FoundationSeed {
         slug: "why-no-scores",
-        question: "Why doesn't önd score you?",
+        question: "What do breathing numbers mean?",
         answer: bullets(
             "A breathing number describes one measurement, taken once.",
             &[
                 "Comfortable-pause targets, coherence scores and breathing ages are not established measures of improvement.",
                 "önd records what you practised, for how long, and how it felt.",
-                "Your resting breathing rate is compared only with your own earlier measurements.",
+                "Optional leaderboards compare resting-rate results with other people; a ranking is not a measure of improvement.",
             ],
         ),
     },
@@ -813,7 +814,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "five-minutes-today",
         name: "Five minutes today",
-        summary: "Build the regular five-minute habit that the strongest daily-practice evidence supports.",
+        summary: "Build a regular five-minute breathing habit.",
         // The only entry that is not a situation, and first because of it: the
         // evidence for breathing at all is evidence for regularity, so the
         // reason somebody opens the app on an ordinary day deserves a door of
@@ -918,14 +919,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         surface: DeliverySurface::FullScreen,
         register: CopyRegister::Plain,
         phase_durations_ms: &[],
-        // Here rather than on the exercise because the hazard is the moment:
-        // somebody practising on a calm afternoon needs the first sentence and
-        // none of the second.
-        safety_note: "Practise this while you are comfortable rather than meeting it for the \
-                      first time out of breath. A shape you already know is far easier to find. \
-                      Breathlessness that is new, that is severe, or that is not settling is a \
-                      matter for a doctor rather than an app, and breathlessness that arrives \
-                      suddenly or alongside chest pain is a matter for an emergency number.",
+        safety_note: BREATHLESSNESS_CAUTION,
         // Two minutes rather than the exercise's own three: somebody out of
         // breath is counting this in breaths until they can talk again, and the
         // offer should not ask for longer than that.
@@ -943,16 +937,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         surface: DeliverySurface::FullScreen,
         register: CopyRegister::Plain,
         phase_durations_ms: &[],
-        // Here rather than on the exercise, on `when-youre-winded`'s reasoning:
-        // somebody breathing an extended exhale on an ordinary evening needs
-        // none of this. The red-flag sentence is word for word that route's,
-        // deliberately — two moments, one piece of clinical advice, and a
-        // reworded copy of it would be a second answer to the same question.
-        safety_note: "A breath that will not satisfy is common, and most of the time nothing \
-                      serious is behind it. Breathlessness that is new, that is severe, or that is \
-                      not settling is a matter for a doctor rather than an app, and breathlessness \
-                      that arrives suddenly or alongside chest pain is a matter for an emergency \
-                      number.",
+        safety_note: BREATHLESSNESS_CAUTION,
         duration_ms: 300_000,
     },
     OccasionSeed {
@@ -984,11 +969,9 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "in-a-tight-spot",
         name: "In a tight spot",
-        summary: "Use a discreet slow rhythm to create a little more room in a scanner, lift or crowded journey.",
+        summary: "Use a discreet slow rhythm in a lift or on a crowded journey.",
         technique_slug: "extended-exhale",
         goal: TechniqueGoal::Calm,
-        // Discreet because the moment is: somebody inside a scanner cannot hold
-        // a lit phone, and somebody on a packed train would rather nobody saw.
         surface: DeliverySurface::Discreet,
         register: CopyRegister::Plain,
         phase_durations_ms: &[],
@@ -1084,16 +1067,14 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "a-moment-to-reset",
         name: "A moment to reset",
-        summary: "Use one quiet minute of sighs to take the edge off a sudden spike wherever you are.",
+        summary: "Try two gentle sighs for a brief pause after a sudden spike.",
         technique_slug: "physiological-sigh",
         goal: TechniqueGoal::Reset,
         surface: DeliverySurface::FullScreen,
         register: CopyRegister::Plain,
         phase_durations_ms: &[],
         safety_note: "",
-        // The technique works in seconds rather than minutes, and the offer
-        // should say so — a five-minute reset is a different promise.
-        duration_ms: 60_000,
+        duration_ms: 15_000,
     },
     OccasionSeed {
         slug: "riding-out-a-craving",

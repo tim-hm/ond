@@ -1,9 +1,5 @@
 import Foundation
 
-/// What the coach may know about one heart metric: how it has run this week
-/// and, with enough evidence, how that compares to the weeks before. Whole
-/// numbers on purpose — the coach sees coarse trends, never readings, and
-/// more precision only makes the summary look like a diagnosis.
 public struct HealthSnapshot: Sendable, Equatable {
     /// The last seven days' mean, rounded to a whole unit.
     public let sevenDayMean: Int
@@ -26,10 +22,6 @@ public struct HealthSnapshot: Sendable, Equatable {
         "about \(sevenDayMean) \(unit.after(sevenDayMean))"
     }
 
-    /// How the week sits against the weeks before it, in the server's
-    /// briefing words, so the card and the coach's sentence cannot disagree.
-    /// Nil when the series was too thin — absence, never to be drawn as "no
-    /// change"; zero *is* a measured answer and says so.
     public func trendPhrase(in unit: HealthUnit) -> String? {
         guard let trend = trendFromBaseline else { return nil }
         guard trend != 0 else { return "in line with your recent baseline" }
@@ -39,11 +31,6 @@ public struct HealthSnapshot: Sendable, Equatable {
     }
 }
 
-/// A metric's unit as prose reads it after a number, in both forms. The
-/// breathing rate is why this is not a `String`: "1 breaths a minute" reads
-/// as machine output; `bpm` and `ms` do not inflect and use `flat(_:)`. The
-/// mirror of the server's `Unit` in `assistant::prompt` — the card and the
-/// coach's sentence describe the same number and must inflect alike.
 public struct HealthUnit: Sendable, Equatable {
     private let one: String
     private let many: String
@@ -66,11 +53,6 @@ public struct HealthUnit: Sendable, Equatable {
     }
 }
 
-/// Folds a daily series into the coarse summary the coach may see. Pure on
-/// purpose: every threshold is host-testable without a Health store. The
-/// minimum-evidence thresholds exist because an under-evidenced trend is
-/// worse than none; below threshold the answer is absence — a nil trend or
-/// no snapshot — never zero, because zero is a reading and absence is not.
 public enum HealthSummaryBuilder {
     /// Days of history a trend needs before it is worth stating.
     public static let minimumTrendDays = 10

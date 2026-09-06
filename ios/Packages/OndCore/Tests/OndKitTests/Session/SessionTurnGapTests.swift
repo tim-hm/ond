@@ -193,6 +193,16 @@ struct SessionTurnGapTests {
 
         #expect(timeline.totalDuration == .seconds(300))
     }
+
+    @Test("The short sigh and its reset duration both offer two cycles")
+    func keepsTheShortSighDose() {
+        let technique = SeededCatalogue.technique("physiological-sigh")
+        #expect(technique.stages.first?.cycles == 2)
+        #expect(technique.recommendedRounds == 1)
+        let adjusted = technique.dialled(with: technique.overrides(fitting: .seconds(15)))
+        #expect(adjusted.stages.first?.cycles == 2)
+        #expect(adjusted.recommendedRounds == 1)
+    }
 }
 
 /// The gap seen from the cue loop rather than the plan: a clocked session

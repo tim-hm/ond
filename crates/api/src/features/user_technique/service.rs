@@ -11,48 +11,11 @@ use super::convert::{
 };
 use super::errors::UserTechniqueError;
 use super::repository;
-use super::types::{MAX_TECHNIQUES, PhaseLimits, SavedSummary};
+use super::types::{MAX_TECHNIQUES, PhaseLimits};
 use super::validation::validate;
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
 use crate::wire;
-
-/// Whether this draft is one this feature would accept, for another feature
-/// about to propose it. The assistant's save-this-pattern card runs the same
-/// validator, so the server never offers to save what [`create`] then refuses.
-/// It lives here because `super::validation` is private. The validated value is
-/// discarded; the caller wants the verdict, not the draft.
-pub fn validate_draft(
-    draft: pb::TechniqueDraft,
-    limits: &PhaseLimits,
-) -> Result<(), UserTechniqueError> {
-    validate(Some(draft), limits).map(|_| ())
-}
-
-/// What this person has named their own exercises, for the coach that offers
-/// to make more of them. Without it the assistant offered to save patterns
-/// somebody already owned, and could not answer "the one I made for the
-/// evenings". One query, no stages, no limits. Deliberately not [`list`], which
-/// returns the wire shape and fires two more queries to assemble every phase.
-pub async fn saved_summaries(
-    pool: &PgPool,
-    user_id: UserId,
-) -> Result<Vec<SavedSummary>, UserTechniqueError> {
-    // This rides in the per-caller half of the prompt, which is billed in full
-    // on every question, so it projects down to the two fields a sentence can
-    // use. The read is shared rather than duplicated: a near-duplicate `SELECT`
-    // of three columns buys nothing at `MAX_TECHNIQUES` rows, and that cap is
-    // also why nothing here needs a limit of its own.
-    let rows = repository::list_techniques(pool, user_id).await?;
-
-    Ok(rows
-        .into_iter()
-        .map(|row| SavedSummary {
-            name: row.name,
-            goal: row.goal,
-        })
-        .collect())
-}
 
 /// This person's techniques, and the limits a composer has to work inside.
 ///

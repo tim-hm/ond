@@ -2,23 +2,12 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The app's chrome, and the only thing `OndApp` puts on screen: five
-/// destinations in the system tab bar. Settings is deliberately not a tab —
-/// it is not content — and lives behind the gear in Home's toolbar. Coach is a
-/// tab, not the bottom accessory it began as: a conversation is a destination,
-/// not a transport control. The tint is the brand's, never the current goal's.
 struct AppChrome: View {
     let catalogue: TechniqueListModel
     let occasions: OccasionCatalogueModel
     let sessions: any SessionRecording
     let profiles: ProfileStore
     let foundations: FoundationsModel
-
-    /// The one assistant composition, from the root — see `OndApp.assistant`.
-    let assistant: any AssistantReading
-
-    /// The coach conversations, threaded through to the Coach tab's list.
-    let chats: any ConversationStoring
 
     /// What a tapped notification asked for. Followed here rather than by any
     /// one tab, because the exercise a reminder names has nothing to do with
@@ -35,7 +24,6 @@ struct AppChrome: View {
         case moments
         case exercises
         case progress
-        case coach
     }
 
     /// Which tab is showing. Home on launch, which is where the bar opens.
@@ -52,9 +40,6 @@ struct AppChrome: View {
     /// presentation state nothing reads.
     @State private var isShowingPaywall = false
 
-    /// The two models the coach's cards write into, read here rather than
-    /// handed down: both are already in the environment for the chat four views
-    /// below, and a second route to the same object is one that can go stale.
     @Environment(UserTechniqueModel.self) private var own
     @Environment(JourneyModel.self) private var journey
 
@@ -86,11 +71,6 @@ struct AppChrome: View {
 
             Tab("Progress", systemImage: "chart.bar", value: Destination.progress) {
                 roots.progressRoot
-            }
-
-            // The spec's symbol is the one every other coach surface draws.
-            Tab("Coach", systemImage: CoachGlyph.symbol, value: Destination.coach) {
-                roots.coachRoot
             }
         }
         // Flat, where it used to be off on the one tab that could not scroll.
@@ -178,8 +158,6 @@ struct AppChrome: View {
             journey: journey,
             profiles: profiles,
             foundations: foundations,
-            assistant: assistant,
-            chats: chats,
             openExercises: { destination = .exercises }
         )
     }

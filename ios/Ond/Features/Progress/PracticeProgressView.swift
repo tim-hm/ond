@@ -22,9 +22,6 @@ struct PracticeProgressView: View {
 
     @Environment(SubscriptionStore.self) private var plus
 
-    /// The heart around the practice, read from Health for the one card here
-    /// that your body answered rather than you. In the environment because it
-    /// is the install's, shared with the coach and the check-ins screen.
     @Environment(HealthContextModel.self) private var heart
 
     /// The row awaiting confirmation before it and every total it counts
@@ -73,7 +70,7 @@ struct PracticeProgressView: View {
         // window is what keeps a tab hop from re-reading.
         .task(id: HeartRead(
             tier: plus.tier,
-            readsHealth: heart.coachReadsHealthTrends,
+            readsHealth: heart.readsHealthTrends,
             sessionCount: model.history.count,
             newestSession: model.history.first?.id
         )) {
@@ -96,6 +93,20 @@ struct PracticeProgressView: View {
 
             PracticeSummary(rhythm: rhythm, model: model, profiles: profiles)
                 .padding(.horizontal, Theme.Spacing.page)
+
+            NavigationLink {
+                CheckInsView(model: model)
+            } label: {
+                Label("Check-ins", systemImage: "heart.text.clipboard")
+                    .font(.body)
+                    .foregroundStyle(Theme.Accent.brandText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(Theme.Spacing.standard)
+                    .plate()
+            }
+            .padding(.horizontal, Theme.Spacing.page)
+            .padding(.top, Theme.Spacing.standard)
+            .accessibilityIdentifier("check-ins-door")
 
             if !days.isEmpty {
                 history(days, legend: legend)

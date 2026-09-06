@@ -178,8 +178,7 @@ extension TechniqueFigure {
                 .preparationInstruction(for: phase.breath, doneWith: phase.manner, in: .plain)
 
             guard !stage.openEnded else {
-                let hold = "\(instruction), for as long as you can"
-                return phase.range.spokenBand.map { "\(hold) — typically \($0)" } ?? hold
+                return "\(instruction) only while comfortable. End the hold when you need to breathe"
             }
             // Spelled out as a measurement rather than a number and a bare
             // "seconds", so a one-second bellows breath is not announced as

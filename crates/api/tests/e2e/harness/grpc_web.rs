@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use axum::Router;
 use axum::body::{Body, Bytes};
-use axum::http::{Request, StatusCode, header};
+use axum::http::{HeaderMap, HeaderName, HeaderValue, Request, StatusCode, header};
 use prost::Message;
 use tower::ServiceExt;
 
@@ -97,18 +97,6 @@ pub struct GrpcWebStream<T> {
     pub status_message: String,
 }
 
-impl<T> GrpcWebStream<T> {
-    /// The messages, asserting the stream ended cleanly.
-    pub fn into_ok(self) -> Vec<T> {
-        assert_eq!(
-            self.status, 0,
-            "grpc-status {}: {}",
-            self.status, self.status_message
-        );
-        self.messages
-    }
-}
-
 /// Calls a server-streaming method the way the iOS client does. gRPC-Web sends
 /// a server stream as several length-prefixed frames in one response body,
 /// followed by the trailer frame — readable here without a listener, in the
@@ -164,15 +152,22 @@ where
 
     let messages = deframe(&body, &mut trailers);
 
-    let status = trailers
-        .get("grpc-status")
-        .and_then(|value| value.parse().ok())
+    let status_headers: HeaderMap = trailers
+        .iter()
+        .map(|(name, value)| {
+            (
+                HeaderName::from_bytes(name.as_bytes()).expect("a valid trailer name"),
+                HeaderValue::from_str(value).expect("a valid trailer value"),
+            )
+        })
+        .collect();
+    let status = tonic::Status::from_header_map(&status_headers)
         .expect("the response carries a grpc-status, in a header or a trailer frame");
 
     GrpcWebStream {
         messages,
-        status,
-        status_message: trailers.get("grpc-message").cloned().unwrap_or_default(),
+        status: i32::from(status.code()),
+        status_message: status.message().to_owned(),
     }
 }
 

@@ -4,8 +4,6 @@
 //! that can be wrong. The same suite drives gRPC through the production layer
 //! stack because its outcome is invisible in the HTTP status.
 
-use std::sync::Arc;
-
 use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
 use api::throttle::FORWARDED_FOR;
@@ -14,8 +12,8 @@ use axum::http::{Request, StatusCode};
 use tower::ServiceExt;
 
 use crate::harness::{
-    CHAT, HalfAnswer, LIST_TECHNIQUES, TestDatabase, UPDATE_PROFILE, call_grpc_web,
-    call_grpc_web_stream_with, call_grpc_web_with, counter_total, given_user, scrape, subscribe,
+    LIST_TECHNIQUES, TestDatabase, UPDATE_PROFILE, call_grpc_web, call_grpc_web_with,
+    counter_total, given_user, scrape, subscribe,
 };
 
 const ALICE: &str = "11111111-1111-4111-8111-111111111111";
@@ -74,20 +72,6 @@ async fn native_grpc_outcomes_reach_the_exposition() {
     }
     assert_eq!(throttle_status, tonic::Code::ResourceExhausted as i32);
 
-    database.given_subscriber(BOB).await;
-    let streamed: crate::harness::GrpcWebStream<pb::ChatResponse> = call_grpc_web_stream_with(
-        database.app_with_model(Arc::new(HalfAnswer)),
-        CHAT,
-        &pb::ChatRequest {
-            message: "hello".to_owned(),
-            ..pb::ChatRequest::default()
-        },
-        &[(USER_ID_HEADER, BOB)],
-    )
-    .await;
-    assert_eq!(streamed.messages.len(), 1);
-    assert_eq!(streamed.status, tonic::Code::Unavailable as i32);
-
     let exposition = scrape(&database).await;
     assert!(
         !exposition.contains(r#"ond_requests_total{route="grpc",status="200"}"#),
@@ -103,7 +87,6 @@ async fn native_grpc_outcomes_reach_the_exposition() {
         (tonic::Code::InvalidArgument, UPDATE_PROFILE),
         (tonic::Code::Unauthenticated, LIST_TECHNIQUES),
         (tonic::Code::ResourceExhausted, LIST_TECHNIQUES),
-        (tonic::Code::Unavailable, CHAT),
     ] {
         let label = format!(
             r#"ond_grpc_requests_total{{method="{method}",status="{}"}}"#,
@@ -120,58 +103,6 @@ async fn native_grpc_outcomes_reach_the_exposition() {
     assert!(
         !exposition.contains(r#"method="/ond.v1.TechniqueService/Invented""#),
         "an undefined RPC reached the label set — {exposition}"
-    );
-}
-
-/// The assistant's failure mode is a success, which is what made it invisible:
-/// every step that declines hands over to the fallback, so a total provider
-/// outage looks identical to a working system on every request metric. This
-/// exercises the outage without needing one — the suite's default model client
-/// is unavailable by construction, the state a box with no AWS credentials boots into.
-#[tokio::test]
-async fn a_provider_outage_is_visible_even_though_every_call_succeeds() {
-    let database = TestDatabase::create("metrics_assistant_outage").await;
-    database.given_subscriber(BOB).await;
-
-    let answered: crate::harness::GrpcWebStream<pb::ChatResponse> = call_grpc_web_stream_with(
-        database.app(),
-        CHAT,
-        &pb::ChatRequest {
-            message: "hello".to_owned(),
-            ..pb::ChatRequest::default()
-        },
-        &[(USER_ID_HEADER, BOB)],
-    )
-    .await;
-
-    // The premise: the caller got a perfectly good answer and a zero status.
-    assert_eq!(answered.status, tonic::Code::Ok as i32);
-
-    let exposition = scrape(&database).await;
-
-    let succeeded = format!(r#"ond_grpc_requests_total{{method="{CHAT}",status="0""#);
-    assert!(
-        exposition.contains(&succeeded),
-        "the RPC must still read as successful — {exposition}"
-    );
-    assert!(
-        exposition.contains(r#"ond_assistant_fallbacks_total{reason="provider_unavailable"}"#),
-        "the outage must be counted — {exposition}"
-    );
-    assert!(
-        exposition.contains(r#"ond_assistant_answers_total{source="fallback"}"#),
-        "the fallback must have a denominator to be a share of — {exposition}"
-    );
-    // The state set: exactly one mode holds, and the others are actively zeroed
-    // rather than absent. A set that only ever wrote the current value would
-    // leave a recovered provider still reading as interrupted for ever.
-    assert!(
-        exposition.contains(r#"ond_assistant_mode{mode="fallback"} 1"#),
-        "the mode gauge must say where answers come from — {exposition}"
-    );
-    assert!(
-        exposition.contains(r#"ond_assistant_mode{mode="live"} 0"#),
-        "the modes that do not hold must read zero — {exposition}"
     );
 }
 
@@ -231,9 +162,9 @@ async fn the_census_counts_who_is_paying_and_what_it_bills() {
         exposition.contains(r#"ond_active_subscriptions{tier="PLUS"} 2"#),
         "two of them are subscribed — {exposition}"
     );
-    // 1.99 + 1.99
+    // 0.99 + 0.99
     assert!(
-        exposition.contains("ond_gross_mrr_usd 3.98"),
+        exposition.contains("ond_gross_mrr_usd 1.98"),
         "list price of two önd+ subscriptions — {exposition}"
     );
 }

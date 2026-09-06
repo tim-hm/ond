@@ -19,20 +19,15 @@ struct CopyRegisterTests {
     @Test("The playful register renames the breaths it was written for")
     func thePlayfulRegisterRenamesItsOwnBreaths() {
         #expect(Breath.inhale(through: .nose).instruction(in: .playful) == "Smell the flower")
-        #expect(Breath.exhale(through: .nose).instruction(in: .playful) == "Blow out the candle")
+        #expect(Breath.exhale(through: .nose).instruction(in: .playful) == "Breathe out gently")
         #expect(
             Breath.inhale(through: .nose).writtenInstruction(in: .playful) == "Smell the flower"
         )
         #expect(
-            Breath.exhale(through: .nose).writtenInstruction(in: .playful) == "Blow out the candle"
+            Breath.exhale(through: .nose).writtenInstruction(in: .playful) == "Breathe out gently"
         )
     }
 
-    /// Everything else keeps the plain sentence in both forms.
-    ///
-    /// The seeded route is held to nose-only breathing on the server, so this is
-    /// unreachable from the catalogue today. It stays total anyway: a coach offer
-    /// or an authored exercise could put any breath in front of it.
     @Test("Every other breath keeps the words it already had")
     func everythingElseFallsBackToPlain() {
         let unwritten = Breath.allCases.filter {
@@ -51,11 +46,6 @@ struct CopyRegisterTests {
         }
     }
 
-    /// The regression that made the screen form a `Breath` question rather than
-    /// a `PhaseKind` one. Deriving the words through the nose is sound for plain
-    /// wording and wrong for every other passage once a register covers only
-    /// some: it put "Blow out the candle" over a mouth exhale whose spoken form
-    /// correctly fell back, so one session said two things about one breath.
     @Test("A breath the register does not cover says one thing, not two")
     func theScreenAndTheEarAgreeOnAnUncoveredBreath() {
         let mouth = Breath.exhale(through: .mouth)
@@ -96,7 +86,7 @@ struct CopyRegisterTests {
         #expect(opening.spokenInstruction == "Smell the flower")
 
         let out = try #require(timeline.beats.first { $0.kind == .exhale })
-        #expect(out.instruction == "Blow out the candle")
+        #expect(out.instruction == "Breathe out gently")
 
         #expect(timeline.beats.allSatisfy { $0.register == timeline.register })
     }

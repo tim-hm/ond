@@ -9,7 +9,6 @@ use sqlx::PgPool;
 use super::super::errors::JourneyError;
 use super::super::wire::timestamp_from_proto;
 use super::repository;
-use super::types::RestingRateSnapshot;
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
 use crate::wire::{self, counted};
@@ -36,7 +35,7 @@ pub const BOARD_FLOOR_BREATHS_PER_MINUTE: i32 = 6;
 ///
 /// Idempotent on `(caller, client_measurement_id)`: a resend must cost nothing.
 /// The server decides "personal best", and "best" means *lowest* here — see
-/// [`RestingRateSnapshot`].
+/// the lowest recorded resting rate.
 pub async fn record_resting_rate(
     pool: &PgPool,
     user_id: UserId,
@@ -84,24 +83,4 @@ pub async fn lowest(pool: &PgPool, user_id: UserId) -> Result<Option<u32>, Journ
         .await?
         .map(|rate| counted("lowest_resting_rate", rate))
         .transpose()?)
-}
-
-/// The caller's whole resting-rate history folded to [`RestingRateSnapshot`], or
-/// `None` before they have measured one. Read by
-/// `sessions::service::practice_snapshot`: a sibling sub-feature reaches this
-/// history through the service, never the repository.
-pub async fn resting_rate_snapshot(
-    pool: &PgPool,
-    user_id: UserId,
-) -> Result<Option<RestingRateSnapshot>, JourneyError> {
-    let row = repository::resting_rate_aggregate(pool, user_id).await?;
-    let (Some(lowest), Some(latest)) = (row.lowest, row.latest) else {
-        return Ok(None);
-    };
-
-    Ok(Some(RestingRateSnapshot {
-        lowest: counted("lowest_resting_rate", lowest)?,
-        latest: counted("latest_resting_rate", latest)?,
-        count: counted("resting_rate_count", row.count)?,
-    }))
 }

@@ -36,7 +36,7 @@ struct OptInsStepView: View {
             row(
                 "Heart and sleep data",
                 note: SubscriptionTier.plusRequirementNote,
-                isOn: $model.optIns.coachReadsHealthTrends
+                isOn: $model.optIns.readsHealthTrends
             )
             row("Mindful minutes", isOn: $model.optIns.writesMindfulMinutes)
 

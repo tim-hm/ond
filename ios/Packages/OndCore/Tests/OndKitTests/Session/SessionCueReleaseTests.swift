@@ -10,6 +10,33 @@ import Testing
 @MainActor
 @Suite("Releasing the cue hardware")
 struct SessionCueReleaseTests {
+    @Test("Resume restores the paused phase without replaying its boundary or counting paused time")
+    func restoresTheRemainingPhase() async throws {
+        let clock = ManualClock()
+        let cues = RecordingCues()
+        let model = SessionModel(
+            technique: briefBreathing(cycles: 1000),
+            cues: cues,
+            recorder: DiscardingRecorder(),
+            clock: clock
+        )
+        defer { model.dismiss() }
+        model.start()
+        try await waitFor("the first cue") { cues.played.count == 1 }
+        clock.advance(by: .milliseconds(10))
+        model.pause()
+        clock.advance(by: .seconds(20))
+        model.resume()
+        let restored = try #require(cues.restorations.last)
+        #expect(restored.beat.id == 0)
+        #expect(restored.elapsed == .milliseconds(10))
+        #expect(model.elapsed == .milliseconds(10))
+        #expect(cues.played.count == 1)
+        clock.advance(by: .milliseconds(20))
+        try await waitFor("the next boundary") { cues.played.count == 2 }
+        #expect(cues.played.last?.id == 1)
+    }
+
     @Test("A finished session hands the hardware back without waiting for the screen to go")
     func releasesWithoutADismiss() async throws {
         let cues = RecordingCues()

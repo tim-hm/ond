@@ -14,6 +14,7 @@ struct SubscriptionPitch: View {
     /// deliberately to buy stays a subscription action and names the failure in
     /// `SubscriptionTerms`.
     let continuesWhenUnavailable: Bool
+    var context: PaywallContext = .general
 
     /// Buys the selected cadence, or continues when the caller permits the
     /// unavailable state to do that.
@@ -51,20 +52,20 @@ struct SubscriptionPitch: View {
         .accessibilityLabel("önd plus")
     }
 
-    /// The product boundary leads the pitch, before anything that costs money.
     private var boundary: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-            Text("Everything that works offline stays free. Forever.")
+            Text(context.headline)
+                .accessibilityIdentifier("paywall-headline")
                 .displaySerif(size: 35)
                 .foregroundStyle(Theme.Ink.primary)
                 .accessibilityAddTraits(.isHeader)
 
-            Text(
-                "önd+ is only the connected layer. Every other feature works "
-                    + "without it."
-            )
-            .font(.callout)
-            .foregroundStyle(Theme.Ink.secondary)
+            Text(context.detail)
+                .font(.callout)
+                .foregroundStyle(Theme.Ink.secondary)
+            Text("All included exercises and standalone Watch practice stay free.")
+                .font(.subheadline)
+                .foregroundStyle(Theme.Ink.secondary)
         }
     }
 
@@ -162,12 +163,10 @@ struct SubscriptionPitch: View {
         .accessibilityIdentifier("paywall-purchase")
     }
 
-    /// The line the reference leaves beneath the action: this is private by
-    /// construction, whether or not somebody pays.
     private var privacyPromise: some View {
         Text(
-            "No account, no ads, no trackers. Your practice history stays on the device "
-                + "whether you subscribe or not."
+            "No ads or trackers. Your history is available offline and syncs to önd's server. "
+                + "Sign in with Apple to recover it on another device."
         )
         .font(.caption)
         .foregroundStyle(Theme.Ink.tertiary)

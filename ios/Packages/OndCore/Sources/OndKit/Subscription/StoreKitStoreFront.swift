@@ -193,7 +193,11 @@ public struct StoreKitStoreFront: StoreFront {
     }
 
     public func restore() async throws {
-        try await AppStore.sync()
+        do {
+            try await AppStore.sync()
+        } catch StoreKitError.userCancelled {
+            throw StoreFrontError.cancelled
+        }
     }
 
     /// Asks the App Store for exactly what the caller needs — both cadences for

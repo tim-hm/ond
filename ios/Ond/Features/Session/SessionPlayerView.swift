@@ -10,51 +10,59 @@ import SwiftUI
 /// its own drawing. It takes the model and reads the rest from the environment.
 struct SessionPlayerView: View {
     let model: SessionModel
+    @State private var vapourSeed = Float.random(in: 0 ... 100)
 
     @Environment(SessionSettings.self) private var settings
     @Environment(PulseMonitor.self) private var pulse
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.loose) {
-            // The two flexible bands take an equal share of the slack, which
-            // puts the guide between them at the screen's centre whatever the
-            // header and the transport controls measure.
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                ScrollView {
+                    VStack(spacing: Theme.Spacing.standard) {
+                        header
+                        SessionWords(model: model)
+                        if !SessionWords.speak(for: model, under: settings.guidance) {
+                            breathGuide()
+                        }
+                        if pulse.expectsReadings {
+                            PulseBadge()
+                        }
+                    }
+                    .padding(Theme.Spacing.standard)
+                }
+                .safeAreaInset(edge: .bottom) { controls }
+            } else {
+                standardPlayer
+            }
+        }
+        .foregroundStyle(Theme.Ink.primary)
+        .sessionGround()
+    }
+
+    private var standardPlayer: some View {
+        VStack(spacing: Theme.Spacing.standard) {
             header
-                // Capped with the words below, and for their reason: this row
-                // sits above three slots of reserved height.
-                .dynamicTypeSize(...SessionWords.mostGrowth)
                 .padding(.top, Theme.Spacing.loose)
-                .frame(maxHeight: .infinity, alignment: .top)
+                .padding(.horizontal, Theme.Spacing.loose)
 
-            breathGuide
+            GeometryReader { proxy in
+                breathGuide(extent: min(proxy.size.width * 0.94, proxy.size.height))
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+            }
+
             SessionWords(model: model)
+                .padding(.horizontal, Theme.Spacing.loose)
 
-            // Inside the bands so the slack falls beneath it and the rate
-            // joins the exercise, not the transport controls. Its own row so
-            // it survives Just the visuals' wordless screen. `expectsReadings`
-            // is the only pulse property read here: the rate itself stays
-            // inside the badge — see `PulseBadge`.
             if pulse.expectsReadings {
                 PulseBadge()
             }
 
             controls
-                .frame(maxHeight: .infinity, alignment: .bottom)
+                .padding(.horizontal, Theme.Spacing.loose)
         }
-        .padding(Theme.Spacing.loose)
-        // Set once for the screen: everything under here is text on the deep
-        // ground, and the buttons carry their own tint over it.
-        .foregroundStyle(Theme.Ink.primary)
-        .sessionGround(stilled: model.status != .running)
-    }
-
-    /// How slowly the guide may redraw, or nil where it is the breath itself
-    /// moving and every frame counts.
-    private var restfulInterval: Double? {
-        BreathVisual.drawsArc(reduceMotion: reduceMotion, settings)
-            ? Theme.Motion.restfulFrameInterval
-            : nil
+        .padding(.vertical, Theme.Spacing.loose)
     }
 
     /// The name and the remaining time. The name is fixed for the session;
@@ -83,16 +91,20 @@ struct SessionPlayerView: View {
         }
     }
 
-    /// The orb, on the session's own clock and paused with it. `drawsArc`
-    /// decides the restful cap; a scaling core is followed breath for breath,
-    /// so it redraws as often as the display can.
-    private var breathGuide: some View {
-        TimelineView(.animation(
-            minimumInterval: restfulInterval,
-            paused: model.status != .running
+    private func breathGuide(extent: CGFloat = BreathVisual.extent) -> some View {
+        let motion = AirOrbMotion(timeline: model.timeline)
+
+        return TimelineView(.animation(
+            minimumInterval: Theme.Motion.restfulFrameInterval,
+            paused: model.status != .running && model.status != .holding
         )) { _ in
             let elapsed = model.elapsed
-            breathVisual(beat: model.timeline.beat(at: elapsed), elapsed: elapsed)
+            breathVisual(
+                beat: model.timeline.beat(at: elapsed),
+                elapsed: elapsed,
+                motion: motion,
+                extent: extent
+            )
         }
     }
 
@@ -135,13 +147,21 @@ struct SessionPlayerView: View {
     /// words do not — the wordless screen, while the session runs — and goes
     /// silent rather than swapping identity, so a pause cannot restart the
     /// drawing it is meant to freeze.
-    private func breathVisual(beat: SessionTimeline.Beat?, elapsed: Duration) -> some View {
+    private func breathVisual(
+        beat: SessionTimeline.Beat?,
+        elapsed: Duration,
+        motion: AirOrbMotion,
+        extent: CGFloat
+    ) -> some View {
         BreathVisual(
             beat: beat,
             elapsed: elapsed,
-            timeline: model.timeline,
+            realElapsed: model.realElapsed,
+            motion: motion,
             accent: model.accent,
-            register: model.timeline.register
+            register: model.timeline.register,
+            seed: vapourSeed,
+            availableExtent: extent
         )
         .speaksPhase(beat, at: elapsed)
         .accessibilityHidden(SessionWords.speak(for: model, under: settings.guidance))

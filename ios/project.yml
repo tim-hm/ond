@@ -175,7 +175,7 @@ targets:
         # the read feature it describes: the key must be in the bundle before
         # the first read request, and a missing key is a crash, not a refusal.
         NSHealthShareUsageDescription: >-
-          önd reads your breathing rate, resting heart rate and heart-rate variability trends, and your heart rate around the sessions you practise. The trends reach your coach only when you choose; the heart rate is drawn on your phone beside your practice. Nothing read is stored or shared.
+          önd reads breathing-rate, resting-heart-rate and heart-rate-variability trends, plus heart rate around your practice. Readings and summaries are used on your device and are not sent to our server.
         NSHealthUpdateUsageDescription: >-
           önd records each breathing session you keep in Health as Mindful Minutes, and — when you answer it — how you said you felt before and after, as State of Mind.
 
@@ -303,7 +303,7 @@ targets:
         # exactly one thing — the live heart rate while wearing the sensor for
         # a session on the phone. Trends and State of Mind are the phone string's.
         NSHealthShareUsageDescription: >-
-          önd reads your heart rate while you practise, so your iPhone can show it during a session. It is never stored or shared.
+          önd reads your heart rate during connected sessions and sends it to your paired iPhone to display the live reading.
         NSHealthUpdateUsageDescription: >-
           önd records each breathing session you keep in Health as Mindful Minutes.
 
@@ -342,6 +342,8 @@ targets:
     platform: iOS
     sources:
       - path: OndAppUITests
+      - path: Ond/Ond.storekit
+        buildPhase: resources
     dependencies:
       - target: Ond
     settings:

@@ -99,8 +99,8 @@ struct SettingsView: View {
                     requiring: wristPulseCosts,
                     presenting: .watch
                 ),
-                coachReadsHealthTrends: paidPreference(
-                    $health.coachReadsHealthTrends,
+                readsHealthTrends: paidPreference(
+                    $health.readsHealthTrends,
                     requiring: healthTrendsCosts,
                     presenting: .health
                 ),

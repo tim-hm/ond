@@ -99,8 +99,8 @@ struct SessionSummaryLinesTests {
         )
 
         #expect(SessionSummaryLines.headline(for: .discarded, register: .plain)
-            == "Too short to keep.")
-        #expect(note == "Nothing was recorded.")
+            == "Practice ended — not saved.")
+        #expect(note == "Practices ended before 10 seconds are not saved.")
     }
 
     /// One pair for both registers. There is no playful way to say that nothing
@@ -109,7 +109,7 @@ struct SessionSummaryLinesTests {
     func aDiscardedSessionKeepsThePlainWords() {
         #expect(SessionSummaryLines.headline(for: .discarded, register: .playful)
             == SessionSummaryLines.headline(for: .discarded, register: .plain))
-        #expect(playfulNote(for: .discarded) == "Nothing was recorded.")
+        #expect(playfulNote(for: .discarded) == "Practices ended before 10 seconds are not saved.")
     }
 
     /// Progress speaks this figure in its history row, so the rule is measured

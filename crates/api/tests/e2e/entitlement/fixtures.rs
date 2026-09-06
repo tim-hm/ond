@@ -18,9 +18,9 @@ use chrono::{Duration, Utc};
 use sqlx::PgPool;
 
 use crate::harness::{
-    self, DELETE_ACCOUNT, GET_ENTITLEMENT, GrpcWebResponse, SUBMIT_APP_STORE_TRANSACTION,
-    ScriptedIdentityVerifier, ScriptedModel, TestDatabase, begin_apple_authorization,
-    build_app_with, call_grpc_web_with, token_with_nonce,
+    DELETE_ACCOUNT, GET_ENTITLEMENT, GrpcWebResponse, SUBMIT_APP_STORE_TRANSACTION,
+    ScriptedIdentityVerifier, TestDatabase, begin_apple_authorization, build_app_with,
+    call_grpc_web_with, token_with_nonce,
 };
 
 pub(super) const USER: &str = "e07171e0-0000-4000-8000-000000000001";
@@ -230,7 +230,6 @@ pub(super) async fn delete_account(db: &TestDatabase, user: &str) -> i32 {
     let token = format!("{user}-apple-token");
     let app = build_app_with(
         db.pool.clone(),
-        Arc::new(api::assistant::DisabledModelClient),
         ScriptedVerifier::with(vec![]),
         ScriptedIdentityVerifier::with(vec![(&token, &apple_account_of(user))]),
     );
@@ -269,27 +268,4 @@ pub(super) async fn read(app: Router, user: &str) -> pb::Entitlement {
     .into_ok()
     .entitlement
     .expect("every response carries an entitlement")
-}
-
-/// No `subscribe` here, unlike `assistant/`'s helper of the same name: this
-/// suite exists to find out who may reach the model, so a tier is always the
-/// thing a test has set up for itself.
-pub(super) async fn recommend(
-    db: &TestDatabase,
-    model: Arc<ScriptedModel>,
-    verifier: Arc<ScriptedVerifier>,
-    user: &str,
-) -> pb::GetRecommendationResponse {
-    harness::recommend_as(
-        build_app_with(
-            db.pool.clone(),
-            model,
-            verifier,
-            ScriptedIdentityVerifier::refusing(),
-        ),
-        user,
-        Some(&credential_of(user)),
-        None,
-    )
-    .await
 }

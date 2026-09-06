@@ -4,11 +4,6 @@ package ond.v1;
 
 import "google/protobuf/timestamp.proto";
 
-// EntitlementService turns an App Store purchase into something the server can
-// act on: the decisions the client must not make, like spending a model call.
-// The server reads the tier only from the row `SubmitAppStoreTransaction`
-// wrote, so a modified client claiming önd+ still gets the rules. The
-// catalogue's lock is deliberately absent — the server enforces only what costs money to serve.
 service EntitlementService {
   // Verifies a StoreKit signed transaction and stores what it grants. The JWS
   // is verified in-process against Apple's root certificate, so a purchase is
@@ -30,9 +25,6 @@ service EntitlementService {
 // what the server spends on is önd+. UNSPECIFIED is never stored or served
 // (proto3 demands a zero value); a client receiving it should treat it as FREE.
 enum EntitlementTier {
-  // COACH held tag 3 until the collapse. Reserved rather than merely deleted:
-  // a client built against the old contract still reads a 3 as the top tier,
-  // so a future rung reusing the tag would silently entitle it.
   reserved 3;
   reserved "ENTITLEMENT_TIER_COACH";
 
@@ -42,8 +34,6 @@ enum EntitlementTier {
   // session player, custom exercises, the journey, and the watch app.
   ENTITLEMENT_TIER_FREE = 1;
 
-  // önd+. Everything with a cost per use behind it — the assistant's language
-  // model, the leaderboards, and the health trends the coach reads.
   ENTITLEMENT_TIER_PLUS = 2;
 }
 

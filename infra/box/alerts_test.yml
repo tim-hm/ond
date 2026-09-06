@@ -98,48 +98,10 @@ tests:
               severity: critical
             exp_annotations:
               summary: "The API has been returning Internal errors for ten minutes"
-              description: "Every one of these is a bug or a dependency that has gone away, not a caller doing something wrong. During a beta the likeliest causes are a schema the deployed build does not have and a Bedrock call that cannot authenticate. The per-request logs name which."
+              description: "Every one of these is a bug or a dependency that has gone away, not a caller doing something wrong. During a beta the likeliest causes are a schema the deployed build does not have or an unavailable database. The per-request logs name which."
       - eval_time: 25m
         alertname: GrpcUnexpectedFailures
         exp_alerts: []
-
-  # ── The coach ───────────────────────────────────────────────────────────────
-  - interval: 1m
-    name: a free user base falling back constantly is not an outage
-    input_series:
-      # The most common shape this product will ever have: almost everybody is
-      # on the free tier, so almost every answer comes from the rules. If this
-      # fired here it would fire every day from launch, which is precisely how
-      # an alert teaches people to ignore it.
-      - series: 'ond_assistant_fallbacks_total{reason="subscription_required"}'
-        values: "0+60x40"
-      - series: 'ond_assistant_fallbacks_total{reason="allowance_spent"}'
-        values: "0+12x40"
-      - series: 'ond_assistant_answers_total{source="fallback"}'
-        values: "0+72x40"
-    alert_rule_test:
-      - eval_time: 35m
-        alertname: AssistantFallingBack
-        exp_alerts: []
-
-  - interval: 1m
-    name: a provider that cannot be reached alerts
-    input_series:
-      - series: 'ond_assistant_fallbacks_total{reason="provider_unavailable"}'
-        values: "0+60x40"
-      - series: 'ond_assistant_answers_total{source="fallback"}'
-        values: "0+60x40"
-      - series: 'ond_assistant_answers_total{source="model"}'
-        values: "0+6x40"
-    alert_rule_test:
-      - eval_time: 35m
-        alertname: AssistantFallingBack
-        exp_alerts:
-          - exp_labels:
-              severity: warning
-            exp_annotations:
-              summary: "The coach has been answering from its rules for fifteen minutes"
-              description: "Excludes the two ordinary reasons — an unsubscribed caller and a spent daily allowance. What is left is a provider that cannot be reached or a model whose replies are unusable. `ond_assistant_fallbacks_total` names which, and `ond_assistant_mode` says whether the breaker is open or no model was installed at boot."
 
   # ── The money path ──────────────────────────────────────────────────────────
   - interval: 1m

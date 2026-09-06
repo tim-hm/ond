@@ -1,3 +1,4 @@
+import Foundation
 import OndKit
 import SwiftUI
 
@@ -21,6 +22,11 @@ extension OndApp {
 
     /// Whether this Debug launch belongs to the deterministic UI-test harness.
     static let isUiTesting = launched(with: "--ui-testing")
+
+    /// Each UI-test launch isolates practice files from earlier screenshot fixtures.
+    static let practiceDirectory: URL = isUiTesting
+        ? URL.temporaryDirectory.appending(path: "ond-ui-practice-\(UUID().uuidString)")
+        : .applicationSupportDirectory
 
     /// May this launch invent a heart rate? A simulator lacks the hardware
     /// and the preference showing the result is paywalled — and left

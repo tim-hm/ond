@@ -125,29 +125,6 @@ groups:
           description: >-
             Excludes the refusals this API makes on purpose — unauthenticated, throttled, unentitled, malformed — and the two codes a disconnecting phone produces. What is left is deadlines, unavailability and internal faults. Expect this during a beta if a build ships against a contract the server does not serve, which is the case it exists to catch.
 
-      # The rule transport metrics cannot provide: a declining assistant hands
-      # over to `fallback` and the RPC completes with status 0, so a provider
-      # outage is invisible to every rule above. The excluded reasons are the
-      # product working — a free caller and a spent allowance; the rest includes
-      # a box that cannot sign for Bedrock, which looks like a working coach.
-      - alert: AssistantFallingBack
-        expr: |
-          (
-            sum(rate(ond_assistant_fallbacks_total{reason!~"subscription_required|allowance_spent"}[15m]))
-              /
-            clamp_min(sum(rate(ond_assistant_answers_total[15m])), 0.001)
-              > 0.5
-          )
-          and
-          sum(rate(ond_assistant_fallbacks_total{reason!~"subscription_required|allowance_spent"}[15m])) > 0.001
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          summary: "The coach has been answering from its rules for fifteen minutes"
-          description: >-
-            Excludes the two ordinary reasons — an unsubscribed caller and a spent daily allowance. What is left is a provider that cannot be reached or a model whose replies are unusable. `ond_assistant_fallbacks_total` names which, and `ond_assistant_mode` says whether the breaker is open or no model was installed at boot.
-
       # A share, not a count: sandbox builds talking to production make some
       # rejection ordinary — one is a tester, half is the money path broken.
       # It exists for a signing-chain regression, which produces gRPC 3 — a
@@ -198,7 +175,7 @@ groups:
         annotations:
           summary: "The API has been returning Internal errors for ten minutes"
           description: >-
-            Every one of these is a bug or a dependency that has gone away, not a caller doing something wrong. During a beta the likeliest causes are a schema the deployed build does not have and a Bedrock call that cannot authenticate. The per-request logs name which.
+            Every one of these is a bug or a dependency that has gone away, not a caller doing something wrong. During a beta the likeliest causes are a schema the deployed build does not have or an unavailable database. The per-request logs name which.
 
   - name: abuse
     rules:

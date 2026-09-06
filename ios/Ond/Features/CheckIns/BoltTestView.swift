@@ -2,11 +2,6 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The BOLT-style controlled-pause test: a short, guided measurement of how
-/// settled your breathing is. The safety framing is the design: this is a
-/// comfortable pause, not a breath-hold contest — the board it feeds is
-/// capped at the pause a settled breath reaches, every screen says stop at
-/// the *first* definite urge, and the person stops the timer, not a clock.
 struct BoltTestView: View {
     let model: JourneyModel
 
@@ -57,8 +52,8 @@ struct BoltTestView: View {
 
     private var instructions: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
-            Text("This measures how settled your breathing is. It is not a test of how long "
-                + "you can hold your breath.")
+            Text("This records the time until your first urge to breathe. "
+                + "It is not a health score. You can stop at any time.")
                 .font(.title3.weight(.semibold))
 
             VStack(alignment: .leading, spacing: Theme.Spacing.close) {
@@ -66,8 +61,8 @@ struct BoltTestView: View {
                 bullet("Breathe normally through your nose for a few breaths.")
                 bullet("Breathe out gently, then start the timer.")
                 bullet(
-                    "Stop at the first definite urge to breathe. Do not stop before it, and do "
-                        + "not push near your limit."
+                    "Stop at the first definite urge to breathe, or sooner if uncomfortable. "
+                        + "Never push near your limit."
                 )
                 bullet("Your next breath should be calm. If you gasp, you held too long.")
             }
@@ -123,18 +118,18 @@ struct BoltTestView: View {
         }
     }
 
-    private func result(seconds: Int, isPersonalBest: Bool) -> some View {
+    private func result(seconds: Int, isPersonalBest _: Bool) -> some View {
         VStack(spacing: Theme.Spacing.standard) {
             Text("\(seconds)s")
                 .displayNumeral(size: 72)
                 .foregroundStyle(Theme.Accent.attend)
 
-            Text(isPersonalBest ? "Your best yet." : "Recorded.")
+            Text("Recorded.")
                 .font(.title3.weight(.semibold))
 
             Text(
-                "This moves with sleep, stress, and how you've been breathing all day. "
-                    + "One reading tells you less than several readings over a month."
+                "Readings can vary from day to day. A longer pause does not "
+                    + "establish better health or more effective practice."
             )
             .font(.callout)
             .foregroundStyle(Theme.Ink.secondary)

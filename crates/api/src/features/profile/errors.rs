@@ -24,7 +24,7 @@ pub enum ProfileError {
     /// Every suffixed variant of a requested display name is taken. Reported to
     /// the caller rather than hidden, because the fix is theirs: pick a
     /// different name.
-    #[error("that display name and every variant of it are taken — try another")]
+    #[error("That display name is taken. Choose another.")]
     DisplayNameUnavailable,
 
     #[error("database error: {0}")]
@@ -41,7 +41,7 @@ impl From<ProfileError> for Status {
         match error {
             ProfileError::Invalid(message) => Self::invalid_argument(message),
             ProfileError::DisplayNameUnavailable => {
-                Self::already_exists("that display name and every variant of it are taken")
+                Self::already_exists("That display name is taken. Choose another.")
             }
             ProfileError::Missing => {
                 tracing::error!(feature = "profile", "the calling user has no row");

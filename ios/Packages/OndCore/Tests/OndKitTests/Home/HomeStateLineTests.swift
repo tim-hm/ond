@@ -60,7 +60,7 @@ struct HomeStateLineTests {
             at: Self.now.addingTimeInterval(-7 * 86400)
         )]
 
-        #expect(line(lastWeek) == "Nothing this week yet.")
+        #expect(line(lastWeek) == "A fresh week.")
     }
 
     @Test("One finished session is counted in words")
@@ -143,7 +143,7 @@ struct HomeStateLineTests {
         let boundary = Date(timeIntervalSince1970: 1_777_248_000)
 
         #expect(line([HomeFixtures.session("box-breathing", at: boundary)]) ==
-            "Nothing this week yet.")
+            "A fresh week.")
     }
 
     @Test("A session after a fortnight away is said as a return, not as a count")

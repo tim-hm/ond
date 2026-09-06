@@ -266,9 +266,6 @@ mod tests {
         assert!(matches!(error, VerificationError::NotOurs(_)), "{error}");
     }
 
-    /// Likewise for a product this app does not sell — a future consumable, a
-    /// receipt from another of the same developer's apps, or the Coach
-    /// subscription the single-tier collapse withdrew.
     #[test]
     fn a_transaction_for_another_product_is_not_ours() {
         for product_id in [

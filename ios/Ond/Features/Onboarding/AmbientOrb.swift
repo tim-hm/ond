@@ -1,100 +1,32 @@
+import OndStyle
 import OndUI
 import SwiftUI
 
-/// The welcome's first guided breath: a real Coherent 5.5 cadence before the
-/// flow asks anything. Two rings and a core, and no words — the headline above
-/// it already says them. The clock begins when this view appears, so returning
-/// to Welcome starts another complete inhale rather than landing mid-way
-/// through a process-wide ambient loop.
 struct AmbientOrb: View {
-    /// What colour to breathe in. The brand accent, because nothing on the
-    /// welcome screen belongs to a technique yet.
-    let accent: Color
-
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    /// The cadence's local zero. A state value gives a rebuilt Welcome screen a
-    /// fresh breath, which is also what makes the entrance replay on Back.
+    @Environment(\.scenePhase) private var scenePhase
     @State private var startedAt = Date.now
 
-    /// The one thing in the app that reads the appearance directly rather than
-    /// through a token, because alpha is not a colour: the opacity that reads
-    /// as a lit glow over the near-black ground washes out over the white one,
-    /// and the palette carries a value per appearance but cannot carry an
-    /// alpha. Dark keeps exactly the numbers it shipped with.
-    @Environment(\.colorScheme) private var colorScheme
-
     var body: some View {
-        // Built out here rather than in the closure below, which runs at display
-        // refresh: nothing about the colours depends on the time, and the only
-        // thing that does is the one number the three scales share.
-        let core = RadialGradient(
-            colors: [accent.opacity(coreAlpha.centre), accent.opacity(coreAlpha.edge)],
-            center: .center,
-            startRadius: 4,
-            endRadius: 82
-        )
-        let outerRing = accent.opacity(0.15)
-        let innerRing = accent.opacity(0.3)
-
-        // An eleven-second breath is drawn no better at 120 Hz than at 30 — see
-        // `Theme.Motion.restfulFrameInterval`.
-        return TimelineView(.animation(
+        TimelineView(.animation(
             minimumInterval: Theme.Motion.restfulFrameInterval,
-            paused: reduceMotion
+            paused: reduceMotion || scenePhase != .active
         )) { context in
-            let breath = reduceMotion ? WelcomeBreath.still : WelcomeBreath(
-                elapsed: max(0, context.date.timeIntervalSince(startedAt))
+            let elapsed = reduceMotion ? AmbientBreath.restingCycle / 4
+                : max(0, context.date.timeIntervalSince(startedAt))
+            let level = AmbientBreath.fullness(at: elapsed, cycle: AmbientBreath.restingCycle)
+
+            SmokeOrb(
+                scale: AirOrbMotion.scale(forLevel: level),
+                swirl: reduceMotion ? 0 : AmbientBreath.airflow(at: elapsed),
+                side: 260
             )
-            let travel = 0.11 * breath.fullness
-
-            ZStack {
-                Circle()
-                    .stroke(outerRing, lineWidth: 1)
-                    .scaleEffect(0.89 + travel)
-
-                Circle()
-                    .stroke(innerRing, lineWidth: 1)
-                    .scaleEffect(0.70 + travel)
-
-                Circle()
-                    .fill(core)
-                    .scaleEffect(0.47 + travel)
-            }
         }
-        .frame(width: 220, height: 220)
         .accessibilityElement(children: .ignore)
+        .accessibilityIdentifier("welcome-breath-guide")
         .accessibilityLabel("Guided breath")
         .accessibilityValue(
             reduceMotion ? "Breathe in" : "Breathing in and out for five and a half seconds each"
         )
-    }
-
-    /// What the core's radial gradient runs between, at each end.
-    private var coreAlpha: (centre: Double, edge: Double) {
-        colorScheme == .dark ? (centre: 0.7, edge: 0.15) : (centre: 0.95, edge: 0.45)
-    }
-}
-
-/// One frame of the welcome cadence.
-private struct WelcomeBreath {
-    private static let cycleDuration = AmbientBreath.restingCycle
-    private static let phaseDuration = cycleDuration / 2
-
-    let fullness: Double
-
-    static let still = WelcomeBreath(fullness: 0.5)
-
-    init(elapsed: TimeInterval) {
-        let position = elapsed.truncatingRemainder(dividingBy: Self.cycleDuration)
-        let isInhaling = position < Self.phaseDuration
-        let raw = (isInhaling ? position : position - Self.phaseDuration) / Self.phaseDuration
-        let eased = raw * raw * (3 - 2 * raw)
-
-        fullness = isInhaling ? eased : 1 - eased
-    }
-
-    private init(fullness: Double) {
-        self.fullness = fullness
     }
 }

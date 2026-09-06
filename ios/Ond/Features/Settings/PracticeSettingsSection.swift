@@ -62,6 +62,11 @@ struct PracticeSettingsSection: View {
             }
             // A haptic dial under a cueless mode would be connected to nothing.
             .disabled(!settings.cueMode.playsHaptics)
+            if settings.cueMode.playsAudio {
+                Text("Sound plays in Silent Mode and mixes with other audio.")
+                    .font(.caption)
+                    .foregroundStyle(Theme.Ink.secondary)
+            }
         } header: {
             Text("Practice")
         }

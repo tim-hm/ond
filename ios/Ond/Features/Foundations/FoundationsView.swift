@@ -2,11 +2,6 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The practical questions behind the catalogue, as reference data rather
-/// than copy, so the same answers reach the session screen and the assistant.
-/// The practice-first answer is promoted by its stable slug; a future slug
-/// the app does not know still renders in the final section. Reading
-/// distances scale with Body so Dynamic Type keeps the hierarchy intact.
 struct FoundationsView: View {
     private static let leadSlug = "what-matters-most"
     private static let breathSlugs = [
@@ -40,8 +35,6 @@ struct FoundationsView: View {
         content
             .paletteGround()
             .navigationTitle("The basics")
-            // Stated, not inherited: the Coach root it is pushed from is
-            // inline, and `.automatic` would quietly follow it.
             .navigationBarTitleDisplayMode(.large)
             .task { await model.loadIfNeeded() }
     }
@@ -58,7 +51,7 @@ struct FoundationsView: View {
         case .failed:
             ReferenceRetryView(
                 title: "The basics aren’t available yet",
-                message: "Connect to download them for offline use, then try again."
+                message: "We couldn’t load the Basics. Try again."
             ) {
                 Task { await model.refresh() }
             }

@@ -86,16 +86,12 @@ struct OnboardingAnswersTests {
         #expect(model.givenName == "Robin\u{200D}")
     }
 
-    /// The dial arrives on a proposal, and passing the screen accepts it — but a
-    /// proposal nobody has touched is not an answer, and `hasAnswered` is what a
-    /// reinstall's restore hangs on. Report it as answered and every fresh
-    /// install skips the restore.
-    @Test("An untouched reminder dial proposes daily without counting as an answer")
-    func remindersDefaultToDailyWithoutAnswering() {
+    @Test("Reminders default to never without counting as an answer")
+    func remindersDefaultToNeverWithoutAnswering() {
         let model = model("reminders")
 
-        #expect(model.reminderIntensity == .daily)
-        #expect(model.profile.reminderIntensity == .daily)
+        #expect(model.reminderIntensity == .never)
+        #expect(model.profile.reminderIntensity == .never)
         #expect(!model.hasAnswered)
 
         model.reminderIntensity = .gentle
@@ -129,7 +125,10 @@ struct OnboardingAnswersTests {
 
         #expect(answered.goals == [.focus], "what was asked is the newer answer")
         #expect(answered.givenName == "Sam")
-        #expect(answered.experienceLevel == nil, "left unanswered here, so cleared")
+        #expect(
+            answered.experienceLevel == .occasional,
+            "preserve legacy answers the flow no longer asks"
+        )
         #expect(answered.displayName == "puckly-puffin-42")
         #expect(answered.birthYearBand == .eighties)
         #expect(answered.gender == .nonBinary)

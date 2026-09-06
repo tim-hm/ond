@@ -1,17 +1,12 @@
 //! The JSON surface.
 
-use std::sync::Arc;
-
-use api::assistant::{DisabledModelClient, GuardedModelClient, ModelClient, ModelRequest};
-use api::entitlement::AppStoreVerifier;
-use axum::Router;
 use axum::body::{Body, to_bytes};
 use axum::http::{Request, StatusCode};
 use sqlx::PgPool;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use tower::ServiceExt;
 
-use crate::harness::{ScriptedIdentityVerifier, ScriptedModel, build_app, build_app_with};
+use crate::harness::build_app;
 
 /// `/health` is documented as liveness-only, and the reason is operational: a
 /// health check that fails when Postgres is unreachable turns a recoverable
@@ -50,60 +45,6 @@ async fn health_answers_without_a_reachable_database() {
     unreachable.close().await;
 }
 
-/// `/about` reports what calls did, not what is configured — the failure this
-/// guards hid an unapplied IAM policy for a day: the process booted clean and
-/// answered from the rules while the configuration naming Bedrock stayed
-/// correct, so a config-derived field would have read `live` throughout. All
-/// three states in one test: a field stuck on `fallback` looks as trustworthy as one stuck on `live`.
-#[tokio::test]
-async fn about_reports_what_the_model_did_not_what_is_configured() {
-    let pool = lazy_unreachable_pool();
-
-    let about = |assistant: Arc<dyn ModelClient>| {
-        build_app_with(
-            pool.clone(),
-            assistant,
-            Arc::new(AppStoreVerifier),
-            ScriptedIdentityVerifier::refusing(),
-        )
-    };
-
-    assert_eq!(
-        assistant_mode(about(Arc::new(DisabledModelClient))).await,
-        "fallback",
-        "no model behind the seam is what a machine that cannot sign for one boots into"
-    );
-
-    // Composed exactly as `install` composes production: the breaker is what
-    // watches calls, so it is the only thing that can promote a mode to `live`.
-    let guarded = Arc::new(GuardedModelClient::new(ScriptedModel::always(Ok(
-        "a reply".to_owned(),
-    ))));
-    assert_eq!(
-        assistant_mode(about(guarded.clone())).await,
-        "untried",
-        "a model that is installed and configured has still proven nothing"
-    );
-
-    guarded
-        .complete(&ModelRequest {
-            cacheable_prefix: String::new(),
-            instruction: String::new(),
-            turns: Vec::new(),
-            tools: Vec::new(),
-            max_tokens: 1,
-        })
-        .await
-        .expect("the scripted model answers");
-    assert_eq!(
-        assistant_mode(about(guarded)).await,
-        "live",
-        "one successful call, and nothing else, is what earns `live`"
-    );
-
-    pool.close().await;
-}
-
 /// A pool pointing at a port nothing listens on, connected lazily.
 ///
 /// Both routes in this file are documented as touching no database, so the
@@ -116,9 +57,10 @@ fn lazy_unreachable_pool() -> PgPool {
     PgPoolOptions::new().connect_lazy_with(options)
 }
 
-/// The `assistant` field of `/about`, as the string a `curl` would print.
-async fn assistant_mode(app: Router) -> String {
-    let response = app
+#[tokio::test]
+async fn about_reports_the_build_without_a_model_provider() {
+    let pool = lazy_unreachable_pool();
+    let response = build_app(pool.clone())
         .oneshot(
             Request::get("/about")
                 .body(Body::empty())
@@ -127,14 +69,33 @@ async fn assistant_mode(app: Router) -> String {
         .await
         .expect("the router is infallible");
     assert_eq!(response.status(), StatusCode::OK);
-
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+    let body = to_bytes(response.into_body(), usize::MAX)
         .await
-        .expect("the response body is readable");
-    let about: serde_json::Value = serde_json::from_slice(&body).expect("/about answers JSON");
+        .expect("a readable body");
+    let about: serde_json::Value = serde_json::from_slice(&body).expect("valid JSON");
+    assert!(about["built_at"].is_string());
+    assert_eq!(about["environment"], "dev");
+    assert!(about.get("assistant").is_none());
+    pool.close().await;
+}
 
-    about["assistant"]
-        .as_str()
-        .expect("/about names the assistant's mode")
-        .to_owned()
+#[tokio::test]
+async fn retired_model_endpoints_are_unimplemented() {
+    use crate::harness::call_grpc_web;
+    use api::proto::ond::v1 as pb;
+
+    let pool = lazy_unreachable_pool();
+    for path in [
+        "/ond.v1.AssistantService/Chat",
+        "/ond.v1.AssistantService/GetRecommendation",
+    ] {
+        let response = call_grpc_web::<_, pb::ListTechniquesResponse>(
+            build_app(pool.clone()),
+            path,
+            &pb::ListTechniquesRequest {},
+        )
+        .await;
+        assert_eq!(response.status, tonic::Code::Unimplemented as i32);
+    }
+    pool.close().await;
 }

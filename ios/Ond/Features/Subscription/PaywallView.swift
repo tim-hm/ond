@@ -27,7 +27,8 @@ struct PaywallView: View {
             ScrollView {
                 SubscriptionPitch(
                     plan: $plan,
-                    continuesWhenUnavailable: false
+                    continuesWhenUnavailable: false,
+                    context: context
                 ) {
                     Task { await store.purchase(plan) }
                 }

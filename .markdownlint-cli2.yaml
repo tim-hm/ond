@@ -8,12 +8,6 @@ globs:
   # `.terraform/` with it; `infra/.gitignore` already ignores them all the same
   # way, and markdownlint does not read gitignores.
   - "!**/.terraform/**"
-  # The coach's prompt is a `.md` file for its comment syntax, not a document:
-  # `assistant::prompt::prefix` reads its paragraphs and blank lines as the
-  # structure of what the model receives, so any rule that would improve it as
-  # prose changes the bytes sent to the provider. `vite.config.ts` keeps
-  # `vp fmt` off the same directory.
-  - "!crates/api/src/features/assistant/prompt/copy/**"
   # The visual-refresh handoff, unpacked in the working tree. It is a delivered
   # document we implement against, not repository prose, so a lint finding there
   # would ask us to edit the source of truth.

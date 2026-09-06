@@ -17,6 +17,8 @@ xcodebuild -runFirstLaunch     # accepts the licence, installs components
 
 Verify with `xcode-select -p`; it should print the Xcode path, not `/Library/Developer/CommandLineTools`.
 
+Install the Metal compiler for the iPhone's smoke orb with `mise run ios:setup:metal`. Xcode distributes this component separately; app builds need it to compile `BreathingSmoke.metal`.
+
 ## First run
 
 ```bash
@@ -90,7 +92,7 @@ It is per-invocation, it still runs `buf breaking` and prints every finding, and
 | :----------------------------- | :---------------------------------------------------------------------------- |
 | Wipe and rebuild the database  | `mise run dev:db:reset`                                                       |
 | Query the database             | `echo 'select * from techniques;' \| mise run db:psql`                        |
-| Grant yourself önd+ locally    | `mise run dev:plus [user-id]` — then `mise run dev` calls the real model      |
+| Grant yourself önd+ locally    | `mise run dev:plus [user-id]`                                                 |
 | Change the technique catalogue | Edit `crates/migrate/src/seed/catalogue.rs`, then `mise run migrate`          |
 | Change the API contract        | Edit `proto/ond/v1/…`, then `mise run generate`                               |
 | Add a Swift file               | Create it under `ios/Ond/` or `ios/OndWatch/`; `mise run ios:gen` picks it up |
@@ -113,6 +115,8 @@ mise run ios:device:watch
 ```
 
 Nothing boots a simulator for you, because naming one here would tie the repo to the machine that wrote it. Boot whichever you want with `open -a Simulator`, or by name from `xcrun simctl list devices available`; the `sim` tasks then pick the booted device of the right platform out of the list. Booting both halves of a pair is supported and is how the phone and the watch are tested against each other — which is why the tasks select by platform rather than passing simctl a bare `booted`, a word that resolves only while exactly one simulator is up.
+
+For Watch session layout checks, boot one Watch simulator, get its UUID from `mise run release:devices`, then run `mise run ios:preview:watch <UUID> box-breathing normal`. Replace `normal` with `large` or `accessibility` to check larger text. This debug preview opens the real session view with an unsaved recorder and skips extended runtime; it cannot verify recording, background guidance, or battery use. Run `mise run ios:sim:watch` to return to the normal app.
 
 Only `ios:sim:phone` syncs the StoreKit configuration, and it has to: `storeKitConfiguration` in `project.yml` is a property of the scheme, so a launch that does not go through Xcode resolves no products and every purchase fails as `productUnavailable`. On hardware there is no such file — purchases go through a sandbox Apple ID and a device build meets the real paywall.
 
@@ -156,24 +160,6 @@ Xcode signs the archive itself with the _development_ certificate; distribution 
 
 **A stale `DATABASE_URL` in your shell.** If you have used the `connect` repo in the same terminal, `DATABASE_URL` is exported and points at its database. Running `cargo run -p migrate` directly then targets the wrong cluster; sqlx aborts before applying anything, but the error is confusing. Always go through `mise run`, which supplies its own.
 
-**The coach calls Bedrock for real, from your machine.** `mise run dev` pins `AWS_PROFILE=ond-dev`, because the assistant takes no provider key — it signs through the AWS SDK's default credential chain, and unset, that chain reads whichever `[default]` profile the machine holds, which on a laptop carrying several accounts is somebody else's. `ond-dev` is not the admin `ond` profile that applies infrastructure: it assumes the `ond-dev` role, which carries the box's own invoke-model policy and nothing else, so the process you leave running all day holds a credential that can call one API. It is a stanza in `~/.aws/config` with no keys of its own (`mise run infra:apply` prints the `role_arn` as `dev_role_arn`; in this account it is):
-
-```ini
-[profile ond-dev]
-role_arn = arn:aws:iam::136339248297:role/ond-dev
-source_profile = ond
-region = eu-west-2
-```
-
-Two gates keep the bill small: only önd+ ever claims a model call, so a local user answers from the rules until `mise run dev:plus` grants that entitlement, and past that the allowance is 50 calls a day per identity on the cheapest model available. With no `ond-dev` profile configured the credential probe fails at boot and you get the rule-based fallback, logged with what to do about it:
-
-```text
-INFO the assistant cannot reach Bedrock — answering from the rule-based fallback
-     error=no AWS credentials are available remedy=add the ond-dev assume-role stanza to ~/.aws/config — docs/contributing.md shows it
-```
-
-That is the supported state for a fresh clone and for CI, not a broken one.
-
 **The Xcode project is generated.** `ios/Ond.xcodeproj` is gitignored and rebuilt from `ios/project.yml`. Changing build settings in Xcode's UI works until the next `mise run ios:gen` throws it away — make the change in `project.yml` instead.
 
 **Device builds need signing; the simulator doesn't.** `project.yml` reads `DEVELOPMENT_TEAM` from `${OND_DEV_TEAM}`, which XcodeGen substitutes at generate time. Unset, the reference is written through and Xcode resolves it as an undefined setting — no team, which is exactly what a simulator build wants and why a fresh clone needs no Apple ID. A device or archive build does need it; see the release section below.
@@ -182,4 +168,14 @@ That is the supported state for a fresh clone and for CI, not a broken one.
 
 **Postgres 18 moved its data directory.** The compose volume mounts `/var/lib/postgresql`, not `/var/lib/postgresql/data`. Copying a volume line from an older project makes the container refuse to start with a long, easily-misread explanation.
 
-**A StoreKit purchase in the simulator does not reach the server.** Buying önd+ against the local `.storekit` configuration convinces the _client_ — `SubscriptionStore` unlocks önd+ and every gate reads it from StoreKit — but the transaction it produces is signed by StoreKitTest's per-machine certificate, so `SubmitAppStoreTransaction` rejects it with `grpc_status=3` (`INVALID_ARGUMENT`; the verifier's reason is the chain-shape refusal — `x5c` carries 1 certificate, not Apple's 3-certificate chain to their root) and the server still resolves you to `FREE`. `AssistantService` reads the tier from the row, never from the request, so the coach answers from its rules while doing exactly what it says. The app now tells you: the log line is `the server refused a locally signed transaction, as it must`, and the coach screen shows a notice explaining that this build's purchases stay local. If you ever see `the server refused an Apple-signed transaction` instead, stop — that is a real purchase not being honoured, and it has never been observed. Whether a genuine Apple-signed transaction verifies end to end has **not** been demonstrated: it needs the products to exist in App Store Connect (TIM-62) and one sandbox purchase on a real device, and that single purchase settles it — the log line above answers loudly either way. `mise run dev:plus` writes what a real purchase would have.
+**A StoreKit purchase in the simulator does not reach the server.** Buying önd+ against the local `.storekit` configuration convinces the _client_ — `SubscriptionStore` unlocks önd+ and every gate reads it from StoreKit — but the transaction it produces is signed by StoreKitTest's per-machine certificate, so `SubmitAppStoreTransaction` rejects it with `grpc_status=3` (`INVALID_ARGUMENT`; the verifier's reason is the chain-shape refusal — `x5c` carries 1 certificate, not Apple's 3-certificate chain to their root) and the server still resolves you to `FREE`. The leaderboard service reads the verified server entitlement, so a locally unlocked simulator cannot access paid server features. The app now tells you: the log line is `the server refused a locally signed transaction, as it must`. If you ever see `the server refused an Apple-signed transaction` instead, stop — that is a real purchase not being honoured, and it has never been observed. Whether a genuine Apple-signed transaction verifies end to end has **not** been demonstrated: it needs the products to exist in App Store Connect (TIM-62) and one sandbox purchase on a real device, and that single purchase settles it — the log line above answers loudly either way. `mise run dev:plus` writes what a real purchase would have.
+
+## App Store metadata and prices
+
+`mise run store:read '/v1/apps?filter[bundleId]=xyz.holmie.ond'` reads the current App Store draft using the same `OND_ASC_KEY_ID`, `OND_ASC_ISSUER_ID`, and private key as TestFlight upload. The task signs locally and never prints the token or key.
+
+`mise run store:apply /path/to/reviewed-changes.json` accepts one change or an array. Each contains `method`, `path`, and `body` in Apple’s JSON API format. It permits subscription price creation and subscription or version-localization text updates only. Every request must succeed; a partial batch stops on the first failure. Read current state again before constructing a retry so prices already applied are not scheduled twice.
+
+For a price change, read the existing subscriptions, territory price points, and regional equalizations first. Preserve product IDs and offer configuration. The UK and US release targets are in [the business plan](product/business-plan.md). Read prices and localizations back after applying changes; an accepted request is not an App Store release or a purchase-flow test.
+
+Generated-artifact checks compare the working files before and after regeneration. A valid edited artifact can pass before it is committed; drift still fails and leaves the regenerated diff available for review.

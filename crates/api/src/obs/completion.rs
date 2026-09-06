@@ -267,9 +267,7 @@ mod tests {
         // The money path, named here because it is the RPC alerts.yml wanted to
         // narrow to and could not while the counter carried only a status.
         assert!(methods.contains("/ond.v1.EntitlementService/SubmitAppStoreTransaction"));
-        // A server-streaming RPC, whose status arrives in trailers rather than
-        // the response head. The method label has to survive that longer path.
-        assert!(methods.contains("/ond.v1.AssistantService/Chat"));
+        assert!(!methods.contains("/ond.v1.AssistantService/Chat"));
         assert!(
             methods.iter().all(|path| path.starts_with("/ond.v1.")),
             "a path outside the contract's package reached the label set"

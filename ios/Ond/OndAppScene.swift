@@ -18,8 +18,6 @@ extension OndApp {
                 sessions: recorder,
                 profiles: profiles,
                 foundations: reference.foundations,
-                assistant: assistant,
-                chats: chats,
                 router: router
             )
             .fullScreenCover(item: $firstRun) { gate in

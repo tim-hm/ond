@@ -46,11 +46,6 @@ public enum EntitlementRepositoryError: LocalizedError, DiagnosticCarrying, Equa
     }
 }
 
-/// Carries a purchase to the server, and nothing back. Deliberately one-way:
-/// `StoreKit` is the authority on what this app shows and answers offline, so
-/// a read here would be a second opinion on a settled question. What the
-/// server holds decides only what the server spends — the assistant's
-/// allowance — and this app never needs to know that number.
 public protocol EntitlementSyncing: Sendable {
     /// Submits a `Transaction.jwsRepresentation` for verification.
     ///

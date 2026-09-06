@@ -1,11 +1,6 @@
 import Foundation
 import Observation
 
-/// The in-app opt-in and the summary it unlocks: whether the coach may see
-/// what the watch has measured. A second switch on top of HealthKit's own
-/// authorization: HealthKit never says it was refused, so a denied grant and
-/// an empty store both fold to a nil context. The toggle stays in
-/// `UserDefaults`, never on the profile — the server must not hold it.
 @MainActor
 @Observable
 public final class HealthContextModel: PersonalStore {
@@ -16,15 +11,10 @@ public final class HealthContextModel: PersonalStore {
 
     private static let optInKey = "health.coachReadsHealthTrends"
 
-    /// The in-app opt-in — one switch for every read of heart data there is:
-    /// the coach's context and the heart rate Home draws. The name is narrower
-    /// than what it grants but is the stored defaults key. Storing it asks
-    /// Health for nothing: the writers want different combinations of
-    /// preference and ask, and a setter that raised a sheet would surprise.
-    public var coachReadsHealthTrends: Bool {
+    public var readsHealthTrends: Bool {
         didSet {
-            defaults.set(coachReadsHealthTrends, forKey: Self.optInKey)
-            if !coachReadsHealthTrends {
+            defaults.set(readsHealthTrends, forKey: Self.optInKey)
+            if !readsHealthTrends {
                 healthTrends = .off
                 blankPracticeHeart()
             }
@@ -54,9 +44,6 @@ public final class HealthContextModel: PersonalStore {
         }
     }
 
-    /// What the check-ins screen draws — the coach's own copy comes from [`context()`],
-    /// which is asked per request so that withdrawing the opt-in takes effect
-    /// on the next question rather than on the next launch.
     public private(set) var healthTrends: HealthTrendsState = .off
 
     /// When the last trends read finished — see [`loadHealthTrends()`].
@@ -115,7 +102,7 @@ public final class HealthContextModel: PersonalStore {
         self.entitledTier = entitledTier
         // Assigning in an initialiser does not run `didSet`, so restoring the
         // stored choices neither rewrites them nor re-asks Health for access.
-        coachReadsHealthTrends = defaults.bool(forKey: Self.optInKey)
+        readsHealthTrends = defaults.bool(forKey: Self.optInKey)
         writesMindfulMinutes = MindfulMinutesRecorder.writesToHealth(in: defaults)
     }
 
@@ -134,31 +121,23 @@ public final class HealthContextModel: PersonalStore {
     }
 
     /// Withdraws the read opt-in and returns the Mindful Minutes write to its
-    /// default of on — the only state this model owns; nothing read from
+    /// default of off — the only state this model owns; nothing read from
     /// Health is ever stored. Erasing revokes nothing at HealthKit, whose
     /// grants are the person's to withdraw in Health; it stops this app
     /// asking, and a request made after this carries no heart context at all.
     public func erase() async {
-        coachReadsHealthTrends = false
-        writesMindfulMinutes = true
+        readsHealthTrends = false
+        writesMindfulMinutes = false
         defaults.removeObject(forKey: Self.optInKey)
         defaults.removeObject(forKey: MindfulMinutesRecorder.preferenceKey)
     }
 
-    /// The context a coach request should carry right now: both metrics'
-    /// series folded through `HealthSummaryBuilder`, or nil when the opt-in is
-    /// off or Health yielded nothing — in which case the request goes exactly
-    /// as it would have before this feature existed.
-    public func context() async -> CoachHealthContext? {
+    public func context() async -> HealthTrendSummary? {
         guard isReadable else { return nil }
 
         let end = now()
         let start = end.addingTimeInterval(-TimeInterval(Self.historyDays) * 86400)
 
-        // Concurrently: three independent Health queries, all sitting in front
-        // of the coach request they contextualise — serialised, each further
-        // round trip to the health daemon would be added straight to the time
-        // before the question is even sent.
         async let breathingSeries = store.respiratoryRate(from: start, to: end)
         async let restingSeries = store.restingHeartRate(from: start, to: end)
         async let variabilitySeries = store.heartRateVariability(from: start, to: end)
@@ -178,18 +157,13 @@ public final class HealthContextModel: PersonalStore {
         else {
             return nil
         }
-        return CoachHealthContext(
+        return HealthTrendSummary(
             sleepingBreathingRate: sleepingBreathingRate,
             restingHeartRate: restingHeartRate,
             heartRateVariability: heartRateVariability
         )
     }
 
-    /// Reads the same summary the coach gets, for the person it is about —
-    /// showing it back is what makes the opt-in honest. Nothing is cached
-    /// beyond the drawn state: health data is never stored. A drawn answer
-    /// under a minute old serves the next asker; only a `.trends` answer is
-    /// served this way, so a fresh opt-in is not answered with a stale read.
     public func loadHealthTrends() async {
         guard isReadable else {
             healthTrends = .off
@@ -294,6 +268,6 @@ public final class HealthContextModel: PersonalStore {
     /// two read paths would otherwise be two chances to check one and not the
     /// other.
     private var isReadable: Bool {
-        coachReadsHealthTrends && entitledTier() >= .healthTrends
+        readsHealthTrends && entitledTier() >= .healthTrends
     }
 }

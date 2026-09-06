@@ -3,7 +3,6 @@
 use std::sync::Arc;
 
 use api::account::IdentityTokenVerifier;
-use api::assistant::{DisabledModelClient, ModelClient};
 use api::config::{Config, Environment};
 use api::entitlement::{AppStoreVerifier, TransactionVerifier};
 use api::state::AppState;
@@ -17,7 +16,6 @@ use super::ScriptedIdentityVerifier;
 pub fn build_app(pool: PgPool) -> Router {
     build_app_with(
         pool,
-        Arc::new(DisabledModelClient),
         Arc::new(AppStoreVerifier),
         ScriptedIdentityVerifier::refusing(),
     )
@@ -26,18 +24,16 @@ pub fn build_app(pool: PgPool) -> Router {
 /// [`build_app`], plus all three of the seams a deployment chooses at startup.
 pub fn build_app_with(
     pool: PgPool,
-    assistant: Arc<dyn ModelClient>,
     entitlement: Arc<dyn TransactionVerifier>,
     account: Arc<dyn IdentityTokenVerifier>,
 ) -> Router {
-    build_app_with_throttle(pool, assistant, entitlement, account, Throttle::new())
+    build_app_with_throttle(pool, entitlement, account, Throttle::new())
 }
 
 /// [`build_app_with`], plus the rate limiter — which every suite but one wants
 /// built exactly as a deployment builds it.
 pub(super) fn build_app_with_throttle(
     pool: PgPool,
-    assistant: Arc<dyn ModelClient>,
     entitlement: Arc<dyn TransactionVerifier>,
     account: Arc<dyn IdentityTokenVerifier>,
     throttle: Throttle,
@@ -57,7 +53,6 @@ pub(super) fn build_app_with_throttle(
     api::build_app(AppState::with_throttle(
         pool,
         config,
-        assistant,
         entitlement,
         account,
         throttle,

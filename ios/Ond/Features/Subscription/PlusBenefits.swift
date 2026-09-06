@@ -70,20 +70,16 @@ struct PlusBenefits: View {
 
     private static let benefits = [
         Benefit(
-            title: "A coach who reads your notes",
-            limit: "Answers in text. It cannot diagnose anything."
-        ),
-        Benefit(
             title: "Phone and watch in one session",
             limit: "The wrist taps the rhythm while the phone draws it."
         ),
         Benefit(
-            title: "Health trends over months",
-            limit: "Ranges and counts, with no readiness score."
+            title: "Recent Health trends",
+            limit: "Recent averages and changes from earlier readings."
         ),
         Benefit(
             title: "Leaderboards, if you want them",
-            limit: "Off by default. Streaks, comfortable pauses and minutes.",
+            limit: "Off by default. Streaks, pauses, resting breathing rate and minutes.",
             mark: Theme.Ink.tertiary
         ),
     ]

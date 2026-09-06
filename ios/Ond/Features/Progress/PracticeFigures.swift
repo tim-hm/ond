@@ -22,9 +22,12 @@ struct PracticeFigures: View {
             : AnyLayout(HStackLayout(alignment: .top, spacing: Theme.Spacing.standard))
 
         return layout {
-            figure(rhythm.sessions, "sessions")
-            figure(rhythm.minutes, "minutes")
-            figure(rhythm.daysPractised, "days practised")
+            figure(rhythm.sessions, rhythm.sessions == 1 ? "session" : "sessions")
+            figure(rhythm.minutes, rhythm.minutes == 1 ? "minute" : "minutes")
+            figure(
+                rhythm.daysPractised,
+                rhythm.daysPractised == 1 ? "day practised" : "days practised"
+            )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

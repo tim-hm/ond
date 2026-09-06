@@ -4,7 +4,7 @@
     icon fills its canvas because iOS gives it a fixed tile, while a favicon
     sits on a tab strip whose colour belongs to the browser, and an opaque
     tile can only ever match one of them. The mark alone lets the strip show
-    through. Ring radius, stroke, gap and colours are ios/Ond/AppIcon.icon's.
+    through. Geometry matches ios/Ond/AppIcon.icon; light tabs use a darker stroke.
   -->
   <!--
     Light is a presentation attribute and dark a CSS override, so a browser
@@ -16,11 +16,11 @@
   <style>
     @media (prefers-color-scheme: dark) {
       .ring {
-        stroke: #56B0C9;
+        stroke: #68BCD0;
       }
     }
   </style>
 
-  <circle class="ring" cx="512" cy="512" r="380" fill="none" stroke="#2E7E96" stroke-width="112"
-    stroke-linecap="round" stroke-dasharray="1877.7 509.9" transform="rotate(173.442 512 512)" />
+  <circle class="ring" cx="512" cy="512" r="350" fill="none" stroke="#2E7E96" stroke-width="96"
+    stroke-linecap="round" stroke-dasharray="1736.6 462.5" transform="rotate(172.858 512 512)" />
 </svg>

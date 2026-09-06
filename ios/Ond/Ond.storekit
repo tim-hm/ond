@@ -26,7 +26,7 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "1.99",
+          "displayPrice" : "0.99",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "6472019384",
@@ -38,7 +38,7 @@
           },
           "localizations" : [
             {
-              "description" : "Your breathing coach, the leaderboards, health trends, and the watch working with your phone.",
+              "description" : "Connected Watch sessions, Health trends and optional leaderboards.",
               "displayName" : "önd+ (monthly)",
               "locale" : "en_US"
             }
@@ -56,7 +56,7 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "14.99",
+          "displayPrice" : "9.99",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "6472019385",
@@ -68,7 +68,7 @@
           },
           "localizations" : [
             {
-              "description" : "Your breathing coach, the leaderboards, health trends, and the watch working with your phone. Around a third off the monthly price.",
+              "description" : "Connected Watch sessions, Health trends and optional leaderboards.",
               "displayName" : "önd+ (yearly)",
               "locale" : "en_US"
             }

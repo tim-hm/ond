@@ -301,9 +301,6 @@ mod tests {
         ));
     }
 
-    /// A slug that resolves to nothing in the catalogue reaches the journey's
-    /// history and the assistant's prompt, and both have to be able to tell a
-    /// personal exercise from a corrupted curated one.
     #[test]
     fn a_personal_slug_is_recognisable_and_fits_the_session_column() {
         let slug = slug_for(Uuid::nil());

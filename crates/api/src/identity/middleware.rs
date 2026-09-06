@@ -22,11 +22,6 @@ use crate::{obs, throttle};
 /// mixed-case one.
 pub const USER_ID_HEADER: &str = "ond-user-id";
 
-/// The header a signed-in client proves that id with. A header rather than a
-/// request field: the id being proved already travels as a header, the check
-/// belongs at the single choke point [`resolve`] is, and `AssistantService`
-/// streams, where headers settle once at stream start. Not `authorization` —
-/// that names a scheme this is not, and CORS, proxies and logging treat it specially.
 pub const SESSION_CREDENTIAL_HEADER: &str = "ond-session-credential";
 
 /// The caller, placed in the request extensions for handlers to read. A

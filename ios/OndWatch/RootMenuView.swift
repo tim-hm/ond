@@ -14,6 +14,7 @@ struct RootMenuView: View {
     let journey: JourneyModel
 
     @Environment(WatchSettings.self) private var settings
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// Read for the tier alone: the shelf must not offer an exercise the phone
     /// would put behind the paywall.
@@ -56,6 +57,9 @@ struct RootMenuView: View {
                 SessionView(model: session(for: technique)) {
                     Task { await journey.sync() }
                 }
+                #if DEBUG
+                .environment(\.dynamicTypeSize, WatchSessionPreview.textSize ?? dynamicTypeSize)
+                #endif
             }
             .interactiveDismissDisabled()
         }
@@ -69,6 +73,12 @@ struct RootMenuView: View {
         // A lapsed or renewed subscription changes what this door may offer,
         // and it arrives from the phone rather than from anything tapped here.
         .onChange(of: phone.entitledTier) { _, _ in fold() }
+        .task(id: loaded.map(\.id)) {
+            #if DEBUG
+                guard chosen == nil, let slug = WatchSessionPreview.slug else { return }
+                chosen = loaded.first { $0.slug.rawValue == slug }
+            #endif
+        }
     }
 
     /// The catalogue, or nothing until it lands.
@@ -85,28 +95,14 @@ struct RootMenuView: View {
         ).stops
     }
 
-    /// The wordmark, and the time beside it — the one number a watch face is
-    /// always asked for, and the reason this screen can stand alone at all.
     private var masthead: some View {
-        HStack(alignment: .firstTextBaseline) {
-            // Lowercase, and never uppercased: the name is önd, and ÖND is a
-            // different word wearing its hat.
-            Text("önd")
-                .displaySerif(size: Theme.Metrics.wristDisplaySize)
-                .foregroundStyle(Theme.Ink.primary)
-
-            Spacer(minLength: Theme.Spacing.tight)
-
-            // Untinted, as the refresh spec §7 asks: this stands for the
-            // system's own clock.
-            Text(.now, style: .time)
-                .font(.caption2)
-                .monospacedDigit()
-                .foregroundStyle(Theme.Ink.primary)
-        }
-        .listRowInsets(EdgeInsets())
-        .listRowBackground(Color.clear)
-        .accessibilityAddTraits(.isHeader)
+        Text("önd")
+            .displaySerif(size: Theme.Metrics.wristDisplaySize)
+            .foregroundStyle(Theme.Ink.primary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            .accessibilityAddTraits(.isHeader)
     }
 
     @ViewBuilder
@@ -142,7 +138,16 @@ struct RootMenuView: View {
     /// session is a one-shot object, and one composed when this screen appeared
     /// would already have been used by the time somebody comes back.
     private func session(for technique: Technique) -> SessionModel {
-        SessionModel(
+        #if DEBUG
+            if WatchSessionPreview.slug != nil {
+                return SessionModel(
+                    technique: technique,
+                    cues: WatchHapticController(settings: settings),
+                    recorder: WatchSessionPreview.Recorder()
+                )
+            }
+        #endif
+        return SessionModel(
             technique: technique,
             cues: WatchHapticController(settings: settings),
             recorder: sessions

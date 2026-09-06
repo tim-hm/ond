@@ -255,6 +255,7 @@ func briefBreathing(cycles: Int = 1) -> Technique {
 /// once rather than on every turn of the loop.
 @MainActor
 final class RecordingCues: SessionCueing {
+    private(set) var restorations: [(beat: SessionTimeline.Beat, elapsed: Duration)] = []
     private(set) var played: [SessionTimeline.Beat] = []
     private(set) var completions = 0
     /// Counted, not just flagged: the hardware is released from two places and
@@ -288,6 +289,10 @@ final class RecordingCues: SessionCueing {
 
     func play(_ beat: SessionTimeline.Beat) {
         played.append(beat)
+    }
+
+    func restore(_ beat: SessionTimeline.Beat, at elapsed: Duration) {
+        restorations.append((beat, elapsed))
     }
 
     func playCompletion() {

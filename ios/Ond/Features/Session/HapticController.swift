@@ -22,6 +22,9 @@ final class HapticController {
     /// composed: the patterns are built from it and a change mid-session would
     /// mean two halves of one breath at two strengths.
     private let strength: HapticStrength
+    private let simulatesEngineFailure: Bool
+
+    private enum PreviewFailure: Error { case engineUnavailable }
 
     private var engine: CHHapticEngine?
     private var impacts: [UIImpactFeedbackGenerator.FeedbackStyle: UIImpactFeedbackGenerator] = [:]
@@ -32,17 +35,21 @@ final class HapticController {
     /// cue must stop the departing one rather than overlap it.
     private var playing: (any CHHapticPatternPlayer)?
 
-    init(strength: HapticStrength) {
+    init(strength: HapticStrength, simulatesEngineFailure: Bool = false) {
         self.strength = strength
+        self.simulatesEngineFailure = simulatesEngineFailure
     }
 
     func prepare() {
+        prepareFallback()
         guard supportsHaptics else {
-            prepareFallback()
             return
         }
 
         do {
+            if simulatesEngineFailure {
+                throw PreviewFailure.engineUnavailable
+            }
             let engine = try CHHapticEngine()
 
             // The engine is reset out from under us by an audio-session
@@ -107,13 +114,26 @@ final class HapticController {
         }
     }
 
-    /// Stops the breath in flight where it stands. The engine stays warm, as
-    /// `SessionCueing.pause()` requires. `resume()` does not reinstate the
-    /// pattern: picking a swell up mid-phase is the half-a-phase cue the
-    /// entry-only rule in `SessionModel.runCueLoop()` refuses, so this and
-    /// `WatchHapticController` both wait for the next boundary.
+    /// Stop the current pattern. Restoration slices its envelope at the paused time.
     func pause() {
         stopPlaying()
+    }
+
+    func restore(_ beat: SessionTimeline.Beat, at elapsed: Duration) {
+        stopPlaying()
+        guard let engine,
+              let envelope = SessionHapticShape(beat: beat).envelope?
+              .remaining(after: elapsed - beat.start) else { return }
+        do {
+            let (event, curve) = swell(envelope)
+            let pattern = try CHHapticPattern(events: [event], parameterCurves: [curve])
+            let player = try engine.makePlayer(with: pattern)
+            try player.start(atTime: CHHapticTimeImmediate)
+            playing = player
+        } catch {
+            Self.logger
+                .error("haptic resume failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     func stop() {

@@ -174,7 +174,7 @@ struct OnboardingView: View {
     private var skip: some View {
         if model.canSkip {
             Button(model.step == .trial ? "Not now" : "Skip") {
-                leaveOptInsIfNeeded { model.skip() }
+                model.skip()
             }
             .tint(Theme.Ink.secondary)
         }
@@ -203,11 +203,7 @@ struct OnboardingView: View {
         leaveOptInsIfNeeded { model.advance() }
     }
 
-    /// Asks for what the opt-ins step's answers imply, then moves. Around Skip
-    /// as well as Next: Skip applies the same defaults, so a permission implied
-    /// by a stored preference is asked for however the screen was left. `move`
-    /// runs after the sheets, so they rise over the switches that explain them.
-    /// The wrist grant lives here, not the model; `prepare` is per-process deduped.
+    /// Only Next requests the optional permissions selected on this step.
     private func leaveOptInsIfNeeded(_ move: @escaping () -> Void) {
         guard model.step == .optIns else {
             move()
