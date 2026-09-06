@@ -18,17 +18,24 @@ static float smokeNoise(float3 p) {
     return mix(mix(a, b, f.y), mix(c, d, f.y), f.z);
 }
 
-static float smokeDensity(float3 p, float time) {
-    float angle = time * 0.23 + p.y * 1.7;
+static float smokeTime(float elapsed, float seed) {
+    // The derivative stays positive, so speed changes cannot reverse time.
+    return elapsed * 1.55
+        + 0.70 * (sin(elapsed * 0.79 + seed) - sin(seed))
+        + 0.28 * (sin(elapsed * 1.83 + seed * 1.7) - sin(seed * 1.7));
+}
+
+static float smokeDensity(float3 p, float time, float seed) {
+    float angle = time * 0.30 + p.y * 1.7 + 0.45 * sin(time * 0.60 + seed);
     float sine = sin(angle);
     float cosine = cos(angle);
     p.xz = float2(cosine * p.x - sine * p.z, sine * p.x + cosine * p.z);
-    p += 0.24 * float3(
-        sin(p.y * 3.1 + time * 0.37),
-        sin(p.z * 2.7 - time * 0.29),
-        cos(p.x * 2.9 + time * 0.31)
+    p += 0.32 * float3(
+        sin(p.y * 3.1 + time * 0.47 + seed),
+        sin(p.z * 2.7 - time * 0.39 + seed * 1.3),
+        cos(p.x * 2.9 + time * 0.41 + seed * 0.7)
     );
-    p = p * 4.2 + float3(time * 0.08, -time * 0.22, 0);
+    p = p * 4.2 + float3(time * 0.08 + seed, -time * 0.22, seed * 0.3);
     float field = smokeNoise(p) * 0.63;
     field += smokeNoise(p * 2.03 + float3(5.2, 1.7, 8.3)) * 0.26;
     field += smokeNoise(p * 4.07 + float3(2.8, 9.1, 3.4)) * 0.11;
@@ -40,25 +47,28 @@ static float smokeDensity(float3 p, float time) {
     float2 position,
     half4 source,
     float2 size,
-    float time,
-    float scale,
-    float dark
+    float elapsed,
+    float radius,
+    float dark,
+    float seed
 ) {
-    float radius = min(size.x, size.y) * 0.5 * max(scale, 0.01);
-    float2 uv = (position - size * 0.5) / radius;
+    float time = smokeTime(elapsed, seed);
+    float2 uv = (position - size * 0.5) / max(radius, 0.01);
     float radial = dot(uv, uv);
-    if (radial >= 1.0) { return half4(0); }
+    if (radial >= 2.56) { return half4(0); }
 
-    float depth = sqrt(1.0 - radial);
-    float step = depth / 6.0;
+    float depth = sqrt(2.56 - radial);
+    float step = depth / 8.0;
     float3 accumulated = float3(0);
     float alpha = 0;
 
-    for (int slice = 0; slice < 12; ++slice) {
+    for (int slice = 0; slice < 16; ++slice) {
         float z = depth - (float(slice) + 0.5) * step;
         float3 p = float3(uv, z);
-        float envelope = 1.0 - smoothstep(0.65, 1.0, length(p));
-        float density = smokeDensity(p, time) * envelope;
+        float billow = smokeNoise(p * 1.6 + float3(seed, -time * 0.18, time * 0.12));
+        float reach = 1.25 + (billow - 0.5) * 0.55;
+        float envelope = 1.0 - smoothstep(0.42, reach, length(p));
+        float density = smokeDensity(p, time, seed) * envelope;
         float opacity = 1.0 - exp(-density * step * 1.35);
         float light = clamp(0.48 - p.x * 0.22 - p.y * 0.30 + p.z * 0.42, 0.0, 1.0);
         float3 shadow = mix(float3(0.03, 0.18, 0.24), float3(0.07, 0.24, 0.32), dark);
@@ -68,13 +78,7 @@ static float smokeDensity(float3 p, float time) {
         alpha += (1.0 - alpha) * opacity;
     }
 
-    float3 normal = float3(uv, depth);
-    float surfaceLight = max(dot(normal, normalize(float3(-0.5, -0.65, 1.0))), 0.0);
-    float edge = pow(1.0 - depth, 3.0) * (1.0 - smoothstep(0.93, 1.0, radial));
-    float skin = edge * (0.025 + surfaceLight * 0.12) + pow(surfaceLight, 20.0) * 0.12;
-    float3 sheen = mix(float3(0.12, 0.44, 0.51), float3(0.78, 0.95, 1.0), dark);
-    accumulated += (1.0 - alpha) * skin * sheen;
-    alpha += (1.0 - alpha) * skin;
-
-    return half4(half3(accumulated), half(alpha)) * source.a;
+    float2 edge = abs(position - size * 0.5) / (size * 0.5);
+    float2 fade = 1.0 - smoothstep(float2(0.84), float2(1.0), edge);
+    return half4(half3(accumulated), half(alpha)) * source.a * half(fade.x * fade.y);
 }

@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 
 @MainActor
@@ -345,7 +346,7 @@ final class OndAppUITests: XCTestCase {
         XCTAssertEqual(instruction.frame.midY, initial.midY, accuracy: 1)
     }
 
-    func testSmokeOrbAnimatesWithinItsFixedFrame() {
+    func testSmokeOrbAnimatesWithinItsFixedFrame() throws {
         app.terminate()
         app.launchArguments = [
             "--ui-testing",
@@ -379,6 +380,26 @@ final class OndAppUITests: XCTestCase {
             attachment.lifetime = .keepAlways
             add(attachment)
         }
+
+        app.buttons["Pause"].tap()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 3))
+        let frozen = try pixels(in: frame)
+        let changed = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                (try? self.pixels(in: frame)) != frozen
+            },
+            object: nil
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 2), .timedOut)
+    }
+
+    private func pixels(in frame: CGRect) throws -> Data {
+        let image = try XCTUnwrap(app.screenshot().image.cgImage)
+        let scale = CGFloat(image.width) / app.frame.width
+        let crop = frame.offsetBy(dx: -app.frame.minX, dy: -app.frame.minY)
+            .applying(CGAffineTransform(scaleX: scale, y: scale))
+        let cropped = try XCTUnwrap(image.cropping(to: crop))
+        return try XCTUnwrap(UIImage(cgImage: cropped).pngData())
     }
 
     func testWithYourChildIsAPlayfulMomentRatherThanAnExercise() {
