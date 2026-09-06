@@ -85,7 +85,9 @@ struct WatchAirOrb: View {
         layer.fill(ribbon, with: .linearGradient(
             Gradient(colors: [
                 .clear,
-                .white.opacity(0.13),
+                (index.isMultiple(of: 2)
+                    ? Color(red: 0.52, green: 0.80, blue: 0.69)
+                    : Color(red: 0.72, green: 0.61, blue: 0.87)).opacity(0.18),
                 Theme.Breath.inhale.opacity(0.28),
                 .clear,
             ]),

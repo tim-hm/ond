@@ -26,6 +26,7 @@ struct SmokeOrb: View {
                         .float2(width, height),
                         .float(swirl * 4),
                         .float(side * scale * Self.diameterFraction / 2),
+                        .float(scale),
                         .float(colorScheme == .dark ? 1 : 0),
                         .float(seed),
                     ]))

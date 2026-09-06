@@ -338,6 +338,17 @@ final class OndAppUITests: XCTestCase {
         held.lifetime = .keepAlways
         add(held)
 
+        let empty = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS[c] 'lungs empty'"),
+            object: instruction
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [empty], timeout: 16), .completed)
+        XCTAssertEqual(instruction.frame.midY, initial.midY, accuracy: 1)
+        let gathered = XCTAttachment(screenshot: app.screenshot())
+        gathered.name = "smoke-orb-exhaled"
+        gathered.lifetime = .keepAlways
+        add(gathered)
+
         app.buttons["Pause"].tap()
         XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 3))
         XCTAssertEqual(instruction.frame.midY, initial.midY, accuracy: 1)

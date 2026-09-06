@@ -46,6 +46,6 @@ public struct AirOrbMotion: Sendable {
     }
 
     public static func scale(forLevel level: Double) -> Double {
-        0.42 + 0.58 * min(max(level, 0), 1)
+        0.24 + 0.76 * min(max(level, 0), 1)
     }
 }
