@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 use tonic::service::Routes;
 
 use crate::features::account::handlers::grpc::AccountServiceImpl;
-use crate::features::assistant::handlers::grpc::AssistantServiceImpl;
+
 use crate::features::entitlement::handlers::grpc::EntitlementServiceImpl;
 use crate::features::journey::handlers::grpc::JourneyServiceImpl;
 use crate::features::profile::handlers::grpc::ProfileServiceImpl;
@@ -14,7 +14,7 @@ use crate::features::technique::handlers::grpc::TechniqueServiceImpl;
 use crate::features::user_technique::handlers::grpc::UserTechniqueServiceImpl;
 use crate::proto::ond::v1::FILE_DESCRIPTOR_SET;
 use crate::proto::ond::v1::account_service_server::AccountServiceServer;
-use crate::proto::ond::v1::assistant_service_server::AssistantServiceServer;
+
 use crate::proto::ond::v1::entitlement_service_server::EntitlementServiceServer;
 use crate::proto::ond::v1::journey_service_server::JourneyServiceServer;
 use crate::proto::ond::v1::profile_service_server::ProfileServiceServer;
@@ -53,10 +53,6 @@ pub fn build_services(state: &Arc<AppState>) -> Result<Routes> {
                 .max_decoding_message_size(MAX_REQUEST_BYTES),
         )
         .add_service(
-            AssistantServiceServer::new(AssistantServiceImpl::new(Arc::clone(state)))
-                .max_decoding_message_size(MAX_REQUEST_BYTES),
-        )
-        .add_service(
             EntitlementServiceServer::new(EntitlementServiceImpl::new(Arc::clone(state)))
                 .max_decoding_message_size(MAX_REQUEST_BYTES),
         )
@@ -86,7 +82,7 @@ mod tests {
 
     use super::*;
     use crate::account::AppleIdentityVerifier;
-    use crate::assistant::DisabledModelClient;
+
     use crate::config::{Config, Environment};
     use crate::entitlement::AppStoreVerifier;
 
@@ -98,10 +94,7 @@ mod tests {
 
     const DATABASE_URL: &str = "postgres://postgres@localhost:29101/ond";
 
-    /// A state with no database behind it. `connect_lazy` parses the URL and
-    /// connects on first use, and registration touches neither — nor does it
-    /// touch the model or either verifier, which are here only because
-    /// `AppState` has the fields.
+    /// Registration must not query the database or invoke either verifier.
     fn state_for(environment: Environment) -> Arc<AppState> {
         AppState::new(
             PgPool::connect_lazy(DATABASE_URL).unwrap(),
@@ -111,7 +104,6 @@ mod tests {
                 port: 29100,
                 metrics_port: 29103,
             },
-            Arc::new(DisabledModelClient),
             Arc::new(AppStoreVerifier),
             Arc::new(AppleIdentityVerifier::new().unwrap()),
         )

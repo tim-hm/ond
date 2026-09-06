@@ -20,30 +20,12 @@ public enum OndClients {
     /// bound means a stall surfaces as the server's error, with its reason.
     private static let accountDeadline: TimeInterval = 30
 
-    /// How long the assistant's stream may go silent between chunks before the
-    /// connection is abandoned. URLSession's request timer resets on every
-    /// chunk, so it bounds the gap, not the answer — a total deadline cannot.
-    /// Forty sits deliberately above the 30 seconds `assistant/model/bedrock/` allows between
-    /// reads, so a stalled generation fails as the server's error.
-    private static let streamingIdleTimeout: TimeInterval = 40
-
     /// One `URLSession` for every unary service: `ProtocolClient` otherwise
     /// builds its own, so each service would open a second pool to the same
     /// host — another TLS handshake, no multiplexing at launch. Deadlines are
     /// per-request (`ProtocolClientConfig.timeout`), not per-session, so one
     /// pool serves them all; the 60-second idle timer stays as the backstop.
     private static let httpClient = URLSessionHTTPClient()
-
-    /// The second pool, and the only thing that justifies one: an idle timer is
-    /// a session-level setting, and the assistant is the one service that needs
-    /// its timeout to be one. It costs a handshake on the first coach message,
-    /// which is a screen somebody has deliberately opened rather than one
-    /// launch races through.
-    private static let streamingHTTPClient: URLSessionHTTPClient = {
-        let configuration = URLSessionConfiguration.default
-        configuration.timeoutIntervalForRequest = streamingIdleTimeout
-        return URLSessionHTTPClient(configuration: configuration)
-    }()
 
     public static func techniqueService(
         baseURL: URL,
@@ -90,23 +72,6 @@ public enum OndClients {
             baseURL: baseURL,
             userId: userId,
             sessionCredential: sessionCredential
-        ))
-    }
-
-    public static func assistantService(
-        baseURL: URL,
-        userId: @escaping @Sendable () -> UUID?,
-        sessionCredential: @escaping @Sendable () -> String?
-    ) -> Ond_V1_AssistantServiceClient {
-        // No deadline: a coach answer legitimately outlasts any total bound
-        // worth having, so the stream is bounded per-gap by its session's idle
-        // timer instead.
-        Ond_V1_AssistantServiceClient(client: protocolClient(
-            baseURL: baseURL,
-            userId: userId,
-            sessionCredential: sessionCredential,
-            deadline: nil,
-            over: streamingHTTPClient
         ))
     }
 

@@ -56,9 +56,7 @@ struct LeaderboardNameView: View {
                 }
             } footer: {
                 Text(
-                    "Optional. It decides which decade's board you can compare within, "
-                        + "and lets your coach read a breath-test score against the right "
-                        + "baseline. It is not used anywhere else."
+                    "Optional. Your birth decade selects your age-band leaderboard."
                 )
             }
             .listRowBackground(Theme.Surface.raised)

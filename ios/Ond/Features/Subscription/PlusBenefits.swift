@@ -70,10 +70,6 @@ struct PlusBenefits: View {
 
     private static let benefits = [
         Benefit(
-            title: "A coach who reads your notes",
-            limit: "Answers in text. It cannot diagnose anything."
-        ),
-        Benefit(
             title: "Phone and watch in one session",
             limit: "The wrist taps the rhythm while the phone draws it."
         ),

@@ -24,8 +24,6 @@ One record per request is the exception, and it earns the level because it is th
 
 A monitor's _successful_ probe is the exception to the exception, and only the level moves — the record is still emitted exactly once per request. `/health` and `/metrics` carry theirs at `debug` on the `api::probe` target, which the default filter drops. They are the only two paths anything asks for on a timer, and between them they were most of this process's log volume: Route 53 probes `/health` every 30s from roughly fifteen global checkers and Prometheus scrapes `/metrics` every 15s, on the order of two thousand identical `status=200` lines an hour before the server had answered a single person. That is the `info` test above applied to the request record itself. A probe answering anything other than 2xx stays at `info`, because a check that has started failing is the one you were watching for — which is also why the level cannot be keyed on the route alone. Nothing is lost by the demotion: `ond_requests_total{route="/health"}` still counts every probe, and `up` / `TargetDown` already answer "did the scrape happen" for `/metrics`. The mechanism is worth knowing before reordering `build_app`: `OnResponse` is handed the response and not the request, so a marker layer sitting directly beneath the `TraceLayer` stamps the response and the layer above reads it. Anything inserted between those two could rebuild the response, drop the marker, and silently restore the noise.
 
-**The Bedrock call is the other per-request `info`.** A completed non-streaming provider call writes one line carrying the model, `duration_ms` and its token counts. Every number in it is already a metric; what the line adds is _which caller_ the spend belongs to, through the request span, and no counter can give that. It is not the only other `info` a request can write — the three audit lines below are — but those are rare by design and this one fires on every completed call. It is affordable while the daily allowance bounds the volume, so the expiry condition is that allowance ceasing to bound it: raise the cap, or reach a traffic level where the coach answers continuously, and this line demotes to `debug` with `ond_assistant_tokens_total` left carrying the total.
-
 ## Field conventions
 
 - `error`, never `err`.
@@ -36,8 +34,6 @@ A monitor's _successful_ probe is the exception to the exception, and only the l
 ## Named patterns
 
 **Log before converting.** Each feature's error enum logs server-side faults in its `From<…> for tonic::Status` impl, at the point of conversion — `crates/api/src/features/technique/errors.rs` is the pattern. The client receives an opaque `internal` status, so a conversion that stays silent leaves the failure unreproducible from outside the process. The sqlx error is deliberately _not_ forwarded to the client — it can carry table and column names — and the log is where that detail belongs.
-
-**Log what you swallow.** `crates/api/src/features/assistant/service.rs` is the service allowed to speak, and the reason is that its errors terminate there: a model call that fails, a reply naming no technique in the catalogue, and a spent daily allowance all end in the rule-based fallback, and the RPC returns a perfectly good answer. Nothing downstream is ever told, so deleting those lines makes a provider outage invisible from outside the process — the same failure log-before-converting prevents, reached from the other direction.
 
 **Audit the irreversible.** A service may log a destructive or ownership-moving outcome at `info` when the response cannot carry the fact and nothing further out can reconstruct it. Three lines qualify today, on two grounds. Either the record needs two ids the layers above never hold together — the entitlement transfer names the displaced holder beside the claimant, the identity merge names the row that ceased to exist beside the one that absorbed it — or the subject stops existing, which is why the account erasure carries no id at all: `identity::resolve` has already put the caller on the span, and what was erased is by definition not something to write down. The handler above sees an ordinary success in every case, so the boundary rule would leave no record of the destructive thing the server just did on a client's say-so. The bar is deliberately high: irreversible, rare enough to still be worth reading after a million requests, and unrecoverable from anywhere else. A milestone that merely _sounds_ important is still the handler announcing its job.
 
@@ -68,11 +64,10 @@ The principle above carries over unchanged. `os.Logger` does not: four of its pr
 | Category             | Covers                                                                   |
 | :------------------- | :----------------------------------------------------------------------- |
 | `account`            | Signing in with Apple, and erasing the account and this device with it   |
-| `assistant`          | Guidance and explanations, including a stream the provider cut short     |
 | `audio`              | Spoken and tonal session cues                                            |
 | `bolt-store`         | The local controlled-pause file                                          |
 | `catalogue-export`   | The seeded catalogue this build ships with, read out of the bundle       |
-| `chat-store`         | Coach conversation history stored on the device                          |
+| `chat-store`         | Erasing conversations retained from preview builds                       |
 | `haptics`            | The phone session's tactile cue engine                                   |
 | `health`             | HealthKit reads and mindful-session writes                               |
 | `home`               | Home-screen preferences stored on the device                             |
@@ -118,34 +113,28 @@ The display name and the intent note never do. They are the person's own words, 
 
 Served on **29103, a separate listener from the public 29100** (`api::metrics_router`, bound in `main.rs`). The reason is exposure rather than tidiness: `api.ondbreathe.app` reverse-proxies every path to 29100 unconditionally, so a metrics route on the main router would be a public metrics route the moment it was added — there is no path allowlist left to keep it private. The separate port is what makes that structural instead of conventional. The api service maps no host port, so the only things that can reach 29103 are the containers beside it.
 
-| Metric                                      | Kind      | Says                                                                                                               |
-| :------------------------------------------ | :-------- | :----------------------------------------------------------------------------------------------------------------- |
-| `ond_users_total`                           | gauge     | Every identity ever created — one per first launch, not signups                                                    |
-| `ond_active_subscriptions`                  | gauge     | Live subscriptions, labelled `tier`                                                                                |
-| `ond_gross_mrr_usd`                         | gauge     | Those subscriptions at US list price. Not money received                                                           |
-| `ond_requests_total`                        | counter   | JSON and transport outcomes, labelled `route` and HTTP `status`                                                    |
-| `ond_request_duration_seconds`              | histogram | JSON and transport latency, labelled `route`                                                                       |
-| `ond_grpc_requests_total`                   | counter   | Completed native calls, labelled `method` and numeric `status`                                                     |
-| `ond_grpc_request_duration_seconds`         | histogram | Native call latency, labelled `method`                                                                             |
-| `ond_assistant_answers_total`               | counter   | Who wrote the reply, labelled `source` — `model` or `fallback`                                                     |
-| `ond_assistant_fallbacks_total`             | counter   | Why the rules answered, labelled `reason`                                                                          |
-| `ond_assistant_tokens_total`                | counter   | What the coach cost — `kind` is `prompt`, `completion`, `cached` or `cache_write`, priced differently and disjoint |
-| `ond_assistant_call_duration_seconds`       | histogram | A completed non-streaming provider call                                                                            |
-| `ond_assistant_time_to_first_token_seconds` | histogram | How long somebody waits before the coach starts writing                                                            |
-| `ond_assistant_mode`                        | gauge     | Where a reply would come from, as a state set over `mode`                                                          |
-| `ond_entitlement_verifications_total`       | counter   | What became of an entitlement decision, labelled `outcome`. Two outcomes are not purchases — see below             |
-| `ond_entitlement_rejections_total`          | counter   | Why one was rejected, labelled `reason` — the breakdown that makes the alert diagnosable                           |
-| `ond_entitlement_purchases_total`           | counter   | Honoured purchases, labelled `environment`. A revocation is not one                                                |
-| `ond_identities_created_total`              | counter   | First sightings — the rate `ond_users_total` cannot give                                                           |
-| `ond_sign_ins_total`                        | counter   | Completed sign-ins, labelled `outcome` — `claimed`, `resumed` or `merged`                                          |
-| `ond_db_pool_connections`                   | gauge     | Pool occupancy, labelled `state` — `idle` or `in_use`                                                              |
-| `ond_panics_total`                          | counter   | Tasks that panicked. Hyper unwinds the connection and carries on                                                   |
-| `ond_build_info`                            | gauge     | Always 1; the labels say which build is answering                                                                  |
-| `ond_process_start_time_seconds`            | gauge     | When this process started. A step here is a deploy                                                                 |
-| `ond_backup_last_success_timestamp_seconds` | gauge     | When a dump was last verified and uploaded                                                                         |
-| `ond_backup_last_attempt_timestamp_seconds` | gauge     | When the backup last ran, whatever came of it. A stale one says cron stopped firing, which no other metric says    |
-| `ond_backup_success`                        | gauge     | Whether the most recent attempt produced a restorable dump                                                         |
-| `ond_backup_bytes` / `_duration_seconds`    | gauge     | Size and runtime of that dump                                                                                      |
+| Metric                                      | Kind      | Says                                                                                                            |
+| :------------------------------------------ | :-------- | :-------------------------------------------------------------------------------------------------------------- |
+| `ond_users_total`                           | gauge     | Every identity ever created — one per first launch, not signups                                                 |
+| `ond_active_subscriptions`                  | gauge     | Live subscriptions, labelled `tier`                                                                             |
+| `ond_gross_mrr_usd`                         | gauge     | Those subscriptions at US list price. Not money received                                                        |
+| `ond_requests_total`                        | counter   | JSON and transport outcomes, labelled `route` and HTTP `status`                                                 |
+| `ond_request_duration_seconds`              | histogram | JSON and transport latency, labelled `route`                                                                    |
+| `ond_grpc_requests_total`                   | counter   | Completed native calls, labelled `method` and numeric `status`                                                  |
+| `ond_grpc_request_duration_seconds`         | histogram | Native call latency, labelled `method`                                                                          |
+| `ond_entitlement_verifications_total`       | counter   | What became of an entitlement decision, labelled `outcome`. Two outcomes are not purchases — see below          |
+| `ond_entitlement_rejections_total`          | counter   | Why one was rejected, labelled `reason` — the breakdown that makes the alert diagnosable                        |
+| `ond_entitlement_purchases_total`           | counter   | Honoured purchases, labelled `environment`. A revocation is not one                                             |
+| `ond_identities_created_total`              | counter   | First sightings — the rate `ond_users_total` cannot give                                                        |
+| `ond_sign_ins_total`                        | counter   | Completed sign-ins, labelled `outcome` — `claimed`, `resumed` or `merged`                                       |
+| `ond_db_pool_connections`                   | gauge     | Pool occupancy, labelled `state` — `idle` or `in_use`                                                           |
+| `ond_panics_total`                          | counter   | Tasks that panicked. Hyper unwinds the connection and carries on                                                |
+| `ond_build_info`                            | gauge     | Always 1; the labels say which build is answering                                                               |
+| `ond_process_start_time_seconds`            | gauge     | When this process started. A step here is a deploy                                                              |
+| `ond_backup_last_success_timestamp_seconds` | gauge     | When a dump was last verified and uploaded                                                                      |
+| `ond_backup_last_attempt_timestamp_seconds` | gauge     | When the backup last ran, whatever came of it. A stale one says cron stopped firing, which no other metric says |
+| `ond_backup_success`                        | gauge     | Whether the most recent attempt produced a restorable dump                                                      |
+| `ond_backup_bytes` / `_duration_seconds`    | gauge     | Size and runtime of that dump                                                                                   |
 
 The last four are written by `infra/box/backup.sh` into node-exporter's textfile collector rather than by this process, and they are metrics all the same — a rule cannot tell the difference and should not have to.
 
@@ -173,7 +162,7 @@ Grafana runs with **anonymous access and no login form**, which is only correct 
 
 The datasource and the dashboards are **provisioned from `infra/box/grafana/`**, so a panel edited in the browser is temporary by design — the file wins at the next restart, and a dashboard worth keeping is a commit.
 
-Seven rows, in the order somebody actually reads them: **Now** (the census, targets down, the coach's mode, and a list of firing alerts), **Traffic** (calls, failures and latency per RPC, outcomes by status code, and edge latency), **Coach** (where answers come from, why it fell back, time to first token, tokens, provider call latency), **Money** (purchase outcomes, why one was rejected, and the sandbox/production split), **The box** (both disks, memory, CPU, the pool, database size, backup age, whether the last backup verified, the edge, Postgres connections), **Logs**, and **Product** (people and MRR over time, new identities and sign-ins per day).
+Six rows, in the order somebody actually reads them: **Now** (the census, targets down, a list of firing alerts), **Traffic** (calls, failures and latency per RPC, outcomes by status code, and edge latency), **Money** (purchase outcomes, why one was rejected, and the sandbox/production split), **The box** (both disks, memory, CPU, the pool, database size, backup age, whether the last backup verified, the edge, Postgres connections), **Logs**, and **Product** (people and MRR over time, new identities and sign-ins per day).
 
 Two details are load-bearing. The firing-alerts panel reads Prometheus' own `ALERTS` series rather than Grafana's `alertlist` panel, which renders only Grafana-managed rules — these are datasource-managed, so that panel would list nothing for ever. And "targets down" counts `up == 0` rather than comparing against a hard-coded healthy total, which would leave the panel permanently red the day a scrape job is added and green at a wrong number the day one is removed.
 
@@ -194,7 +183,6 @@ A **deploy shows as an annotation**, read from `ond_process_start_time_seconds`.
 | `DiskFillingUp` | either volume below 15% free for 30m | A disk crossing a threshold is a trend, so a dump's temp file cannot page anyone on its way past |
 | `MemoryLow` | under 15% available for 15m | 2 GiB with no swap: what follows is the OOM killer picking a process, and it will not pick the culprit |
 | `GrpcUnexpectedFailures` | >5% of calls fail for 10m, above an absolute floor | Excludes the statuses this API returns on purpose — see below |
-| `AssistantFallingBack` | >50% of coach answers come from the rules for 15m | Excludes an unsubscribed caller and a spent allowance, which are the product working |
 | `PurchasesBeingRejected` | >50% of submitted purchases rejected for 15m | A share, not a count: one rejection is a sandbox tester, half of them is the money path broken |
 | `ProcessPanicked` | any panic | Hyper unwinds the connection and the process survives, so nothing else reports it |
 | `ServerErrorsSustained` | any `Internal` for 10m | There is no acceptable rate of the server being wrong |
@@ -205,11 +193,11 @@ The exclusion in `GrpcUnexpectedFailures` is the load-bearing part. Four codes a
 
 **Two of those excluded codes get a rule of their own instead**, because being ordinary at a trickle does not make them ordinary at volume. Both read an absolute rate rather than a share: an attack against a busy server would dilute away in a share. Each floor therefore sits above today's honest baseline — a reinstall that kept its id and lost the Keychain returns `16`, and a carrier NAT fills a request budget — and each has to move as real traffic arrives. `alerts_test.yml` drives that baseline and asserts silence, then drives an attack and asserts each fires.
 
-**Three of these exist because a successful response is this server's most common way to fail.** A Bedrock outage returns gRPC 0 with a rule-based answer; a rejected Apple purchase returns gRPC 3, which is excluded above, and logs at `debug`, which production drops; a panicking task leaves a dead connection and a live process. None was visible in the transport metrics, and each needed a metric that names the thing rather than the transport carrying it.
+**Two of these exist because a successful response is this server's most common way to fail.** A rejected Apple purchase returns gRPC 3, which is excluded above, and logs at `debug`, which production drops; a panicking task leaves a dead connection and a live process. None was visible in the transport metrics, and each needed a metric that names the thing rather than the transport carrying it.
 
 ## Delivery
 
-Alertmanager publishes to an SNS topic and one email subscription takes everything. It signs with the instance profile, so no credential lands on the box — the property the assistant's Bedrock calls and the backup's S3 writes already had. `infra/box/alertmanager.yml.tmpl` is rendered by `mise run deploy:api` from the OpenTofu state, because the topic ARN carries the account id and a literal committed beside the config is a literal nothing reconciles.
+Alertmanager publishes to an SNS topic and one email subscription takes everything. It signs with the instance profile, so no credential lands on the box — the same approach as the backup's S3 writes. `infra/box/alertmanager.yml.tmpl` is rendered by `mise run deploy:api` from the OpenTofu state, because the topic ARN carries the account id and a literal committed beside the config is a literal nothing reconciles.
 
 An email cannot acknowledge anything, so a flapping alert re-notifies every `repeat_interval` (12h). Silences live in Alertmanager's own UI, on the tailnet at **29106**; Prometheus' own UI and `/alerts` page are at **29105**.
 

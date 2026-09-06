@@ -1,7 +1,5 @@
 //! Shared domain arrangements and RPC helpers.
 
-use api::assistant::daily_model_calls;
-use api::entitlement::Tier;
 use api::identity::{SESSION_CREDENTIAL_HEADER, USER_ID_HEADER};
 use api::proto::ond::v1 as pb;
 use axum::Router;
@@ -19,8 +17,6 @@ pub const SIGN_IN: &str = "/ond.v1.AccountService/SignInWithApple";
 pub const SIGN_OUT: &str = "/ond.v1.AccountService/SignOut";
 pub const BEGIN_APPLE_AUTHORIZATION: &str = "/ond.v1.AccountService/BeginAppleAuthorization";
 pub const DELETE_ACCOUNT: &str = "/ond.v1.AccountService/DeleteAccount";
-pub const GET_RECOMMENDATION: &str = "/ond.v1.AssistantService/GetRecommendation";
-pub const CHAT: &str = "/ond.v1.AssistantService/Chat";
 pub const SUBMIT_APP_STORE_TRANSACTION: &str =
     "/ond.v1.EntitlementService/SubmitAppStoreTransaction";
 pub const GET_ENTITLEMENT: &str = "/ond.v1.EntitlementService/GetEntitlement";
@@ -39,13 +35,6 @@ pub const CREATE_USER_TECHNIQUE: &str = "/ond.v1.UserTechniqueService/CreateUser
 pub const LIST_USER_TECHNIQUES: &str = "/ond.v1.UserTechniqueService/ListUserTechniques";
 pub const UPDATE_USER_TECHNIQUE: &str = "/ond.v1.UserTechniqueService/UpdateUserTechnique";
 pub const DELETE_USER_TECHNIQUE: &str = "/ond.v1.UserTechniqueService/DeleteUserTechnique";
-
-/// One person's daily model allowance.
-pub fn allowance(tier: Tier) -> usize {
-    daily_model_calls(tier).map_or(0, |calls| {
-        usize::try_from(calls).expect("an allowance is never negative")
-    })
-}
 
 /// A user row, as the identity layer would have created it on the device's
 /// first RPC. Written directly rather than by making a call, so a test can lay
@@ -213,11 +202,6 @@ pub async fn live_credentials(pool: &PgPool, user: &str) -> i64 {
     .expect("the credentials are countable")
 }
 
-/// Records sessions through the real `JourneyService`.
-///
-/// In the harness because two features' suites drive the RPC: the journey
-/// suites for what recording does, the assistant's for the practice rows its
-/// prompt is assembled from.
 pub async fn record(
     db: &TestDatabase,
     user: &str,
@@ -227,49 +211,6 @@ pub async fn record(
         db.app(),
         RECORD_SESSIONS,
         &pb::RecordSessionsRequest { sessions },
-        &[(USER_ID_HEADER, user)],
-    )
-    .await
-}
-
-/// Saves one exercise of somebody's own through the real
-/// `UserTechniqueService`, named by the caller. In the harness because two
-/// suites drive this RPC. A slow nasal exhale, the shape the authoring limits
-/// are most permissive about — every caller here wants a technique that
-/// exists, so a draft refused for its pattern would fail for the wrong reason.
-pub async fn save_technique(
-    db: &TestDatabase,
-    user: &str,
-    name: &str,
-) -> GrpcWebResponse<pb::CreateUserTechniqueResponse> {
-    call_grpc_web_with(
-        db.app(),
-        CREATE_USER_TECHNIQUE,
-        &pb::CreateUserTechniqueRequest {
-            draft: Some(pb::TechniqueDraft {
-                name: name.to_owned(),
-                summary: String::new(),
-                goal: pb::TechniqueGoal::Sleep as i32,
-                stages: vec![pb::DraftStage {
-                    cycles: 10,
-                    phases: vec![
-                        pb::DraftPhase {
-                            duration_ms: 4000,
-                            movement: Some(pb::draft_phase::Movement::Inhale(
-                                pb::Passage::Nose as i32,
-                            )),
-                        },
-                        pb::DraftPhase {
-                            duration_ms: 8000,
-                            movement: Some(pb::draft_phase::Movement::Exhale(
-                                pb::Passage::Nose as i32,
-                            )),
-                        },
-                    ],
-                }],
-                rounds: 1,
-            }),
-        },
         &[(USER_ID_HEADER, user)],
     )
     .await
@@ -361,40 +302,4 @@ pub fn prost_timestamp(instant: DateTime<Utc>) -> prost_types::Timestamp {
 
 pub fn hours_ago(hours: i64) -> DateTime<Utc> {
     Utc::now() - chrono::Duration::hours(hours)
-}
-
-/// Asks `GetRecommendation` over the wire, on a router the caller has built.
-/// Two suites drive this RPC for opposite reasons, so only the call itself is
-/// shared; taking an assembled `Router` keeps the subscription `assistant/`
-/// wants and `entitlement/` must not have with the suite that wants it. One
-/// construction site for the request, so a new field lands here, not in two places.
-pub async fn recommend(
-    app: Router,
-    user: &str,
-    health: Option<pb::HealthContext>,
-) -> pb::GetRecommendationResponse {
-    recommend_as(app, user, None, health).await
-}
-
-/// [`recommend`], for a caller who has to prove the identity they are
-/// claiming. `credential` is `Some` only for a row bound to an Apple account,
-/// which `identity::resolve` refuses without one. Paired with [`recommend`]
-/// rather than folded into it: every caller in the assistant suite is
-/// anonymous, and twenty tests should not carry a `None` to say so.
-pub async fn recommend_as(
-    app: Router,
-    user: &str,
-    credential: Option<&str>,
-    health: Option<pb::HealthContext>,
-) -> pb::GetRecommendationResponse {
-    call_grpc_web_with::<_, pb::GetRecommendationResponse>(
-        app,
-        GET_RECOMMENDATION,
-        &pb::GetRecommendationRequest {
-            health_context: health,
-        },
-        &headers(user, credential),
-    )
-    .await
-    .into_ok()
 }

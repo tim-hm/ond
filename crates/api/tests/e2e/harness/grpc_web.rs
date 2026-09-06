@@ -97,18 +97,6 @@ pub struct GrpcWebStream<T> {
     pub status_message: String,
 }
 
-impl<T> GrpcWebStream<T> {
-    /// The messages, asserting the stream ended cleanly.
-    pub fn into_ok(self) -> Vec<T> {
-        assert_eq!(
-            self.status, 0,
-            "grpc-status {}: {}",
-            self.status, self.status_message
-        );
-        self.messages
-    }
-}
-
 /// Calls a server-streaming method the way the iOS client does. gRPC-Web sends
 /// a server stream as several length-prefixed frames in one response body,
 /// followed by the trailer frame — readable here without a listener, in the

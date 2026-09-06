@@ -2,7 +2,7 @@
 
 The long-form store copy. The name, subtitle and keyword field live in [naming.md](naming.md), because each of those is a decision with an argument behind it rather than a piece of prose; this file holds the two fields that are writing.
 
-Nothing here is submitted by the repository. `mise run ios:testflight` uploads the binary alone, so every field below is typed into App Store Connect by hand — which is exactly why they are written down: a field that exists only in a web form has no history, no review, and no second reader.
+`mise run ios:testflight` uploads the binary alone. Read current metadata with `mise run store:read` and apply reviewed subscription or version-localization text through `mise run store:apply`. The source copy stays here for review; a binary upload does not update it automatically.
 
 ## The fields
 
@@ -46,7 +46,7 @@ QUIET BY DESIGN
 No ads. No third-party trackers. No feed to scroll. The session screen does one thing.
 
 önd+
-An optional subscription adds a coach informed by your goals and practice, breathing, heart-rate and HRV trends, global and age-band leaderboards, and connected Watch practice with live heart rate. Everything else stays free, including the full catalogue and standalone Watch practice.
+An optional subscription adds connected Watch practice with live heart rate, recent breathing, heart-rate and HRV trends, and optional global and age-band leaderboards. Everything else stays free, including the full catalogue and standalone Watch practice.
 
 A NOTE ON SAFETY
 Breathing exercises are not a treatment for any medical condition. If a pattern leaves you dizzy or light-headed, ease back or return to normal breathing. If you are pregnant, or live with a heart or respiratory condition, speak to a clinician before starting.
@@ -57,7 +57,7 @@ Breathing exercises are not a treatment for any medical condition. If a pattern 
 - **The brand stays lowercase, in headers too.** The section headers are capitalised for scanning; `önd+` is not. `ÖND` is a different word wearing a hat, and [naming.md](naming.md) settles that.
 - **The evidence section undersells, deliberately.** It restates the site's own hedge — promising, but smaller and less consistent across studies — rather than the strongest reading. That is the honest summary, and it is also what keeps the listing clear of guideline 1.4.1, which is where a breathing app promising to treat anxiety gets rejected.
 - **The safety note is not boilerplate.** Hyperventilation is the one way this app can hurt somebody, and the catalogue already fences fast breathing off non-energising routes. A listing that omitted it would be quieter about risk than the app is.
-- **Free and paid are stated plainly.** The full catalogue and standalone Watch practice are free; the four `önd+` benefits are the paywall's own, in its order. Copy that implied the catalogue was paid would be a mismatch a reviewer can see from the screenshots.
+- **Free and paid are stated plainly.** The full catalogue and standalone Watch practice are free; the three `önd+` benefits are the paywall's own, in its order. Copy that implied the catalogue was paid would be a mismatch a reviewer can see from the screenshots.
 
 ## The other fields, and where their values come from
 
@@ -68,7 +68,7 @@ Breathing exercises are not a treatment for any medical condition. If a pattern 
 | Marketing URL      | `https://ondbreathe.app`         |
 | Copyright          | `2026 Tim Holmes-Mitra`          |
 
-The first two are required to submit and are served by the marketing site, which `mise run deploy` rsyncs — so the pages a reviewer opens and the pages this repository holds cannot drift apart without a deploy.
+The first two are required to submit and are served by the marketing site, which `mise run deploy:website` rsyncs — so the pages a reviewer opens and the pages this repository holds cannot drift apart without a deploy.
 
 App previews are optional and there are none. Screenshots are required, and because the submission embeds a watch app, Apple Watch screenshots are required alongside the iPhone set.
 
@@ -95,8 +95,6 @@ The task boots the one required device, freezes the status bar at 9:41, runs `Sc
 | 4   | Exercises           | The catalogue's breadth.                                                                                        |
 | 5   | Progress            | Journal and trends.                                                                                             |
 | 6   | Technique detail    | The evidence copy, which is what the description claims and this is the proof.                                  |
-
-Coach is deliberately absent. A screenshot of a chat bubble reads like every other assistant on the store, and it is the paid feature — leading with it invites "so it is a paywall" as a first impression.
 
 The set is captured against a fixture, not a real account: `--ui-testing-demo` replaces the practice history with six weeks of invented sessions, because the alternative is practising on a simulator daily for six weeks and doing it again the next time a screen moves. It is Debug-only and argument-gated, and it never syncs — see `DemoPractice`.
 
@@ -132,6 +130,6 @@ App Review reads all three, so moving one without the other two is a rejection.
 
 Which way a band ages decides whether it can drift. A closed decade only gets older, so once it agrees with the policy it keeps agreeing. An open band admits a newborn in any year, and can fall out of agreement with nobody having touched it. That is why `BORN_2010_OR_LATER` was removed rather than renamed on 2026-08-08: the policy says önd does not knowingly collect data from anyone under 13, offering the band was the act that would have made the collection knowing, and a replacement `BORN_2010S` would have admitted someone born in 2019 just the same.
 
-Somebody born 2010 or later leaves this `UNSPECIFIED` and uses the whole app. They lose the age-band leaderboard and the age line in the coach prompt; nothing else differs.
+Somebody born 2010 or later leaves this `UNSPECIFIED` and uses the whole app. They do not have an age-band leaderboard.
 
 That leaves a real gap: a 13-to-15-year-old the policy permits but no band fits. It closes by adding `BORN_2010S` in 2032, when its youngest member turns 13. **Adding one before then reopens the question above.**

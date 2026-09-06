@@ -1012,8 +1012,6 @@ fn the_progression_orders_part_of_the_catalogue() {
     }
 }
 
-/// The client and the assistant cite foundations by slug, so the canonical
-/// set needs stable, unique keys even though the seed replaces it wholesale.
 #[test]
 fn foundations_are_canonical_and_structured() {
     const EXPECTED: &[&str] = &[

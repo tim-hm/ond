@@ -1,11 +1,12 @@
 import SwiftUI
 
 struct SmokeOrb: View {
-    static let diameterFraction = 1.08
+    static let diameterFraction = 1.0
 
     let scale: Double
     let swirl: Double
     let side: CGFloat
+    var sessionSeed: Float?
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var seed = Float.random(in: 0 ... 100)
@@ -28,7 +29,7 @@ struct SmokeOrb: View {
                         .float(side * scale * Self.diameterFraction / 2),
                         .float(scale),
                         .float(colorScheme == .dark ? 1 : 0),
-                        .float(seed),
+                        .float(sessionSeed ?? seed),
                     ]))
             }
             .allowsHitTesting(false)

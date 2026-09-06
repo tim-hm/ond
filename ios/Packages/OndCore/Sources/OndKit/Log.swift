@@ -15,7 +15,6 @@ public enum Log {
     /// compares this set with every category literal in production Swift.
     static let categories: Set<String> = [
         "account",
-        "assistant",
         "audio",
         "bolt-store",
         "catalogue-export",

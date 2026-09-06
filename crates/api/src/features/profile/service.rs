@@ -10,7 +10,7 @@ use super::errors::ProfileError;
 use super::repository::{self, ProfileRow};
 use super::types::{
     BirthYearBand, ExperienceLevel, Gender, MAX_DISPLAY_NAME_CHARS, MAX_GIVEN_NAME_CHARS,
-    ProfileSnapshot, ReminderIntensity,
+    ReminderIntensity,
 };
 use crate::features::technique::convert::{goal_from_proto, goal_to_proto};
 use crate::identity::UserId;
@@ -93,29 +93,11 @@ pub async fn update_profile(
     })
 }
 
-/// The profile as another feature reads it.
-///
-/// `assistant` derives its prompt and its rule-based fallback from these
-/// answers. Routed through the service so `ProfileRow` stays this feature's own
-/// shape; a consumer holding it would make every `users` column a contract.
-pub async fn snapshot(pool: &PgPool, user_id: UserId) -> Result<ProfileSnapshot, ProfileError> {
-    let row = repository::find_profile(pool, user_id).await?;
-
-    Ok(ProfileSnapshot {
-        goals: row.goals,
-        experience_level: row.experience_level,
-        intent_note: row.intent_note,
-        birth_year_band: row.birth_year_band,
-        gender: row.gender,
-        given_name: row.given_name.filter(|name| !name.is_empty()),
-    })
-}
-
 /// The caller's birth-year band, or `None` if they have not said.
 ///
 /// Standalone because the board queries need the band as a parameter before
 /// they run: an unanswered band refuses the age-band scope outright. Every
-/// other consumer takes the band off [`snapshot`] instead.
+/// caller reads it through this service.
 pub async fn birth_year_band(
     pool: &PgPool,
     user_id: UserId,

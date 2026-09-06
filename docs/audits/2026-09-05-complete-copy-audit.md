@@ -1,5 +1,7 @@
 # Complete source-copy audit — 5 September 2026
 
+Historical audit: Coach-related findings and pricing were superseded by the 6 September 2026 release decision. Removed source references are marked as retired; the assessment below records the earlier build.
+
 The copy needs another release pass. The main problems are conflicting safety instructions, privacy promises that disagree with the implementation, and paid-feature or recovery wording that overstates what happens. Much of the everyday instruction copy is already clear; a wholesale change of voice would add work without addressing these problems.
 
 This report records **27 findings: 12 release priorities, 12 clarity and consistency improvements, and three editorial improvements** at the audit baseline. The [remediation status](2026-09-05-copy-remediation-status.md) records subsequent implementation and remaining verification. Suggested text below is the original proposal, not clinical approval.
@@ -66,7 +68,7 @@ Priority means recommended order before release, not a finding of legal noncompl
 
 ### COPY-06 — The coach's authored brief contradicts the evidence stance
 
-**Evidence:** [coach prefix](../../crates/api/src/features/assistant/prompt/copy/prefix.md) treats resting rate as evidence of whether practice is helping and describes BOLT bands using “strong” and “excellent”. It also instructs the coach never to contradict Foundations, but [prefix.rs](../../crates/api/src/features/assistant/prompt/prefix.rs) supplies the Foundations questions without their answers. Instructions to avoid alarm must not soften appropriate escalation.
+**Evidence:** `coach prefix` (retired source) treats resting rate as evidence of whether practice is helping and describes BOLT bands using “strong” and “excellent”. It also instructs the coach never to contradict Foundations, but `prefix.rs` (retired source) supplies the Foundations questions without their answers. Instructions to avoid alarm must not soften appropriate escalation.
 
 **Change:** explicitly state that these readings do not establish health improvement, should not become performance targets, and cannot identify the cause of symptoms. Give the model the approved interpretation and stop rules, not just the question titles. Prefer “Your latest reading differs from your earlier readings” to a verdict about better breathing.
 
@@ -74,7 +76,7 @@ Priority means recommended order before release, not a finding of legal noncompl
 
 ### COPY-07 — Physiological-sigh dose differs between description, prompt and practice
 
-**Evidence:** [catalogue.rs](../../crates/migrate/src/seed/catalogue.rs), `physiological-sigh`, describes one or two double breaths; its default stage offers three cycles. `a-moment-to-reset` lasts 60 seconds. The [coach prefix](../../crates/api/src/features/assistant/prompt/copy/prefix.md) says not to stretch this exercise beyond a round or two. The [science ledger](../product/breathing-science.md) also makes one or two rounds part of the claim boundary.
+**Evidence:** [catalogue.rs](../../crates/migrate/src/seed/catalogue.rs), `physiological-sigh`, describes one or two double breaths; its default stage offers three cycles. `a-moment-to-reset` lasts 60 seconds. The `coach prefix` (retired source) says not to stretch this exercise beyond a round or two. The [science ledger](../product/breathing-science.md) also makes one or two rounds part of the claim boundary.
 
 **Change:** decide the intended short dose and make default, Moment duration, description and coach offers agree. If retaining a longer practice, it needs an appropriate rationale and description; merely changing “two” to “three” does not resolve the one-minute route.
 
@@ -90,11 +92,11 @@ Priority means recommended order before release, not a finding of legal noncompl
 
 ### COPY-09 — The privacy page contains material source contradictions
 
-**Evidence:** [privacy.html](../../web/privacy.html) says coach conversations are never stored; [FileConversationStore.swift](../../ios/Packages/OndCore/Sources/OndKit/Assistant/FileConversationStore.swift) persists them in `conversations.json`. The page says personal exercise names never reach the coach; [instructions.rs](../../crates/api/src/features/assistant/prompt/instructions.rs), lines 102–109, includes saved exercise names and goals. The same file includes the optional given name. The policy's claim that the model service cannot link conversations is stronger than the absence of an account identifier establishes. Its “one place where you can enter anything” omits chat and exercise text.
+**Evidence:** [privacy.html](../../web/privacy.html) says coach conversations are never stored; `FileConversationStore.swift` (retired source) persists them in `conversations.json`. The page says personal exercise names never reach the coach; `instructions.rs` (retired source), lines 102–109, includes saved exercise names and goals. The same file includes the optional given name. The policy's claim that the model service cannot link conversations is stronger than the absence of an account identifier establishes. Its “one place where you can enter anything” omits chat and exercise text.
 
 **Change:** distinguish local history, server processing and model-provider processing. Proposed factual core: “Coach conversations are saved on your iPhone. To answer a message, the coach receives relevant conversation history and the profile and practice context described below. Saved exercise names and goals can be included.” Add the first name to the precise disclosure. Replace the unlinkability claim with “We do not send your account identifier or leaderboard display name. Text you provide can still contain identifying details.”
 
-Also reconcile the page with the new general AI-sharing choice and separate Health choice in [AssistantConsentView.swift](../../ios/Ond/Features/Assistant/AssistantConsentView.swift) and [ConsentedAssistant.swift](../../ios/Packages/OndCore/Sources/OndKit/Assistant/ConsentedAssistant.swift). Check permission timing claims against onboarding opt-ins; Mindful Minutes permission can be requested there, not only when a session first needs writing.
+Also reconcile the page with the new general AI-sharing choice and separate Health choice in `AssistantConsentView.swift` (retired source) and `ConsentedAssistant.swift` (retired source). Check permission timing claims against onboarding opt-ins; Mindful Minutes permission can be requested there, not only when a session first needs writing.
 
 **Close when:** use a field-by-field disclosure table covering source, destination, purpose, local retention, server retention and withdrawal. Confirm provider/deployment facts before publishing. This audit establishes contradictions in the local source, not the truth of every provider-retention statement.
 
@@ -132,7 +134,7 @@ Also reconcile the page with the new general AI-sharing choice and separate Heal
 
 ### COPY-14 — Coach recovery copy obscures what is available
 
-**Evidence:** [CoachComposer.swift](../../ios/Ond/Features/Assistant/CoachComposer.swift) uses phrases such as “settling onto this device”, “until that lands” and answering “from its rules”. [fallback.rs](../../crates/api/src/features/assistant/fallback.rs) supplies rule-based recommendations, but chat fallback cannot hold a normal rule-based conversation.
+**Evidence:** `CoachComposer.swift` (retired source) uses phrases such as “settling onto this device”, “until that lands” and answering “from its rules”. `fallback.rs` (retired source) supplies rule-based recommendations, but chat fallback cannot hold a normal rule-based conversation.
 
 **Suggested replacement:** “Your purchase is active on this device. We're still confirming access to the online coach.” When appropriate: “Chat is temporarily unavailable. You can still use the exercises and basic suggestions.” Match each message to its state; do not imply a timer or automatic recovery path that is not guaranteed. Close by reviewing offline, denied, held and retry states independently.
 
@@ -206,13 +208,13 @@ Also reconcile the page with the new general AI-sharing choice and separate Heal
 
 ### COPY-26 — Interpolated counts need singular forms
 
-**Evidence:** [PracticeFigures.swift](../../ios/Ond/Features/Progress/PracticeFigures.swift) pairs counts with fixed “sessions”, “minutes” and day labels. [OfferSummary.swift](../../ios/Packages/OndCore/Sources/OndKit/Assistant/OfferSummary.swift) builds “{count} cycles” even for one. Other parts of the app already handle this correctly.
+**Evidence:** [PracticeFigures.swift](../../ios/Ond/Features/Progress/PracticeFigures.swift) pairs counts with fixed “sessions”, “minutes” and day labels. `OfferSummary.swift` (retired source) builds “{count} cycles” even for one. Other parts of the app already handle this correctly.
 
 **Suggested replacement:** use shared singular/plural formatting: “1 session”, “1 minute”, “1 cycle”, “2 cycles”. Check zero, one, several, decimal seconds and long durations in visual and accessibility copy. Keep elapsed time distinct from clock time and use explicit units in spoken summaries. Close through representative values, not tests that simply reproduce every string literal.
 
 ### COPY-27 — A few progress and fallback lines sound judgemental or certain
 
-**Evidence:** [HomeStateLine.swift](../../ios/Packages/OndCore/Sources/OndKit/Home/HomeStateLine.swift) includes “Nothing this week yet”; the summary labels a short practice “Too short to keep”; [fallback.rs](../../crates/api/src/features/assistant/fallback.rs) uses confident benefit and corrective formulations. These are tone opportunities rather than evidence of a broken flow.
+**Evidence:** [HomeStateLine.swift](../../ios/Packages/OndCore/Sources/OndKit/Home/HomeStateLine.swift) includes “Nothing this week yet”; the summary labels a short practice “Too short to keep”; `fallback.rs` (retired source) uses confident benefit and corrective formulations. These are tone opportunities rather than evidence of a broken flow.
 
 **Suggested replacements:** “A fresh week”, “Practice ended — not saved”, and “You mentioned {goal}. You could try {exercise}.” State the recording threshold beside a discarded result so the warmer title still explains what happened. Keep the quiet voice, specific next action and freedom to stop; avoid streak pressure or exaggerated praise.
 

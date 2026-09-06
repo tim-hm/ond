@@ -1,9 +1,3 @@
-//! What one caller may spend, and the two budgets that bound it. Nothing in
-//! front of this process rations anything — stock `caddy:2` has no rate
-//! limiter — so the ration ships with the binary it protects. Two budgets
-//! because the threats grow at different rates: requests bound board work; new
-//! identities bound `users` rows, each carrying its own assistant allowance and Bedrock spend.
-
 use std::collections::hash_map::RandomState;
 use std::hash::BuildHasher;
 use std::sync::atomic::{AtomicU64, Ordering};

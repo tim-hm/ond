@@ -9,56 +9,9 @@ use api::proto::ond::v1 as pb;
 use axum::Router;
 use tonic::Code;
 
-use crate::harness::{
-    GET_RECOMMENDATION, GrpcWebResponse, LIST_USER_TECHNIQUES, ScriptedModel, TestDatabase,
-    call_grpc_web_with,
-};
+use crate::harness::{GrpcWebResponse, LIST_USER_TECHNIQUES, TestDatabase, call_grpc_web_with};
 
 const USER: &str = "9d4e3f2a-0000-4000-8000-000000000001";
-
-/// Once curated reference data has been derived, a later assistant request
-/// must not return to tables a migration cannot have changed without restarting
-/// the process.
-#[tokio::test]
-async fn the_curated_cache_reuses_its_successful_value() {
-    let db = TestDatabase::create("curated_cache_reuse").await;
-    db.given_subscriber(USER).await;
-    let model = ScriptedModel::always(Ok("box-breathing | Steady.".to_owned()));
-    let app = db.app_with_model(model.clone());
-
-    recommend(app.clone()).await.into_ok();
-    empty_catalogue(&db).await;
-    recommend(app).await.into_ok();
-
-    assert_eq!(model.calls(), 2, "both requests reached the model");
-}
-
-/// The empty answer possible before the seed transaction commits must leave the
-/// cache retryable. Reseeding the same database then lets the same process
-/// recover without rebuilding its router.
-#[tokio::test]
-async fn the_curated_cache_recovers_after_an_empty_first_derivation() {
-    let db = TestDatabase::create("curated_cache_recovery").await;
-    db.given_subscriber(USER).await;
-    empty_catalogue(&db).await;
-    let model = ScriptedModel::always(Ok("box-breathing | Steady.".to_owned()));
-    let app = db.app_with_model(model.clone());
-
-    let first = recommend(app.clone()).await;
-    assert_eq!(first.status, Code::Internal as i32);
-    assert_eq!(
-        model.calls(),
-        0,
-        "an empty catalogue never reaches the model"
-    );
-
-    migrate::seed::run(&db.pool)
-        .await
-        .expect("the reference seed is restored");
-
-    recommend(app).await.into_ok();
-    assert_eq!(model.calls(), 1, "the retry uses the reseeded catalogue");
-}
 
 /// The authored-exercise limits are another process value. Emptying the source
 /// rows after one response makes a second successful response proof that the
@@ -106,18 +59,6 @@ async fn the_phase_limits_cache_recovers_after_an_initial_database_error() {
     assert!(recovered.limits.is_some());
 }
 
-async fn recommend(app: Router) -> GrpcWebResponse<pb::GetRecommendationResponse> {
-    call_grpc_web_with(
-        app,
-        GET_RECOMMENDATION,
-        &pb::GetRecommendationRequest {
-            health_context: None,
-        },
-        &[(USER_ID_HEADER, USER)],
-    )
-    .await
-}
-
 async fn list_user_techniques(app: Router) -> GrpcWebResponse<pb::ListUserTechniquesResponse> {
     call_grpc_web_with(
         app,
@@ -126,11 +67,4 @@ async fn list_user_techniques(app: Router) -> GrpcWebResponse<pb::ListUserTechni
         &[(USER_ID_HEADER, USER)],
     )
     .await
-}
-
-async fn empty_catalogue(db: &TestDatabase) {
-    sqlx::query("TRUNCATE techniques CASCADE")
-        .execute(&db.pool)
-        .await
-        .expect("the curated catalogue is cleared");
 }

@@ -14,7 +14,7 @@ Shipped copy lives in [`crates/migrate/src/seed/catalogue.rs`](../../crates/migr
 - **"May" for emotional outcomes; "reliably" only for immediate physiological change** supported across studies (the [breathing-foundations.md](breathing-foundations.md) guardrail).
 - **Cite the minimal important difference next to the effect.** Where a pooled effect sits under what patients call a meaningful change, say so — the asthma QoL 0.42-vs-MID-0.5 gap and the COPD dyspnoea −0.40-vs-MID-−1.0 gap are the native examples.
 - **Report the nulls.** The two best-blinded trials in the field are both nulls against credible breathing shams (§2). Competitor apps cannot say that sentence; önd can.
-- **Never any medication language.** No copy, coach reply or occasion may permit, suggest or imply reducing any medication. The Buteyko trials' headline outcome is medication reduction and the hypertension literature invites "instead of pills" framing; this is the highest-severity harm vector in the whole specification.
+- **Never any medication language.** No copy or occasion may permit, suggest or imply reducing any medication. The Buteyko trials' headline outcome is medication reduction and the hypertension literature invites "instead of pills" framing; this is the highest-severity harm vector in the whole specification.
 
 ## 2. The general evidence base
 
@@ -126,19 +126,19 @@ The law, tested against eight literatures and standing: **no population justifie
 
 - **Evidence**: no RCT of a breathing technique as a standalone ADHD intervention worth building copy on. Meditation-based mind-body packages pool to small effects (inattention g = −0.26, executive function g = −0.35 — [Zhang 2023](https://pubmed.ncbi.nlm.nih.gov/36803119/)) with no part attributable to breathing, no blinding, mostly inactive controls. [NICE NG87](https://www.nice.org.uk/guidance/ng87/chapter/recommendations) does not recommend standalone mindfulness for core symptoms. Reduced task-time vagal HRV is a plausible mechanism and nothing more ([Robe 2019, 13 studies](https://www.sciencedirect.com/science/article/abs/pii/S0149763418308005)).
 - **The product finding**: "ADHD → Focus" is the wrong mapping — the two Focus techniques are the two highest-executive-load exercises in the catalogue. The right response is the beginner's ordering the progression already encodes: box breathing (one number), then the physiological sigh (seconds). A population route that lands on an existing generic route is the cheapest confirmation the catalogue was built sensibly.
-- **We will not say**: "breathing helps ADHD"; "improves focus and attention"; anything naming the diagnosis back at the person. Coach rule: prefer short sessions, single counts, one instruction at a time; never suggest breathing as treatment.
+- **We will not say**: "breathing helps ADHD"; "improves focus and attention"; anything naming the diagnosis back at the person. Copy rule: prefer short sessions, single counts, one instruction at a time; never suggest breathing as treatment.
 
 ### 5.2 Perimenopause
 
 - **Evidence, and it points the other way**: paced breathing for hot flushes is **not recommended at Level I evidence** — the Menopause Society's highest grade ([2023 position statement](https://pubmed.ncbi.nlm.nih.gov/37252752/)). [Carpenter 2013](https://pmc.ncbi.nlm.nih.gov/articles/PMC3614127) (N=218, active-controlled): null despite correct daily practice. [Huang 2015](https://pubmed.ncbi.nlm.nih.gov/25932840/) (N=123): paced respiration was significantly _worse than listening to music_. The route is closed — not thin, closed.
 - **What survives**: sleep and mood in midlife, offered on the general evidence as general ([MsFLASH yoga: insomnia symptoms improved](https://journals.lww.com/menopausejournal/abstract/10.1097/gme.0b013e31829e4baa~efficacy-of-yoga-for-vasomotor-symptoms-a-randomized), actigraphy mostly unmoved). Night waking → `extended-exhale`; winding down → the existing occasion; the 3am occasion (§3.14) is this population's real gap, and rightly serves everybody.
-- **We will not say**: "ease hot flushes"; "for the menopausal transition"; "balance your hormones". Coach rule: good-quality evidence _against_ slow breathing for vasomotor symptoms — say plainly it does not work for them if asked; sleep/stress/anxiety are fair ground; no hormone-therapy discussion.
+- **We will not say**: "ease hot flushes"; "for the menopausal transition"; "balance your hormones". Copy rule: good-quality evidence _against_ slow breathing for vasomotor symptoms — say plainly it does not work for them if asked; sleep/stress/anxiety are fair ground; no hormone-therapy discussion.
 
 ### 5.3 Athletes
 
 - **Evidence, split by a distinction the market never makes**: the strong endurance result belongs to inspiratory muscle _training_ against a resistance device ([Illi 2012 meta](https://link.springer.com/article/10.1007/BF03262290)) — strength training for the diaphragm, unavailable to a pacing app, and weakest in the fittest. Paced breathing as recovery: the most direct trial found no performance or physiological benefit and slightly _raised_ nocturnal heart rate ([Raidl 2026, N=34](https://journals.humankinetics.com/view/journals/ijspp/21/2/article-p302.xml)); between sets it is neutral on power with better heart-rate recovery ([Buxton 2024, N=18](https://pmc.ncbi.nlm.nih.gov/articles/PMC11307190/)); the consistent positives are subjective recovery and control ([Merlin 2024, N=13](https://pmc.ncbi.nlm.nih.gov/articles/PMC10885016/)). The current box-breathing claim boundary is in §3.1; it does not establish a sport-performance benefit.
 - **Safety, sharper here than anywhere**: athletes are likeliest to have heard of Wim Hof, likeliest to be near water, likeliest to combine them. The shallow-water-blackout mechanism (§3.1) is the reason the "never in water" lines exist and must survive every copy pass.
-- **We will not say**: "breathe your way to a PB"; "train your lungs"; "used by elite athletes"; anything borrowing inspiratory-muscle-training evidence for paced breathing. Coach rule: perceived recovery, nerves and sleep are claimable; performance and objective recovery are not; never any fast-breathing or breath-hold technique in or near water.
+- **We will not say**: "breathe your way to a PB"; "train your lungs"; "used by elite athletes"; anything borrowing inspiratory-muscle-training evidence for paced breathing. Copy rule: perceived recovery, nerves and sleep are claimable; performance and objective recovery are not; never any fast-breathing or breath-hold technique in or near water.
 
 ### 5.4 Autism and neurodivergence beyond ADHD
 
@@ -192,7 +192,7 @@ The best-evidenced programme is singing-based (ENO Breathe): [RCT N=150](<https:
 
    The rejected alternative is worth recording too: clamping overrides to the dial in `every_protocol_rhythm_fits_its_exercise` would break the seed, because `with-your-child` deliberately runs a five-second exhale a second under Extended Exhale's own floor. The override escaping the dial is a feature; the fence measuring what the override actually produces is the fix.
 
-2. **No medication language, ever** — copy, coach and occasions alike (§1).
+2. **No medication language, ever** — copy and occasions alike (§1).
 3. **Red-flag triage on every breathlessness-shaped route** (§6.5), carried by the routes and the pursed-lip exercise — `when-youre-winded` and `when-you-cant-get-a-satisfying-breath` each hold it as an `OccasionSeed::safety_note` (§3.14), and the pursed-lip exercise carries the same guidance for direct entry. `the_techniques_that_need_a_warning_carry_one` pins the exercise-level set. Occasion notes are pinned in both directions by `the_protocols_that_need_a_warning_carry_one`.
 4. **No belly-expansion cue reachable from a breathlessness frame** (§6.5).
 5. **Alternate-nostril stays off acute and performance routes** (§3.1); **the sigh doesn't overdose** (§3.1).

@@ -2,9 +2,6 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The evidence thresholds are the product decision under test: the coach sees
-/// a trend only when the series can support one, and below that it sees
-/// absence — never a zero, never a guess.
 @Suite("Health summary thresholds")
 struct HealthSummaryBuilderTests {
     /// A moment with no significance beyond being fixed, so that "today" in a

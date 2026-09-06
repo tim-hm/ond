@@ -9,12 +9,7 @@ public extension OnboardingModel {
         public var asksHowYouFeel: Bool
         /// Whether a session shows a live heart rate from the watch.
         public var showsWristPulse: Bool
-        /// Whether önd may read heart data from Health: the coach's context,
-        /// and the heart rate Home draws around each practice. Paywalled, and
-        /// still asked for when on — see `requestOptInGrants()`. The name is
-        /// narrower than what it grants, but it is the stored key: renaming it
-        /// resets every opt-in to off.
-        public var coachReadsHealthTrends: Bool
+        public var readsHealthTrends: Bool
         /// Whether a kept session is credited to Health as Mindful Minutes.
         public var writesMindfulMinutes: Bool
 
@@ -24,7 +19,7 @@ public extension OnboardingModel {
         public static let freshInstall = Self(
             asksHowYouFeel: true,
             showsWristPulse: false,
-            coachReadsHealthTrends: false,
+            readsHealthTrends: false,
             writesMindfulMinutes: false
         )
     }
@@ -38,7 +33,7 @@ public extension OnboardingModel {
     /// writes in the same breath. `OnboardingView` asks for the wrist grant.
     func requestOptInGrants() async {
         await health?.requestGrants(
-            readsTrends: optIns.coachReadsHealthTrends,
+            readsTrends: optIns.readsHealthTrends,
             writesMinutes: optIns.writesMindfulMinutes
         )
 
@@ -64,8 +59,8 @@ extension OnboardingModel {
         if optIns.writesMindfulMinutes != arrived.writesMindfulMinutes {
             health?.writesMindfulMinutes = optIns.writesMindfulMinutes
         }
-        if optIns.coachReadsHealthTrends != arrived.coachReadsHealthTrends {
-            health?.coachReadsHealthTrends = optIns.coachReadsHealthTrends
+        if optIns.readsHealthTrends != arrived.readsHealthTrends {
+            health?.readsHealthTrends = optIns.readsHealthTrends
         }
     }
 }

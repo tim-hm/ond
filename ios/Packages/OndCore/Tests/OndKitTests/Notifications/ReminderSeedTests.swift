@@ -123,7 +123,6 @@ struct ReminderSeedTests {
         for goal in goals {
             model.toggle(goal)
         }
-        model.experienceLevel = .new
         model.advance()
 
         #expect(model.step == .optIns, "the dial lives with the opt-ins")

@@ -2,12 +2,8 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The opt-in state machine and the folding behind the coach's health context:
-/// off means Health is never touched, on means the series fold through the
-/// summary builder, and "nothing to say" is indistinguishable from "not
-/// allowed to look" — the model never learns which it was.
 @MainActor
-@Suite("Coach health context")
+@Suite("Local health trends")
 struct HealthContextModelTests {
     private nonisolated static let now = Date(timeIntervalSince1970: 1_777_000_000)
 
@@ -69,7 +65,7 @@ struct HealthContextModelTests {
         let store = ScriptedHealthStore()
         let model = try model(store: store, defaults: defaults())
 
-        model.coachReadsHealthTrends = true
+        model.readsHealthTrends = true
         #expect(await store.readAuthorizationRequests == 0, "the setter asks for nothing")
 
         model.requestReadAccess()
@@ -86,7 +82,7 @@ struct HealthContextModelTests {
             respiratoryRate: Self.trendingSeries(recent: 13, baseline: 15)
         )
         let model = try model(store: store, defaults: defaults())
-        model.coachReadsHealthTrends = true
+        model.readsHealthTrends = true
 
         let context = try #require(await model.context())
         #expect(context.restingHeartRate == HealthSnapshot(sevenDayMean: 62, trendFromBaseline: 4))
@@ -106,7 +102,7 @@ struct HealthContextModelTests {
             heartRateVariability: Self.trendingSeries(recent: 45, baseline: 51)
         )
         let model = try model(store: store, defaults: defaults())
-        model.coachReadsHealthTrends = true
+        model.readsHealthTrends = true
 
         let context = try #require(await model.context())
         #expect(context.restingHeartRate == nil)
@@ -123,7 +119,7 @@ struct HealthContextModelTests {
             respiratoryRate: Self.trendingSeries(recent: 14, baseline: 14)
         )
         let model = try model(store: store, defaults: defaults())
-        model.coachReadsHealthTrends = true
+        model.readsHealthTrends = true
 
         let context = try #require(await model.context())
         #expect(context.sleepingBreathingRate?.sevenDayMean == 14)
@@ -136,7 +132,7 @@ struct HealthContextModelTests {
     @Test("Denied access or an empty Health store is no context")
     func emptyHealthIsNoContext() async throws {
         let model = try model(store: ScriptedHealthStore(), defaults: defaults())
-        model.coachReadsHealthTrends = true
+        model.readsHealthTrends = true
 
         #expect(await model.context() == nil)
     }
@@ -145,12 +141,12 @@ struct HealthContextModelTests {
     func optInPersists() async throws {
         let defaults = try defaults()
         let first = ScriptedHealthStore()
-        model(store: first, defaults: defaults).coachReadsHealthTrends = true
+        model(store: first, defaults: defaults).readsHealthTrends = true
 
         let second = ScriptedHealthStore()
         let relaunched = model(store: second, defaults: defaults)
 
-        #expect(relaunched.coachReadsHealthTrends)
+        #expect(relaunched.readsHealthTrends)
         #expect(
             await second.readAuthorizationRequests == 0,
             "restoring a stored choice is not a new grant to ask for"
@@ -167,7 +163,7 @@ struct HealthContextModelTests {
         let store = ScriptedHealthStore()
         let model = try model(store: store, defaults: defaults())
 
-        model.coachReadsHealthTrends = true
+        model.readsHealthTrends = true
         model.requestReadAccess()
         await model.authorizationRequest?.value
 
@@ -183,7 +179,7 @@ struct HealthContextModelTests {
             restingHeartRate: Self.trendingSeries(recent: 62, baseline: 58)
         )
         let model = try model(store: store, defaults: defaults())
-        model.coachReadsHealthTrends = true
+        model.readsHealthTrends = true
 
         await model.loadHealthTrends()
         await model.loadHealthTrends()
@@ -192,14 +188,14 @@ struct HealthContextModelTests {
         #expect(model.healthTrends != .off, "both askers land on the drawn trends")
     }
 
-    @Test("Opted in with history draws the same summary the coach is given")
+    @Test("Opted in with history draws the local summary")
     func optedInWithHistoryDrawsTheTrends() async throws {
         let store = ScriptedHealthStore(
             restingHeartRate: Self.trendingSeries(recent: 62, baseline: 58)
         )
         let model = try model(store: store, defaults: defaults())
 
-        model.coachReadsHealthTrends = true
+        model.readsHealthTrends = true
         model.requestReadAccess()
         await model.authorizationRequest?.value
 
@@ -270,21 +266,16 @@ struct HealthContextModelTests {
         )
         let model = try model(store: store, defaults: defaults())
 
-        model.coachReadsHealthTrends = true
+        model.readsHealthTrends = true
         model.requestReadAccess()
         await model.authorizationRequest?.value
         #expect(model.healthTrends != .off)
 
-        model.coachReadsHealthTrends = false
+        model.readsHealthTrends = false
 
         #expect(model.healthTrends == .off)
     }
 
-    /// The leak this gate exists to close, and the case a check at the coach's call
-    /// site would miss: a subscription lapses, the opt-in stays on because it is the
-    /// person's preference and nobody took it away, and every request after that would
-    /// carry their HRV. Health is not read at all — asserted through the store's own
-    /// query count, because a nil context could also be a read that found nothing.
     @Test("A lapsed subscriber's opt-in reads nothing")
     func aFreeTierReadsNothing() async throws {
         let store = ScriptedHealthStore(
@@ -292,13 +283,13 @@ struct HealthContextModelTests {
         )
         let defaults = try defaults()
         let model = model(store: store, defaults: defaults, tier: .free)
-        model.coachReadsHealthTrends = true
+        model.readsHealthTrends = true
 
         #expect(await model.context() == nil)
         #expect(await store.queries == 0, "no read may happen below the tier")
         #expect(model.healthTrends == .off)
         #expect(
-            model.coachReadsHealthTrends,
+            model.readsHealthTrends,
             "the preference is theirs and survives the subscription lapsing"
         )
     }

@@ -29,14 +29,6 @@ struct TechniqueDetailView: View {
 
     let sessions: any SessionRecording
 
-    /// All three ride through to `TechniqueCoachDoor` and are only read there.
-    /// The door is drawn for a catalogue technique only — the coach is briefed
-    /// on the seeded ones — but the screen is one screen, so the dependencies
-    /// ride along whichever origin it shows.
-    let assistant: any AssistantReading
-    let chats: any ConversationStoring
-    let catalogue: TechniqueListModel
-
     @Environment(SessionSettings.self) private var settings
     @Environment(\.dismiss) private var dismiss
 
@@ -51,17 +43,11 @@ struct TechniqueDetailView: View {
     init(
         technique: Technique,
         own: UserTechniqueModel,
-        sessions: any SessionRecording,
-        assistant: any AssistantReading,
-        chats: any ConversationStoring,
-        catalogue: TechniqueListModel
+        sessions: any SessionRecording
     ) {
         self.technique = technique
         self.own = own
         self.sessions = sessions
-        self.assistant = assistant
-        self.chats = chats
-        self.catalogue = catalogue
         _launcher = State(wrappedValue: StopLauncher(sessions: sessions))
     }
 
@@ -84,20 +70,8 @@ struct TechniqueDetailView: View {
 
                 aboutSection
 
-                // Only for a catalogue exercise, the same rule the explanation
-                // this replaced kept: the coach is briefed on the seeded
-                // techniques and has nothing to say about one somebody wrote
-                // this morning.
                 if technique.origin == .catalogue {
                     TechniqueSources(technique: technique)
-
-                    TechniqueCoachDoor(
-                        technique: technique,
-                        assistant: assistant,
-                        chats: chats,
-                        catalogue: catalogue,
-                        sessions: sessions
-                    )
                 }
 
                 // Only the undo an exercise somebody wrote needs. Changing one
@@ -111,10 +85,6 @@ struct TechniqueDetailView: View {
         }
         .safeAreaInset(edge: .bottom) { beginBar }
         .paletteGround()
-        // The exercise list kicks this off too, but this screen is reachable
-        // without it — a notification, a home card, a coach offer — and the
-        // limits it carries are what decide whether an exercise can be made
-        // your own. Idempotent, so arriving the ordinary way costs nothing.
         .task { await own.loadIfNeeded() }
         .navigationTitle(technique.name)
         // Large, so the name is the heading of the thing just tapped and the

@@ -275,10 +275,6 @@ message Technique {
 
   TechniqueGoal goal = 5;
 
-  // M1's `phases` and `recommended_cycles`, replaced by the stage model in M2
-  // while no client had shipped. Reserved rather than reused so a development
-  // build holding the old contract fails to decode rather than misreading a
-  // stage list as a phase list.
   reserved 6, 7;
   reserved "phases", "recommended_cycles";
 
@@ -344,8 +340,6 @@ message Technique {
 
 // One question a beginner has, and the app's answer to it.
 message FoundationTopic {
-  // Stable key ("nose-or-mouth"), so a client — or M6's assistant, citing the
-  // same rows — can reference a topic without pinning its wording.
   string slug = 1;
 
   // Phrased as the question someone actually asks, not as a heading.

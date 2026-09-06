@@ -10,6 +10,7 @@ import SwiftUI
 /// its own drawing. It takes the model and reads the rest from the environment.
 struct SessionPlayerView: View {
     let model: SessionModel
+    @State private var vapourSeed = Float.random(in: 0 ... 100)
 
     @Environment(SessionSettings.self) private var settings
     @Environment(PulseMonitor.self) private var pulse
@@ -159,6 +160,7 @@ struct SessionPlayerView: View {
             motion: motion,
             accent: model.accent,
             register: model.timeline.register,
+            seed: vapourSeed,
             availableExtent: extent
         )
         .speaksPhase(beat, at: elapsed)

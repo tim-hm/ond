@@ -10,7 +10,7 @@ use axum::extract::State;
 use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
 
-use crate::features::{assistant, entitlement};
+use crate::features::entitlement;
 use crate::obs::metrics;
 use crate::state::AppState;
 
@@ -21,7 +21,6 @@ pub async fn render(State(state): State<Arc<AppState>>) -> Response {
     // ordinary scrapes share one scan, and it bounds its own wait so a stalled
     // query costs this gauge rather than the whole exposition.
     entitlement::metrics::refresh(&state.census, &state.pool).await;
-    assistant::metrics::set_mode(state.assistant.mode());
     metrics::refresh_pool(&state.pool);
 
     let Some(body) = metrics::exposition() else {

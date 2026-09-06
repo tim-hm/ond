@@ -227,10 +227,6 @@ resource "aws_sns_topic_subscription" "alarms_email" {
   endpoint  = var.alarm_email
 }
 
-# The box's half of the alert path. Scoped to this one topic for the same reason
-# the Bedrock grant is scoped to one profile: this role is what an SSRF in
-# anything running here would be reaching for, and `sns:Publish` on `*` is a
-# spam relay.
 data "aws_iam_policy_document" "publish_alarms" {
   statement {
     actions   = ["sns:Publish"]
@@ -266,38 +262,6 @@ locals {
   heartbeat_namespace = "Ond"
   heartbeat_metric    = "MonitoringHeartbeat"
 
-  # The foundation model behind the inference profile: the same id with the
-  # geography prefix removed, because that prefix names the profile. Derived
-  # rather than written twice — two literals naming one model can disagree, and
-  # they disagree as an AccessDenied at invoke time. The optional group matches
-  # `eu.`, `us.` and `apac.`, and leaves an unprefixed profile id alone.
-  assistant_foundation_model = regex("^(?:[a-z]{2,4}\\.)?(.*)$", var.assistant_inference_profile)[0]
-}
-
-# The assistant's model calls, scoped to one profile and one model rather than
-# `bedrock:*` on `*`. Both ARN families are required: an invocation is
-# authorised against the profile and against the underlying foundation model in
-# whichever region Bedrock forwards it to, so `assistant_profile_regions` has to
-# be complete. docs/deployment.md § The assistant's permission.
-data "aws_iam_policy_document" "invoke_model" {
-  statement {
-    actions = [
-      "bedrock:InvokeModel",
-      # Not optional: the chat RPC streams, so this is the action the coach
-      # actually uses on the path a person watches.
-      "bedrock:InvokeModelWithResponseStream",
-    ]
-
-    resources = concat(
-      # System-defined inference profiles are account-scoped and live in the
-      # region the call is signed for — the box's own.
-      ["arn:aws:bedrock:${var.region}:${data.aws_caller_identity.current.account_id}:inference-profile/${var.assistant_inference_profile}"],
-      # Foundation models are not account-scoped, hence the empty account field.
-      [for destination in var.assistant_profile_regions :
-        "arn:aws:bedrock:${destination}::foundation-model/${local.assistant_foundation_model}"
-      ],
-    )
-  }
 }
 
 resource "aws_iam_role" "api" {
@@ -309,12 +273,6 @@ resource "aws_iam_role_policy" "write_backups" {
   name   = "write-backups"
   role   = aws_iam_role.api.id
   policy = data.aws_iam_policy_document.write_backups.json
-}
-
-resource "aws_iam_role_policy" "invoke_model" {
-  name   = "invoke-model"
-  role   = aws_iam_role.api.id
-  policy = data.aws_iam_policy_document.invoke_model.json
 }
 
 resource "aws_iam_role_policy" "publish_alarms" {
@@ -333,45 +291,6 @@ resource "aws_iam_role_policy" "store_logs" {
   name   = "store-logs"
   role   = aws_iam_role.api.id
   policy = data.aws_iam_policy_document.store_logs.json
-}
-
-# The everyday dev loop's identity. `mise run dev` idles all day holding a
-# credential to call one API, and before this role that credential was the
-# `ond-tofu` user's AdministratorAccess. A role assumable by that user alone, so
-# the laptop keeps one set of long-lived keys and the long-running process signs
-# as something that can invoke Bedrock and nothing else.
-data "aws_iam_user" "tofu" {
-  # Must match `tofu_user_name` in infra/bootstrap/variables.tf, which keeps
-  # local state and so exports nothing to read the name from. A rename fails
-  # this lookup at plan time. A *recreated* user does not: IAM stores the trust
-  # principal as the old user's unique id, so this role stays unassumable until
-  # a later apply rewrites a trust policy that plans as unchanged.
-  user_name = "ond-tofu"
-}
-
-data "aws_iam_policy_document" "assume_dev" {
-  statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "AWS"
-      identifiers = [data.aws_iam_user.tofu.arn]
-    }
-  }
-}
-
-resource "aws_iam_role" "dev" {
-  name               = "ond-dev"
-  assume_role_policy = data.aws_iam_policy_document.assume_dev.json
-}
-
-# The same policy document the box's role carries — one definition of who may
-# call Bedrock, worn by two principals. A dev-only copy would be a pair free to
-# drift, and the way it would drift is a laptop that can reach a model the
-# deployment cannot.
-resource "aws_iam_role_policy" "dev_invoke_model" {
-  name   = "invoke-model"
-  role   = aws_iam_role.dev.id
-  policy = data.aws_iam_policy_document.invoke_model.json
 }
 
 # Break-glass. With 22/tcp closed the tailnet is the only route to a shell, so

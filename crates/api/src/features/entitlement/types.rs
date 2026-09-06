@@ -12,9 +12,6 @@ pub enum Tier {
     /// Everything that runs on the device, which is most of the app.
     Free,
 
-    /// önd+, and the whole of what it sells is what a use costs this server:
-    /// the language model behind the assistant, the leaderboard fold, and the
-    /// health trends the coach reads.
     Plus,
 }
 
@@ -54,11 +51,11 @@ impl SubscriptionTier {
     /// List price of one month, in US dollars — the fourth copy of this
     /// number (`Ond.storekit`, App Store Connect, the paywall) and nothing
     /// reconciles them; a stale price only wrongs one panel. Tier is stored,
-    /// cadence is not, so a year at $14.99 counts as a month at $1.99. Only
+    /// cadence is not, so a year at $9.99 counts as a month at $0.99. Only
     /// an estimate: Apple keeps 15–30%, tax comes off, refunds are invisible.
     pub const fn monthly_price_usd(self) -> f64 {
         match self {
-            Self::Plus => 1.99,
+            Self::Plus => 0.99,
         }
     }
 
@@ -116,11 +113,6 @@ impl Entitlement {
         self.active.map(|(_, until)| until)
     }
 
-    /// The row as stored, read against a clock — the one place the two
-    /// columns are put together. On the domain type because two features read
-    /// the row: this one for `GetEntitlement`, `assistant` to spend a model
-    /// call. A second spelling of the pairing would be a second place to find
-    /// when "active" comes to mean something more — a grace period, say.
     pub fn from_row(row: &super::repository::EntitlementRow, now: DateTime<Utc>) -> Self {
         debug_assert!(
             row.transaction_id.is_none() || row.original_transaction_id.is_some(),

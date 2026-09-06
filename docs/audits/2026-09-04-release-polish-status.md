@@ -1,5 +1,7 @@
 # Release polish implementation
 
+Historical audit: the 6 September 2026 release decision retires the AI coach and its provider processing. See [the release scope update](2026-09-06-release-scope.md) for the current product and remaining checks.
+
 This is the implementation follow-up to the [release review](2026-09-04-release-review.md). The work is retained locally and has not been deployed or submitted to the App Store. The original review records the starting state, not the state after these changes.
 
 ## Implemented

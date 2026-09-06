@@ -14,7 +14,7 @@ final class OndAppUITests: XCTestCase {
 
     func testHomeMeetsTheSystemAccessibilityAudit() throws {
         XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 10))
-        for tab in ["Home", "Moments", "Exercises", "Progress", "Coach"] {
+        for tab in ["Home", "Moments", "Exercises", "Progress"] {
             XCTAssertTrue(app.tabBars.buttons[tab].exists, "the \(tab) tab should stay visible")
         }
 
@@ -39,6 +39,23 @@ final class OndAppUITests: XCTestCase {
 
         app.buttons["all-exercises-row"].tap()
         XCTAssertTrue(app.staticTexts["Exercises"].waitForExistence(timeout: 5))
+    }
+
+    func testPracticeResourcesRemainAvailableWithoutCoach() {
+        XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.tabBars.buttons["Coach"].exists)
+        app.tabBars.buttons["Exercises"].tap()
+        let basics = app.buttons["basics-door"]
+        XCTAssertTrue(basics.waitForExistence(timeout: 5))
+        basics.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["reading-what-matters-most-heading"]
+            .waitForExistence(timeout: 5))
+        app.tabBars.buttons["Progress"].tap()
+        let checkIns = app.buttons["check-ins-door"]
+        XCTAssertTrue(checkIns.waitForExistence(timeout: 5))
+        checkIns.tap()
+        XCTAssertTrue(app.staticTexts["Resting breathing rate"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Comfortable pause"].exists)
     }
 
     /// - Parameter sheet: pass over the audit's "text may be clipped"
@@ -71,7 +88,7 @@ final class OndAppUITests: XCTestCase {
             "--ui-testing",
             "-plus.tier", "0",
             "-session.wristPulse", "NO",
-            "-health.coachReadsHealthTrends", "NO",
+            "-health.readsHealthTrends", "NO",
         ]
         app.launch()
 
@@ -533,16 +550,6 @@ final class OndAppUITests: XCTestCase {
 
             return false
         }
-
-        let coach = app.buttons["Ask the coach about Box Breathing"]
-        for _ in 0 ..< 3 where !coach.isHittable {
-            app.swipeUp()
-        }
-
-        XCTAssertTrue(coach.isHittable)
-        XCTAssertGreaterThanOrEqual(coach.frame.height, 44)
-        XCTAssertTrue(begin.isHittable, "Begin stays pinned while the reading scrolls")
-        XCTAssertGreaterThan(coach.frame.minY, app.staticTexts["Evidence"].frame.minY)
     }
 
     func testReadingLayoutsKeepTheirVoiceOverOrderAtLargeText() {
@@ -583,18 +590,18 @@ final class OndAppUITests: XCTestCase {
 
         app.terminate()
         app.launch()
-        XCTAssertTrue(app.tabBars.buttons["Coach"].waitForExistence(timeout: 10))
-        app.tabBars.buttons["Coach"].tap()
-        app.buttons["The basics"].tap()
+        XCTAssertTrue(app.tabBars.buttons["Exercises"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Exercises"].tap()
+        app.buttons["basics-door"].tap()
         let paragraph = app.descendants(matching: .any)["reading-belly-or-chest-lead"]
         XCTAssertTrue(paragraph.waitForExistence(timeout: 5))
         XCTAssertFalse(paragraph.label.isEmpty)
     }
 
     func testBasicsLeadsWithPracticeAndMeetsTheAccessibilityAudit() throws {
-        app.tabBars.buttons["Coach"].tap()
+        app.tabBars.buttons["Exercises"].tap()
 
-        let basics = app.buttons["The basics"]
+        let basics = app.buttons["basics-door"]
         XCTAssertTrue(basics.waitForExistence(timeout: 10))
         basics.tap()
 

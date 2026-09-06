@@ -33,7 +33,6 @@ public final class OnboardingModel {
 
     /// In the order they were picked, which is the order they are shown back.
     public private(set) var goals: [TechniqueGoal] = []
-    public var experienceLevel: ExperienceLevel?
 
     public var reminderIntensity: ReminderIntensity = .never {
         didSet { hasMovedDial = true }
@@ -100,7 +99,7 @@ public final class OnboardingModel {
             optIns.showsWristPulse = settings.showsWristPulse
         }
         if let health {
-            optIns.coachReadsHealthTrends = health.coachReadsHealthTrends
+            optIns.readsHealthTrends = health.readsHealthTrends
             optIns.writesMindfulMinutes = health.writesMindfulMinutes
         }
         self.optIns = optIns
@@ -268,15 +267,10 @@ public final class OnboardingModel {
         Task { await dial.seedIfNeeded() }
     }
 
-    /// The answers as they stand, laid over whatever the profile already
-    /// holds. An overlay, not a fresh `Profile`: `UpdateProfile` replaces
-    /// every column, so a value built from the four answers here would erase
-    /// the display name, gender and birth band the server holds. Those stay
-    /// editable in Settings. It is narrowed so the server accepts it.
+    /// Preserve profile fields this flow does not collect, including preview data.
     public var profile: Profile {
         var merged = restoredBase ?? store.profile
         merged.goals = goals
-        merged.experienceLevel = experienceLevel
         merged.reminderIntensity = reminderIntensity
         merged.givenName = givenName.trimmingCharacters(in: .whitespacesAndNewlines)
         return merged.clampedToServerLimits()

@@ -263,11 +263,6 @@ pub(super) struct TechniqueSeed {
     /// sentence cannot quietly re-grade an exercise. Every curated technique
     /// carries one; `None` belongs to the exercises people write themselves.
     pub(super) evidence_grade: EvidenceGrade,
-    /// The caution this technique carries, empty where it carries none. The
-    /// phone renders it as a full-screen warning between Begin and the countdown
-    /// (`TechniqueWarningView`). The person silences it against this exact text,
-    /// so rewording a note re-asks everyone who put it away. Blanking a note
-    /// removes that warning; the watch and the assistant fallback show none.
     pub(super) safety_note: &'static str,
     /// What to do with your body before the first breath, empty where the
     /// exercise asks for nothing. It is the part that does not change while the

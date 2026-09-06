@@ -1,10 +1,5 @@
 import Foundation
 
-/// How much breathwork someone has done before. It chooses what the app
-/// explains, never what it offers. The coach is the only reader
-/// (`experience_phrase`); what a session shows is `SessionGuidance` instead.
-/// Absent rather than "unspecified", because a profile exists before anyone
-/// has been asked.
 public enum ExperienceLevel: String, Sendable, CaseIterable, Codable, Identifiable {
     case new
     case occasional
@@ -85,11 +80,6 @@ public enum BirthYearBand: String, Sendable, CaseIterable, Codable, Identifiable
     }
 }
 
-/// Gender, as someone chose to share it. It exists so the coach can read a
-/// breath-test score against the right baseline, and for nothing else. A
-/// closed list without a self-describe field: the one consumer is a prompt,
-/// and free text would be a second injection surface. Optional everywhere, so
-/// "rather not say" is absence rather than a fourth case.
 public enum Gender: String, Sendable, CaseIterable, Codable, Identifiable {
     case female
     case male

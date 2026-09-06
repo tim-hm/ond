@@ -96,11 +96,6 @@ public struct SessionLaunchResolver {
         )
     }
 
-    /// Resolves a technique that did not arrive through a dial stop.
-    /// Notifications and coach offers are always full-screen, plain, and
-    /// unprescribed, but may supply a dose via `overrides` (`nil` is the
-    /// curated exercise). This entry point keeps their entitlement gate and
-    /// model construction the same ones a dial stop uses.
     public func resolvePhoneSession(
         _ technique: Technique,
         dialledWith overrides: TechniqueOverrides?,

@@ -7,38 +7,6 @@
 mod features;
 mod grpc;
 
-/// The assistant's model seam — a dependency the composition root chooses. A
-/// named re-export rather than making `features` public: publishing the whole
-/// feature tree would also publish every service, repository, and error type,
-/// the backdoor docs/code-structure.md rules out. Adding to this list is a
-/// visible decision.
-pub mod assistant {
-    pub use crate::features::assistant::model::bedrock::BedrockClient;
-    pub use crate::features::assistant::model::breaker::GuardedModelClient;
-    pub use crate::features::assistant::model::disabled::DisabledModelClient;
-    pub use crate::features::assistant::model::{
-        AssistantMode, ChatRole, ChatTurn, ModelChunk, ModelClient, ModelError, ModelRequest,
-        ModelStream, ToolSpec, install,
-    };
-    pub use crate::features::assistant::types::daily_model_calls;
-}
-
-/// The journey feature's practice snapshot, published on the same terms as
-/// `assistant`. No RPC serves it — it is prompt input for the assistant — so
-/// `tests/e2e` has to name it here to drive the aggregates over real inserts;
-/// the window and top-`N` behaviours live in SQL, which no unit test can reach.
-pub mod journey {
-    pub use crate::features::journey::bolt::types::BoltSnapshot;
-    pub use crate::features::journey::sessions::service::practice_snapshot;
-    pub use crate::features::journey::sessions::types::{
-        MAX_SNAPSHOT_TECHNIQUES, PRACTICE_WINDOW_DAYS, PracticeSnapshot, TechniquePractice,
-    };
-}
-
-/// The App Store signature seam, published on the same terms as `assistant`.
-///
-/// `Tier` travels with it because the allowance is a function of one, so a test
-/// asking how many calls a subscriber gets has to be able to name it.
 pub mod entitlement {
     pub use crate::features::entitlement::types::{SubscriptionTier, Tier};
     pub use crate::features::entitlement::verifier::{
@@ -47,10 +15,7 @@ pub mod entitlement {
     };
 }
 
-/// The Sign in with Apple seam, published on the same terms as `assistant`.
-///
-/// `VerifiedIdentity` travels with it because a test double has to return one,
-/// and the error type because a double has to be able to refuse.
+/// Sign in with Apple verification types shared with the test harness.
 pub mod account {
     pub use crate::features::account::AuthorizationNonceHash;
     pub use crate::features::account::verifier::{

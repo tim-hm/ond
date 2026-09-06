@@ -13,11 +13,6 @@ use super::errors::UserTechniqueError;
 use super::repository;
 use super::types::PhaseLimits;
 
-/// [`repository::phase_limits`], derived once per process.
-///
-/// The catalogue changes only on a deploy, which restarts this process. One
-/// cache per transport instance, so each e2e stack derives from its own
-/// database. `Arc` because the assistant's reply stream outlives its RPC.
 pub struct PhaseLimitsCache(OnceCell<Arc<PhaseLimits>>);
 
 impl PhaseLimitsCache {

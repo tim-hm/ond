@@ -105,16 +105,8 @@ description = "Destroy the database volume and rebuild it from migrations"
 run = ["docker compose down -v", "mise run dev:db", "mise run migrate"]
 
 [tasks.dev]
-description = "Run the API with auto-reload on change (the coach calls Bedrock for real)"
+description = "Run the API with auto-reload on change"
 depends = ["dev:db"]
-# Pinned to a *name* for DATABASE_URL's reason: unset, the AWS SDK's default
-# chain reads whichever `[default]` profile the machine holds, and the API
-# boots signing against the wrong account. `ond-dev` is the scoped role that
-# can invoke the model and nothing else; what local calls cost and why this is
-# safe is in docs/contributing.md § The coach calls Bedrock for real.
-env = { AWS_PROFILE = "ond-dev" }
-# Scoped to the directories the binary is built from; unscoped, editing a
-# SwiftUI view or a doc would relink and restart the API.
 run = "cargo watch -w crates -w proto -x 'run -p api'"
 
 [tasks.migrate]
@@ -382,26 +374,12 @@ description = "Resolve every link in the docs without hitting the network"
 run = "lychee --offline --root-dir {{config_root}} 'docs/**/*.md' CLAUDE.md README.md"
 
 [tasks."check:generated"]
-description = "Assert the committed Swift protobuf and catalogue export match their sources"
-# check:sqlx's contract for the other committed artifacts: regenerate,
-# compare, fail on drift. Against HEAD, not the index — a bare `git diff`
-# passes on staged drift and, in a GitButler workspace, fails on generated
-# files already committed. The site's figures need a Swift toolchain, so they
-# are check:diagrams; this task must stay runnable on a headless box.
-run = [
-  "mise run generate:proto",
-  "mise run generate:catalogue",
-  "mise run generate:icons",
-  "git diff --exit-code HEAD -- ios/Packages/OndCore/Sources/OndAPI/Generated ios/Packages/OndCore/Sources/OndKit/Resources/catalogue.json web/favicon.ico web/apple-touch-icon.png ios/OndWatch/Assets.xcassets/AppIcon.appiconset",
-]
+description = "Assert generated artifacts reproduce exactly from the working source"
+run = "cargo run --quiet -p toolkit -- generated check"
 
 [tasks."check:diagrams"]
-description = "Assert the site's committed figures match the app's geometry"
-# Outside `check` on cost, not platform: it builds Swift for minutes. Run it
-# when touching ios/ or web/ — "the page and the app draw a technique the same
-# way" is the invariant this whole arrangement exists to create, and this is
-# its only enforcement while Actions stay disabled.
-run = ["mise run generate:diagrams", "git diff --exit-code HEAD -- web/index.html"]
+description = "Assert site figures reproduce exactly from the shared app geometry"
+run = "cargo run --quiet -p toolkit -- generated diagrams"
 
 [tasks."check:audit"]
 description = "Match Cargo.lock against RustSec and Package.resolved against OSV"
@@ -438,17 +416,6 @@ depends = ["dev:db"]
 # sweeps hour-old leftovers.
 env = { CARGO_TARGET_DIR = "{{env.CHECK_TARGET_DIR}}" }
 run = "cargo nextest run -p api --test e2e"
-
-[tasks."assistant:smoke"]
-description = "Make one real call to the model provider and print what it said"
-depends = ["dev:db"]
-# The only task that spends money and leaves the machine, which is why the
-# tests are `#[ignore]`d rather than guarded by a variable someone could set
-# by accident. The filter names a category — every `smoke_*` test — so
-# renaming one cannot quietly make this pass by running nothing.
-# `--no-capture` because the printed answer is the result.
-env = { CARGO_TARGET_DIR = "{{env.CHECK_TARGET_DIR}}", AWS_PROFILE = "ond-dev" }
-run = "cargo nextest run -p api --test e2e --run-ignored only -E 'test(/::smoke_/)' --no-capture"
 
 [tasks."test:swift"]
 dir = "{{config_root}}/ios"
@@ -841,3 +808,13 @@ run = '''
     -authenticationKeyID "$OND_ASC_KEY_ID" \
     -authenticationKeyIssuerID "$OND_ASC_ISSUER_ID"
 '''
+
+[tasks."store:read"]
+description = "Read App Store Connect metadata using the configured upload key"
+usage = 'arg "path" help="App Store Connect /v1/ path including query parameters"'
+run = 'cargo run --quiet -p toolkit -- app-store read "$usage_path"'
+
+[tasks."store:apply"]
+description = "Apply one reviewed JSON subscription price or listing text change"
+usage = 'arg "file" help="JSON file containing method, path and body"'
+run = 'cargo run --quiet -p toolkit -- app-store apply "$usage_file"'

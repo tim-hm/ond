@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Collection excludes data used only to serve a request in real time.
-     Review the deployed provider and logging settings before submission.
-     See docs/audits/2026-09-05-release-trust-validation.md. -->
+<!-- HealthKit readings remain on device. Self-reported check-ins and
+     practice history are collected for app functionality. -->
 <plist version="1.0">
 <dict>
 	<key>NSPrivacyTracking</key>
@@ -89,10 +88,8 @@
 			</array>
 		</dict>
 		<dict>
-			<!-- The free-text note written during onboarding, and the names
-			     given to self-authored techniques. Both are stored verbatim.
-			     Policy: "What we store" → "What you tell us during
-			     onboarding". -->
+			<!-- Personal exercise names and descriptions are stored for sync.
+                 Preview profile notes remain until account deletion. -->
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeOtherUserContent</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
@@ -122,27 +119,8 @@
 			</array>
 		</dict>
 		<dict>
-			<!-- One number per day: how many coach calls were made, which caps
-			     what the model costs. Policy: "What we store" → "A daily
-			     counter, if you use the coach". -->
-			<key>NSPrivacyCollectedDataType</key>
-			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
-			<key>NSPrivacyCollectedDataTypeLinked</key>
-			<true/>
-			<key>NSPrivacyCollectedDataTypeTracking</key>
-			<false/>
-			<key>NSPrivacyCollectedDataTypePurposes</key>
-			<array>
-				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
-			</array>
-		</dict>
-		<dict>
-			<!-- The onboarding answers Apple has no category for: goals,
-			     experience level, reminder frequency, and — each optional and
-			     blank by default — a decade-wide birth-year band and gender.
-			     Not NSPrivacyCollectedDataTypeSensitiveInfo, whose definition
-			     covers sexual orientation rather than gender. Policy: "What we
-			     store" → "What you tell us during onboarding". -->
+			<!-- Goals, reminder preference, and optional birth-year band.
+                 Preview experience and gender remain until account deletion. -->
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeOtherDataTypes</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>

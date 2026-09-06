@@ -10,13 +10,7 @@ struct TechniqueListView: View {
     let model: TechniqueListModel
     let own: UserTechniqueModel
     let sessions: any SessionRecording
-    let assistant: any AssistantReading
-
-    /// Only ever read on the pushed detail screen, whose coach door opens a
-    /// conversation. Threaded rather than reached for from the environment on the
-    /// same terms as everything else here: this root's dependencies are the
-    /// composition root's to state.
-    let chats: any ConversationStoring
+    let foundations: FoundationsModel
 
     @Environment(SubscriptionStore.self) private var plus
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -48,10 +42,7 @@ struct TechniqueListView: View {
                     TechniqueDetailView(
                         technique: technique,
                         own: own,
-                        sessions: sessions,
-                        assistant: assistant,
-                        chats: chats,
-                        catalogue: model
+                        sessions: sessions
                     )
                 }
                 .paywall(for: .general, isPresented: $isShowingPaywall)
@@ -175,6 +166,18 @@ struct TechniqueListView: View {
 
                     Section {
                         VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
+                            NavigationLink {
+                                FoundationsView(model: foundations)
+                            } label: {
+                                Label("The basics", systemImage: "book")
+                                    .font(.body)
+                                    .foregroundStyle(Theme.Accent.brandText)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(Theme.Spacing.standard)
+                                    .plate()
+                            }
+                            .accessibilityIdentifier("basics-door")
+
                             catalogueSection(of: matching(techniques))
                             ownSection
                             rhythmCaption

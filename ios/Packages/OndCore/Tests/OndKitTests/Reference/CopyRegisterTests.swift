@@ -28,11 +28,6 @@ struct CopyRegisterTests {
         )
     }
 
-    /// Everything else keeps the plain sentence in both forms.
-    ///
-    /// The seeded route is held to nose-only breathing on the server, so this is
-    /// unreachable from the catalogue today. It stays total anyway: a coach offer
-    /// or an authored exercise could put any breath in front of it.
     @Test("Every other breath keeps the words it already had")
     func everythingElseFallsBackToPlain() {
         let unwritten = Breath.allCases.filter {

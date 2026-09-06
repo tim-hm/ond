@@ -55,8 +55,8 @@ final class FakeStoreFront: StoreFront, @unchecked Sendable {
         return [
             SubscriptionProduct(
                 plan: .monthly,
-                displayPrice: "£1.99",
-                price: 1.99,
+                displayPrice: "£0.99",
+                price: 0.99,
                 introductoryOffer: IntroductoryOffer(
                     trialDays: 7,
                     isEligible: isEligibleForTrial
@@ -64,8 +64,8 @@ final class FakeStoreFront: StoreFront, @unchecked Sendable {
             ),
             SubscriptionProduct(
                 plan: .yearly,
-                displayPrice: "£14.99",
-                price: 14.99,
+                displayPrice: "£9.99",
+                price: 9.99,
                 introductoryOffer: IntroductoryOffer(
                     trialDays: 7,
                     isEligible: isEligibleForTrial

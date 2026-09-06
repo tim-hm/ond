@@ -33,11 +33,6 @@ pub(super) fn validate(
         )));
     }
 
-    // `profile::service::bounded_line`'s rule, and now for its reason as well as
-    // its own: this name reaches the coach's prompt as a line of its own under a
-    // header, so a newline inside it is a person writing the shape of a header
-    // the server did not write. Nothing legitimate puts a control character in
-    // the name of a breathing exercise.
     if name.chars().any(char::is_control) {
         return Err(UserTechniqueError::Invalid(
             "Use a single line of visible text for the exercise name.".to_owned(),

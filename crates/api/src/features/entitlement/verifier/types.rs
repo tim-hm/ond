@@ -137,10 +137,6 @@ impl VerificationError {
     }
 }
 
-/// What the entitlement feature needs from a signature checker, and nothing
-/// else. A plain `trait` used through `dyn`, matching
-/// `assistant::model::ModelClient`: the composition root picks the
-/// implementation at startup, and no test can reach a real chain by accident.
 pub trait TransactionVerifier: Send + Sync {
     /// Checks `signed_transaction` and returns what it asserts. Every check is
     /// in here rather than split with the caller, so that "verified" means one

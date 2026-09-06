@@ -13,10 +13,7 @@ use super::convert::{
 };
 use super::errors::TechniqueError;
 use super::repository::{self, PhaseRow, StageRow};
-use super::types::{
-    FoundationHeading, Occasion, PlayablePhase, PlayableStage, ProgressionStep, Reference,
-    Technique, TechniqueId,
-};
+use super::types::{PlayablePhase, PlayableStage, TechniqueId};
 use crate::proto::ond::v1 as pb;
 use crate::wire;
 
@@ -76,81 +73,6 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
         .collect::<Result<Vec<_>, TechniqueError>>()?;
 
     Ok(pb::ListTechniquesResponse { techniques })
-}
-
-/// The catalogue as `assistant` reads it, through [`super::cache`].
-///
-/// It carries the playable stages, `safety_note` and `mechanism`, and leaves `evidence` and
-/// `preparation` behind — see "What the coach reads from the catalogue" in `docs/architecture.md`.
-/// `pub(super)` keeps the cache the only way out, so the derivation stays a once-per-process cost.
-pub(super) async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, TechniqueError> {
-    // Three sequential reads, on `list_techniques`' terms and now for its
-    // reason too: the concurrent fan-out this replaced was bought when the
-    // catalogue was read on every assistant request, and `super::cache` reads
-    // it once per process instead.
-    let techniques = repository::list_techniques(pool).await?;
-    let stages = repository::list_all_stages(pool).await?;
-    let phases = repository::list_all_phases(pool).await?;
-
-    let mut stages_by_technique = assemble_playable_stages(stages, phases)?;
-
-    techniques
-        .into_iter()
-        .map(|row| {
-            let stages = stages_by_technique.remove(&row.id).ok_or_else(|| {
-                TechniqueError::Inconsistent(format!("technique `{}` has no stages", row.slug))
-            })?;
-
-            Ok(Technique {
-                slug: row.slug,
-                name: row.name,
-                summary: row.summary,
-                mechanism: row.mechanism,
-                goal: row.goal,
-                safety_note: row.safety_note,
-                recommended_rounds: row.recommended_rounds,
-                stages,
-            })
-        })
-        .collect()
-}
-
-/// The curated reference data [`super::cache`] serves.
-///
-/// The occasions, the Start here progression, and the foundation headings, all three in the
-/// assistant's cached prefix so the coach names the app's own entry points rather than inventing
-/// advice beside them. Domain types, sequential reads and `pub(super)` for [`catalogue`]'s reasons.
-pub(super) async fn reference(pool: &PgPool) -> Result<Reference, TechniqueError> {
-    let occasions = repository::list_occasions(pool).await?;
-    let progression = repository::list_progression_steps(pool).await?;
-    let foundations = repository::list_foundation_topics(pool).await?;
-
-    Ok(Reference {
-        occasions: occasions
-            .into_iter()
-            .map(|row| Occasion {
-                slug: row.slug,
-                technique_slug: row.technique_slug,
-                surface: row.surface,
-                duration_ms: row.duration_ms,
-                phase_durations_ms: row.phase_durations_ms,
-                safety_note: row.safety_note,
-            })
-            .collect(),
-        progression: progression
-            .into_iter()
-            .map(|row| ProgressionStep {
-                technique_slug: row.technique_slug,
-            })
-            .collect(),
-        foundations: foundations
-            .into_iter()
-            .map(|row| FoundationHeading {
-                slug: row.slug,
-                question: row.question,
-            })
-            .collect(),
-    })
 }
 
 /// The breathing foundations, in curated reading order.

@@ -11,7 +11,7 @@ public enum HealthTrendsState: Sendable, Equatable {
     /// Opted in, and the first read has not answered yet.
     case loading
     /// Opted in, with at least one metric Health had enough to summarise.
-    case trends(CoachHealthContext)
+    case trends(HealthTrendSummary)
     /// Opted in, and Health yielded nothing to summarise.
     case nothingReadable
 }

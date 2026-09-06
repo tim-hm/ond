@@ -6,7 +6,7 @@ import SwiftUI
 struct HealthSettingsSection: View {
     @Binding private var asksHowYouFeel: Bool
     @Binding private var showsWristPulse: Bool
-    @Binding private var coachReadsHealthTrends: Bool
+    @Binding private var readsHealthTrends: Bool
     @Binding private var writesMindfulMinutes: Bool
 
     /// Whether each paid row still has to name what it needs. Without the
@@ -21,7 +21,7 @@ struct HealthSettingsSection: View {
     init(
         asksHowYouFeel: Binding<Bool>,
         showsWristPulse: Binding<Bool>,
-        coachReadsHealthTrends: Binding<Bool>,
+        readsHealthTrends: Binding<Bool>,
         writesMindfulMinutes: Binding<Bool>,
         wristPulseNeedsPlus: Bool,
         healthTrendsNeedsPlus: Bool,
@@ -30,7 +30,7 @@ struct HealthSettingsSection: View {
     ) {
         _asksHowYouFeel = asksHowYouFeel
         _showsWristPulse = showsWristPulse
-        _coachReadsHealthTrends = coachReadsHealthTrends
+        _readsHealthTrends = readsHealthTrends
         _writesMindfulMinutes = writesMindfulMinutes
         self.wristPulseNeedsPlus = wristPulseNeedsPlus
         self.healthTrendsNeedsPlus = healthTrendsNeedsPlus
@@ -58,7 +58,7 @@ struct HealthSettingsSection: View {
                 Task { await preparePulse() }
             }
 
-            Toggle(isOn: $coachReadsHealthTrends) {
+            Toggle(isOn: $readsHealthTrends) {
                 settingsLabel(
                     "Heart and sleep data",
                     description: healthTrendsNeedsPlus ? SubscriptionTier.plusRequirementNote : nil
@@ -66,7 +66,7 @@ struct HealthSettingsSection: View {
             }
             .accessibilityIdentifier("settings-health-watch-trends")
             // The preference and Health's permission remain separate choices.
-            .onChange(of: coachReadsHealthTrends) { _, isOn in
+            .onChange(of: readsHealthTrends) { _, isOn in
                 guard isOn else { return }
                 requestReadAccess()
             }
@@ -79,7 +79,7 @@ struct HealthSettingsSection: View {
             Text("Health")
         } footer: {
             Text(
-                "If you allow AI sharing, önd can send heart and sleep summaries to Amazon Bedrock for coaching. "
+                "Heart and sleep trends are read from Apple Health and shown on this device. "
                     + "Raw readings stay on this device."
             )
             .accessibilityIdentifier("settings-health-sharing-note")

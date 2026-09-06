@@ -1,11 +1,6 @@
 import Foundation
 import os
 
-/// Which tier this person is on, and the only thing any screen asks.
-/// Offline-first: the tier is answered from `StoreKit` on this device, and the
-/// server submission is a sync alongside, never a gate. This device decides
-/// what to show; the server decides what to spend. A sync failure reaches no
-/// view — the assistant answers from its rules until the next launch retries.
 @MainActor
 @Observable
 public final class SubscriptionStore: PersonalStore {
@@ -86,9 +81,6 @@ public final class SubscriptionStore: PersonalStore {
 
     public private(set) var feedback: Feedback?
 
-    /// How far the last submission got — the only question the coach screen
-    /// asks. The verifier's reason belongs in the log line at the catch,
-    /// where it is already in hand.
     public enum SubmissionOutcome: Sendable, Equatable {
         /// Refused because this build's transactions are signed locally
         /// (see `SubscriptionTransaction.isLocallySigned`): a dev build
@@ -96,10 +88,6 @@ public final class SubscriptionStore: PersonalStore {
         case refusedLocallySigned
         /// Refused an Apple-signed transaction: a purchase not being honoured.
         case refused
-        /// Held by the server's transfer cooldown — a reinstall inside the
-        /// 24-hour window, waiting for the purchase to move over by itself.
-        /// Neither shade of refused, because the coach's notice must be able
-        /// to say "wait a day" instead of "retry" or "contact support".
         case held
     }
 
@@ -309,11 +297,6 @@ public final class SubscriptionStore: PersonalStore {
         await refresh()
     }
 
-    /// Tells the server about one transaction, at most once per launch. A
-    /// failure leaves the key unrecorded, so the next launch retries; a late
-    /// purchase costs only a rule-based assistant meanwhile. A refusal settles
-    /// the key — the same bytes would be refused again — and is logged at
-    /// `error` when Apple-signed: a paying customer's purchase not honoured.
     private func submit(_ transaction: SubscriptionTransaction) async {
         guard !settled.contains(transaction.submissionKey) else { return }
 

@@ -18,8 +18,6 @@ extension OndApp {
                 sessions: recorder,
                 profiles: profiles,
                 foundations: reference.foundations,
-                assistant: assistant,
-                chats: chats,
                 router: router
             )
             .fullScreenCover(item: $firstRun) { gate in
@@ -41,7 +39,6 @@ extension OndApp {
             .environment(choice)
             .environment(account)
             .environment(plus)
-            .environment(assistantConsent)
             .environment(schedules)
             .environment(heart)
             .environment(journey)

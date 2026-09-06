@@ -19,8 +19,6 @@ struct AppRoots {
     let journey: JourneyModel
     let profiles: ProfileStore
     let foundations: FoundationsModel
-    let assistant: any AssistantReading
-    let chats: any ConversationStoring
 
     /// What Home's "All exercises" row does — the chrome's tab selection,
     /// reached the only way a leaf under one tab can move another.
@@ -47,8 +45,7 @@ struct AppRoots {
             model: catalogue,
             own: own,
             sessions: sessions,
-            assistant: assistant,
-            chats: chats
+            foundations: foundations
         )
     }
 
@@ -58,16 +55,6 @@ struct AppRoots {
             catalogue: catalogue,
             own: own,
             profiles: profiles
-        )
-    }
-
-    var coachRoot: some View {
-        CoachRootView(
-            assistant: assistant,
-            chats: chats,
-            catalogue: catalogue,
-            sessions: sessions,
-            foundations: foundations
         )
     }
 }

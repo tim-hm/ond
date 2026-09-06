@@ -64,12 +64,7 @@ struct ThemeColorTests {
         }
     }
 
-    /// The coach's send button is a two-tone glyph: the ground's colour as the
-    /// arrow, `Breath/Inhale` as the circle under it. A glyph is a graphical
-    /// object, so the bar is WCAG 1.4.11's 3:1 rather than AA's 4.5:1. Measured
-    /// here because the pair is the other way round from every sweep in this
-    /// file: the ground is the mark, and the breath colour is behind it.
-    @Test("the coach's send arrow reads against its own circle")
+    @Test("the brand glyph reads against its own circle")
     func sendArrowIsLegibleOnItsCircle() throws {
         let arrowSet = try #require(try ColorSet(
             at: ColorSet.palette,
@@ -91,7 +86,7 @@ struct ThemeColorTests {
                 Surface/Ground on Breath/Inhale is \
                 \(ratio.formatted(.number.precision(.fractionLength(2)))):1 in \
                 \(appearance.rawValue), below WCAG 1.4.11's 3:1 — which leaves the \
-                coach's send button an arrow nobody can pick out of its circle
+                brand glyph indistinct from its circle
                 """
             )
         }
@@ -116,11 +111,6 @@ struct ThemeColorTests {
         try expectAA(foreground, on: background, "\(breath.rawValue) on Surface/Ground", .dark)
     }
 
-    /// The strengths an accent wash carries a word at. 0.15 is `GoalBadge`;
-    /// `Theme.Fill.selection` is an opaque control drawn as chosen — a
-    /// schedule's weekday, the coach's selected reply, and a selected
-    /// `FilterPill`, which washes and rings its surface rather than moving the
-    /// word into the accent.
     private static let washes = [0.15, Theme.Fill.selection]
 
     /// A badge sets a word in primary ink over a wash of an accent — `GoalBadge`
@@ -156,11 +146,6 @@ struct ThemeColorTests {
         }
     }
 
-    /// The other way to say a goal in its own colour: `rowCaption` sets the goal word
-    /// in the accent, and wherever an accent carries text on the ground itself (that
-    /// row, the coach button) the bar is AA's 4.5:1. That floor is why the light accents
-    /// sit deeper than the refresh spec's L−0.14 rule — at spec values the row missed
-    /// AA. Against `Surface/Ground` alone: nothing draws the raised pair.
     @Test("every text accent carries the catalogue row's goal word", arguments: textAccents)
     func textAccentIsLegibleAsSmallTextOnItsGround(_ accent: ColorToken) throws {
         let accentSet = try #require(try ColorSet(at: ColorSet.palette, named: accent.rawValue))

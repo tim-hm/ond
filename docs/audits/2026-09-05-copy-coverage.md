@@ -1,5 +1,7 @@
 # Copy audit coverage — 5 September 2026
 
+Historical audit: Coach-related findings and pricing were superseded by the 6 September 2026 release decision. Removed source references are marked as retired; the assessment below records the earlier build.
+
 Companion to the [complete source-copy audit](2026-09-05-complete-copy-audit.md), reviewed at `0b6a8ad2a`. This inventory defines coverage; a file listed here is not a claim that all of its runtime states were exercised.
 
 ## Method and exclusions
@@ -34,24 +36,24 @@ Screened every `.swift` file in the seven shipping native roots below. Read the 
 | [Ond/Chrome/AppChrome.swift](../../ios/Ond/Chrome/AppChrome.swift)                                                   | C      |
 | [Ond/Chrome/AppRoots.swift](../../ios/Ond/Chrome/AppRoots.swift)                                                     | C      |
 | [Ond/Chrome/Appearance+ColorScheme.swift](../../ios/Ond/Chrome/Appearance+ColorScheme.swift)                         | N      |
-| [Ond/CoachGlyph.swift](../../ios/Ond/CoachGlyph.swift)                                                               | C      |
+| `Ond/CoachGlyph.swift` (retired source)                                                                              | C      |
 | [Ond/DebugHostNote.swift](../../ios/Ond/DebugHostNote.swift)                                                         | N      |
 | [Ond/DemoPractice.swift](../../ios/Ond/DemoPractice.swift)                                                           | C      |
 | [Ond/EmptyCatalogueView.swift](../../ios/Ond/EmptyCatalogueView.swift)                                               | C      |
 | [Ond/EvidenceChip.swift](../../ios/Ond/EvidenceChip.swift)                                                           | N      |
-| [Ond/Features/Assistant/AssistantConsentView.swift](../../ios/Ond/Features/Assistant/AssistantConsentView.swift)     | C      |
-| [Ond/Features/Assistant/BoltTestOfferCard.swift](../../ios/Ond/Features/Assistant/BoltTestOfferCard.swift)           | C      |
-| [Ond/Features/Assistant/CoachChatView.swift](../../ios/Ond/Features/Assistant/CoachChatView.swift)                   | C      |
-| [Ond/Features/Assistant/CoachComposer.swift](../../ios/Ond/Features/Assistant/CoachComposer.swift)                   | C      |
-| [Ond/Features/Assistant/CoachGround.swift](../../ios/Ond/Features/Assistant/CoachGround.swift)                       | N      |
-| [Ond/Features/Assistant/CoachOffer.swift](../../ios/Ond/Features/Assistant/CoachOffer.swift)                         | C      |
-| [Ond/Features/Assistant/CoachRootView.swift](../../ios/Ond/Features/Assistant/CoachRootView.swift)                   | C      |
-| [Ond/Features/Assistant/CoachTranscript.swift](../../ios/Ond/Features/Assistant/CoachTranscript.swift)               | C      |
-| [Ond/Features/Assistant/ExerciseOfferCard.swift](../../ios/Ond/Features/Assistant/ExerciseOfferCard.swift)           | C      |
-| [Ond/Features/Assistant/OfferCard.swift](../../ios/Ond/Features/Assistant/OfferCard.swift)                           | N      |
-| [Ond/Features/Assistant/SavedExerciseOfferCard.swift](../../ios/Ond/Features/Assistant/SavedExerciseOfferCard.swift) | C      |
-| [Ond/Features/Assistant/SuggestedForYouView.swift](../../ios/Ond/Features/Assistant/SuggestedForYouView.swift)       | C      |
-| [Ond/Features/Assistant/ThinkingDot.swift](../../ios/Ond/Features/Assistant/ThinkingDot.swift)                       | C      |
+| `Ond/Features/Assistant/AssistantConsentView.swift` (retired source)                                                 | C      |
+| `Ond/Features/Assistant/BoltTestOfferCard.swift` (retired source)                                                    | C      |
+| `Ond/Features/Assistant/CoachChatView.swift` (retired source)                                                        | C      |
+| `Ond/Features/Assistant/CoachComposer.swift` (retired source)                                                        | C      |
+| `Ond/Features/Assistant/CoachGround.swift` (retired source)                                                          | N      |
+| `Ond/Features/Assistant/CoachOffer.swift` (retired source)                                                           | C      |
+| `Ond/Features/Assistant/CoachRootView.swift` (retired source)                                                        | C      |
+| `Ond/Features/Assistant/CoachTranscript.swift` (retired source)                                                      | C      |
+| `Ond/Features/Assistant/ExerciseOfferCard.swift` (retired source)                                                    | C      |
+| `Ond/Features/Assistant/OfferCard.swift` (retired source)                                                            | N      |
+| `Ond/Features/Assistant/SavedExerciseOfferCard.swift` (retired source)                                               | C      |
+| `Ond/Features/Assistant/SuggestedForYouView.swift` (retired source)                                                  | C      |
+| `Ond/Features/Assistant/ThinkingDot.swift` (retired source)                                                          | C      |
 | [Ond/Features/CheckIns/BoltTestView.swift](../../ios/Ond/Features/CheckIns/BoltTestView.swift)                       | C      |
 | [Ond/Features/CheckIns/CheckInsView.swift](../../ios/Ond/Features/CheckIns/CheckInsView.swift)                       | C      |
 | [Ond/Features/CheckIns/HealthTrendsCard.swift](../../ios/Ond/Features/CheckIns/HealthTrendsCard.swift)               | C      |
@@ -136,7 +138,7 @@ Screened every `.swift` file in the seven shipping native roots below. Read the 
 | [Ond/Features/Techniques/RhythmBars.swift](../../ios/Ond/Features/Techniques/RhythmBars.swift)                       | C      |
 | [Ond/Features/Techniques/StageTitle.swift](../../ios/Ond/Features/Techniques/StageTitle.swift)                       | C      |
 | [Ond/Features/Techniques/TechniqueAboutSection.swift](../../ios/Ond/Features/Techniques/TechniqueAboutSection.swift) | C      |
-| [Ond/Features/Techniques/TechniqueCoachDoor.swift](../../ios/Ond/Features/Techniques/TechniqueCoachDoor.swift)       | C      |
+| `Ond/Features/Techniques/TechniqueCoachDoor.swift` (retired source)                                                  | C      |
 | [Ond/Features/Techniques/TechniqueComposerView.swift](../../ios/Ond/Features/Techniques/TechniqueComposerView.swift) | C      |
 | [Ond/Features/Techniques/TechniqueDetailView.swift](../../ios/Ond/Features/Techniques/TechniqueDetailView.swift)     | C      |
 | [Ond/Features/Techniques/TechniqueDialsView.swift](../../ios/Ond/Features/Techniques/TechniqueDialsView.swift)       | C      |
@@ -226,20 +228,20 @@ Screened every `.swift` file in the seven shipping native roots below. Read the 
 | [OndKit/Account/UserId.swift](../../ios/Packages/OndCore/Sources/OndKit/Account/UserId.swift)                                                           | N      |
 | [OndKit/Account/UserIdentityStore.swift](../../ios/Packages/OndCore/Sources/OndKit/Account/UserIdentityStore.swift)                                     | C      |
 | [OndKit/Appearance.swift](../../ios/Packages/OndCore/Sources/OndKit/Appearance.swift)                                                                   | C      |
-| [OndKit/Assistant/AssistantConsentStore.swift](../../ios/Packages/OndCore/Sources/OndKit/Assistant/AssistantConsentStore.swift)                         | C      |
-| [OndKit/Assistant/AssistantRepository.swift](../../ios/Packages/OndCore/Sources/OndKit/Assistant/AssistantRepository.swift)                             | C      |
-| [OndKit/Assistant/Chat.swift](../../ios/Packages/OndCore/Sources/OndKit/Assistant/Chat.swift)                                                           | C      |
-| [OndKit/Assistant/CoachChatModel.swift](../../ios/Packages/OndCore/Sources/OndKit/Assistant/CoachChatModel.swift)                                       | C      |
-| [OndKit/Assistant/ConsentedAssistant.swift](../../ios/Packages/OndCore/Sources/OndKit/Assistant/ConsentedAssistant.swift)                               | C      |
-| [OndKit/Assistant/ConversationListModel.swift](../../ios/Packages/OndCore/Sources/OndKit/Assistant/ConversationListModel.swift)                         | N      |
-| [OndKit/Assistant/FileConversationStore.swift](../../ios/Packages/OndCore/Sources/OndKit/Assistant/FileConversationStore.swift)                         | C      |
-| [OndKit/Assistant/Guidance.swift](../../ios/Packages/OndCore/Sources/OndKit/Assistant/Guidance.swift)                                                   | C      |
-| [OndKit/Assistant/GuidanceModel.swift](../../ios/Packages/OndCore/Sources/OndKit/Assistant/GuidanceModel.swift)                                         | C      |
-| [OndKit/Assistant/OfferSummary.swift](../../ios/Packages/OndCore/Sources/OndKit/Assistant/OfferSummary.swift)                                           | C      |
-| [OndKit/Assistant/RevealPacer.swift](../../ios/Packages/OndCore/Sources/OndKit/Assistant/RevealPacer.swift)                                             | C      |
+| `OndKit/Assistant/AssistantConsentStore.swift` (retired source)                                                                                         | C      |
+| `OndKit/Assistant/AssistantRepository.swift` (retired source)                                                                                           | C      |
+| `OndKit/Assistant/Chat.swift` (retired source)                                                                                                          | C      |
+| `OndKit/Assistant/CoachChatModel.swift` (retired source)                                                                                                | C      |
+| `OndKit/Assistant/ConsentedAssistant.swift` (retired source)                                                                                            | C      |
+| `OndKit/Assistant/ConversationListModel.swift` (retired source)                                                                                         | N      |
+| `OndKit/Assistant/FileConversationStore.swift` (retired source)                                                                                         | C      |
+| `OndKit/Assistant/Guidance.swift` (retired source)                                                                                                      | C      |
+| `OndKit/Assistant/GuidanceModel.swift` (retired source)                                                                                                 | C      |
+| `OndKit/Assistant/OfferSummary.swift` (retired source)                                                                                                  | C      |
+| `OndKit/Assistant/RevealPacer.swift` (retired source)                                                                                                   | C      |
 | [OndKit/Collection+Empty.swift](../../ios/Packages/OndCore/Sources/OndKit/Collection+Empty.swift)                                                       | C      |
 | [OndKit/Duration+Milliseconds.swift](../../ios/Packages/OndCore/Sources/OndKit/Duration+Milliseconds.swift)                                             | C      |
-| [OndKit/Health/CoachHealthContext.swift](../../ios/Packages/OndCore/Sources/OndKit/Health/CoachHealthContext.swift)                                     | N      |
+| `OndKit/Health/CoachHealthContext.swift` (retired source)                                                                                               | N      |
 | [OndKit/Health/HealthContextModel.swift](../../ios/Packages/OndCore/Sources/OndKit/Health/HealthContextModel.swift)                                     | C      |
 | [OndKit/Health/HealthKitHealthStore.swift](../../ios/Packages/OndCore/Sources/OndKit/Health/HealthKitHealthStore.swift)                                 | C      |
 | [OndKit/Health/HealthKitReadBoundary.swift](../../ios/Packages/OndCore/Sources/OndKit/Health/HealthKitReadBoundary.swift)                               | C      |
@@ -510,16 +512,16 @@ Authoritative wording: [catalogue.rs](../../crates/migrate/src/seed/catalogue.rs
 | [ios/Packages/OndCore/Sources/OndAPI/TransportOutcome.swift](../../ios/Packages/OndCore/Sources/OndAPI/TransportOutcome.swift) | Transport-code classification: confirms which failures become native recovery language. |
 | [ios/Packages/OndCore/Sources/OndAPI/Clients.swift](../../ios/Packages/OndCore/Sources/OndAPI/Clients.swift) | Transport surface screened; no independent authored product prose. |
 | [ios/Packages/OndCore/Sources/OndAPI/IdentityInterceptor.swift](../../ios/Packages/OndCore/Sources/OndAPI/IdentityInterceptor.swift) | Identity transport surface screened; technical failures are not assumed to be direct UI copy. |
-| [crates/api/src/features/assistant/fallback.rs](../../crates/api/src/features/assistant/fallback.rs) | Fixed recommendation and unavailable-chat wording; test fixtures excluded. |
-| [crates/api/src/features/assistant/prompt/copy/prefix.md](../../crates/api/src/features/assistant/prompt/copy/prefix.md) | Complete authored coach brief: voice, evidence, symptoms, measurement interpretation, offer etiquette and refusals. |
-| [crates/api/src/features/assistant/prompt/prefix.rs](../../crates/api/src/features/assistant/prompt/prefix.rs) | Catalogue, Moment, Foundations index and measurement-band prompt construction. |
-| [crates/api/src/features/assistant/prompt/instructions.rs](../../crates/api/src/features/assistant/prompt/instructions.rs) | Per-user context and output instructions, including first name, saved names, Health and practice summaries. |
-| [crates/api/src/features/assistant/types.rs](../../crates/api/src/features/assistant/types.rs) | Goal/demographic phrasing and context boundaries; numeric contracts distinguished from copy. |
-| [crates/api/src/features/assistant/stream.rs](../../crates/api/src/features/assistant/stream.rs) | Fixed validation/interruption phrases and history/offer context boundary. |
-| [crates/api/src/features/assistant/tools/exercise.rs](../../crates/api/src/features/assistant/tools/exercise.rs) | Authored tool description and parameter explanations for exercise offers. |
-| [crates/api/src/features/assistant/tools/saved_exercise.rs](../../crates/api/src/features/assistant/tools/saved_exercise.rs) | Authored tool description, proposed names/summaries and parameter explanations. |
-| [crates/api/src/features/assistant/tools/bolt.rs](../../crates/api/src/features/assistant/tools/bolt.rs) | BOLT offer description and diagnostic boundary. |
-| [crates/api/src/features/assistant/tools/dispatch.rs](../../crates/api/src/features/assistant/tools/dispatch.rs) | Offer resolution boundary; no additional product copy. |
+| `crates/api/src/features/assistant/fallback.rs` (retired source) | Fixed recommendation and unavailable-chat wording; test fixtures excluded. |
+| `crates/api/src/features/assistant/prompt/copy/prefix.md` (retired source) | Complete authored coach brief: voice, evidence, symptoms, measurement interpretation, offer etiquette and refusals. |
+| `crates/api/src/features/assistant/prompt/prefix.rs` (retired source) | Catalogue, Moment, Foundations index and measurement-band prompt construction. |
+| `crates/api/src/features/assistant/prompt/instructions.rs` (retired source) | Per-user context and output instructions, including first name, saved names, Health and practice summaries. |
+| `crates/api/src/features/assistant/types.rs` (retired source) | Goal/demographic phrasing and context boundaries; numeric contracts distinguished from copy. |
+| `crates/api/src/features/assistant/stream.rs` (retired source) | Fixed validation/interruption phrases and history/offer context boundary. |
+| `crates/api/src/features/assistant/tools/exercise.rs` (retired source) | Authored tool description and parameter explanations for exercise offers. |
+| `crates/api/src/features/assistant/tools/saved_exercise.rs` (retired source) | Authored tool description, proposed names/summaries and parameter explanations. |
+| `crates/api/src/features/assistant/tools/bolt.rs` (retired source) | BOLT offer description and diagnostic boundary. |
+| `crates/api/src/features/assistant/tools/dispatch.rs` (retired source) | Offer resolution boundary; no additional product copy. |
 | [crates/api/src/features/user_technique/validation.rs](../../crates/api/src/features/user_technique/validation.rs) | All runtime validation messages, including limits and fast-breathing/hold rejection; direct native exposure checked. |
 | [crates/api/src/features/profile/service.rs](../../crates/api/src/features/profile/service.rs) | Runtime profile validation phrases; direct native rejection exposure checked. |
 | [crates/api/src/features/profile/errors.rs](../../crates/api/src/features/profile/errors.rs) | Display-name conflict and server error mapping. |
@@ -529,7 +531,7 @@ Authoritative wording: [catalogue.rs](../../crates/migrate/src/seed/catalogue.rs
 | [crates/api/src/features/journey/errors.rs](../../crates/api/src/features/journey/errors.rs) | Journey refusal/error mapping; diagnostic text distinguished from displayed recovery. |
 | [crates/api/src/features/journey/sessions/validation.rs](../../crates/api/src/features/journey/sessions/validation.rs) | Timestamp-validation wording and error boundary. |
 | [crates/api/src/features/technique/errors.rs](../../crates/api/src/features/technique/errors.rs) | Catalogue error mapping. |
-| [crates/api/src/features/assistant/errors.rs](../../crates/api/src/features/assistant/errors.rs) | Assistant error mapping. |
+| `crates/api/src/features/assistant/errors.rs` (retired source) | Assistant error mapping. |
 | [web/index.html](../../web/index.html) | All authored homepage copy, metadata, links, image descriptions and feature/pricing explanations. |
 | [web/privacy.html](../../web/privacy.html) | All authored policy copy, metadata and rights/consent/retention explanations; product facts traced where disputed. Not a legal certification. |
 | [web/support.html](../../web/support.html) | All authored support, recovery, contact, metadata and FAQ copy. |

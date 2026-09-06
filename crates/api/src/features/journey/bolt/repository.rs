@@ -45,36 +45,3 @@ pub async fn best_bolt_score(pool: &PgPool, user_id: UserId) -> Result<Option<i3
 
     Ok(best)
 }
-
-/// The three folds `super::service::bolt_snapshot` serves. `best` and `latest`
-/// are `None` together, exactly when `count` is zero — one statement over one
-/// history cannot answer otherwise.
-pub struct BoltAggregateRow {
-    pub best: Option<i32>,
-    pub latest: Option<i32>,
-    pub count: i64,
-}
-
-/// Best, latest, and count in one statement, so the three figures are true
-/// together. Split into three reads they could tear around a concurrent insert.
-/// No index on `measured_at`: the user index already narrows the scan, and one
-/// person's history is dozens of rows. The id tie-break makes `latest`
-/// deterministic when two defaulted inserts share a `measured_at`.
-pub async fn bolt_aggregate(
-    pool: &PgPool,
-    user_id: UserId,
-) -> Result<BoltAggregateRow, JourneyError> {
-    let row = sqlx::query_as!(
-        BoltAggregateRow,
-        r#"SELECT max(seconds) AS best,
-                (array_agg(seconds ORDER BY measured_at DESC, client_score_id DESC))[1] AS latest,
-                count(*) AS "count!"
-         FROM bolt_scores
-         WHERE user_id = $1"#,
-        user_id.0
-    )
-    .fetch_one(pool)
-    .await?;
-
-    Ok(row)
-}

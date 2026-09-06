@@ -77,14 +77,14 @@ struct OnboardingOptInsTests {
         let settings = SessionSettings(defaults: preferences)
         let model = model(settings: settings, health: health, named: "skip-grants")
         openTheOptIns(model)
-        model.optIns.coachReadsHealthTrends = true
+        model.optIns.readsHealthTrends = true
         model.optIns.writesMindfulMinutes = true
         model.optIns.showsWristPulse = true
         model.reminderIntensity = .daily
         model.skip()
         await model.requestOptInGrants()
         #expect(model.reminderIntensity == .never)
-        #expect(!health.coachReadsHealthTrends)
+        #expect(!health.readsHealthTrends)
         #expect(!health.writesMindfulMinutes)
         #expect(!settings.showsWristPulse)
         #expect(await spy.calls.isEmpty)
@@ -104,17 +104,17 @@ struct OnboardingOptInsTests {
         openTheOptIns(model)
 
         #expect(model.optIns.asksHowYouFeel, "the flow starts from what the stores hold")
-        #expect(!model.optIns.coachReadsHealthTrends)
+        #expect(!model.optIns.readsHealthTrends)
 
         model.optIns.asksHowYouFeel = false
         model.optIns.showsWristPulse = true
-        model.optIns.coachReadsHealthTrends = true
+        model.optIns.readsHealthTrends = true
         model.optIns.writesMindfulMinutes = false
         model.advance()
 
         #expect(!settings.asksHowYouFeel)
         #expect(settings.showsWristPulse)
-        #expect(health.coachReadsHealthTrends)
+        #expect(health.readsHealthTrends)
         #expect(!health.writesMindfulMinutes)
 
         await #expect(spy.calls.isEmpty, "no system sheet is raised inside the flow")
@@ -156,7 +156,7 @@ struct OnboardingOptInsTests {
         )
 
         openTheOptIns(model)
-        model.optIns.coachReadsHealthTrends = true
+        model.optIns.readsHealthTrends = true
         model.optIns.writesMindfulMinutes = true
         model.advance()
         await model.requestOptInGrants()
@@ -166,7 +166,7 @@ struct OnboardingOptInsTests {
 
         // And the opt-in survives the launch the flow ran in.
         let relaunched = healthContext(SpyHealthStore(), defaults: preferences)
-        #expect(relaunched.coachReadsHealthTrends)
+        #expect(relaunched.readsHealthTrends)
     }
 
     /// The other half of the same rule: a switch left off asks for nothing, so

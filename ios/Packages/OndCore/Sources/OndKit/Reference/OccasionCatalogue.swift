@@ -40,10 +40,6 @@ public struct Prescription: Sendable, Hashable, Codable {
     /// first.
     public let techniqueSlug: TechniqueSlug
 
-    /// The goal this moment borrows, so the home screen and the coach keep
-    /// speaking the five goals they already speak. Carried by the occasion
-    /// rather than read back through the catalogue: what a moment is for should
-    /// not move because a technique was re-grouped.
     public let goal: TechniqueGoal
 
     public let surface: DeliverySurface

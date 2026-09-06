@@ -218,7 +218,6 @@ struct OnboardingFlowTests {
         let model = OnboardingModel(store: store, plus: nil)
 
         model.toggle(.sleep)
-        model.experienceLevel = .occasional
         model.reminderIntensity = .gentle
         model.givenName = "Robin"
 
@@ -237,7 +236,7 @@ struct OnboardingFlowTests {
 
         #expect(!store.isPendingSync)
         #expect(writer.sent.count == 1)
-        #expect(writer.sent.first?.experienceLevel == .occasional)
+        #expect(writer.sent.first?.experienceLevel == nil)
         #expect(writer.sent.first?.givenName == "Robin")
     }
 

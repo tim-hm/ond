@@ -56,7 +56,7 @@ extension OndApp {
         schedules: ScheduleStore,
         catalogue: TechniqueListModel,
         settings: SessionSettings,
-        coach: Coach
+        connected: ConnectedPractice
     ) -> OnboardingModel? {
         // Through `firstRunGate` rather than asking the records again: read
         // separately the two disagreed under the trial route, and a cover with
@@ -72,11 +72,11 @@ extension OndApp {
             // that step is what writes them — see
             // `OnboardingModel.applyOptIns()`.
             settings: settings,
-            health: coach.heart,
+            health: connected.heart,
             // The store rather than a snapshot of it: `plus.watch()` is still
             // resolving the entitlement while the welcome screen is up, and a
             // purchase made on the trial step moves it under the flow.
-            plus: coach.plus,
+            plus: connected.plus,
             startingAt: onboardingStartStep
         )
     }
@@ -97,48 +97,22 @@ extension OndApp {
         Task { await dial.seedIfNeeded() }
     }
 
-    /// The entitlement store, the heart-trends store, and the assistant — one
-    /// factory because they are one chain: the trends store gates its Health
-    /// reads on the tier (the gate belongs on the reader, not each caller),
-    /// and the assistant reads the trends per request. All three come back
-    /// because the root holds each for its own reasons.
-    static func coach(
+    static func connectedPractice(
         baseURL: URL,
         identity: any UserIdentityStore,
         health: HealthKitHealthStore
-    ) -> Coach {
+    ) -> ConnectedPractice {
         let plus = SubscriptionStore(
             front: StoreKitStoreFront(),
             entitlements: EntitlementRepository(baseURL: baseURL, identity: identity)
         )
-        // The tier through a closure, read at each Health read rather than
-        // captured now, so a subscription that lapses stops the reads on the
-        // next question rather than on the next launch.
         let heart = HealthContextModel(store: health, entitledTier: { plus.tier })
-        let consent = AssistantConsentStore()
-        let assistant = AssistantRepository(
-            baseURL: baseURL,
-            identity: identity,
-            // Asked per request, so withdrawing the opt-in in Settings takes
-            // effect on the very next question with no restart.
-            healthContext: { await heart.context() }
-        )
-        return Coach(
-            plus: plus,
-            heart: heart,
-            assistant: ConsentedAssistant(assistant, consent: consent),
-            consent: consent
-        )
+        return ConnectedPractice(plus: plus, heart: heart)
     }
 
-    /// The three [`coach(baseURL:identity:health:)`] hands back. Named rather
-    /// than a tuple: three unlabelled members is a positional puzzle, and the
-    /// chain between them is worth a type to hang the explanation on.
-    struct Coach {
+    struct ConnectedPractice {
         let plus: SubscriptionStore
         let heart: HealthContextModel
-        let assistant: any AssistantReading
-        let consent: AssistantConsentStore
     }
 
     /// The practice model shared by Home, Progress, and the sync queue. Built

@@ -35,13 +35,6 @@ public enum SubscriptionTier: Int, Sendable, Comparable, Codable, CaseIterable {
         Self(rawValue: defaults.integer(forKey: key)) ?? .free
     }
 
-    /// What the assistant costs — the one line that opens or closes it. It has
-    /// a server half, and the two must move together: `daily_model_calls` in
-    /// `features/assistant/types.rs`. Closing only the server leaves the app
-    /// showing a chat the server refuses — the "ask again later, forever" loop
-    /// that has already happened on a real device. Close the client first.
-    public static let assistant: Self = .plus
-
     /// What a technique behind `requires_subscription` costs. The contract
     /// carries a boolean, so this names the tier it means, once. Reachable only
     /// in tests today — the seed sets the flag false everywhere — but the
@@ -56,11 +49,6 @@ public enum SubscriptionTier: Int, Sendable, Comparable, Codable, CaseIterable {
     /// letting somebody ask and be refused.
     public static let leaderboards: Self = .plus
 
-    /// What reading health trends costs — the reads only. Writing Mindful
-    /// Minutes and a mood back to HealthKit stays free at every tier: a lapsed
-    /// subscription must not hold somebody's own data hostage. Enforced only on
-    /// this device, by decision: a HealthKit read is local, so there is no
-    /// server call to refuse; `assistant` covers the coach's model call.
     public static let healthTrends: Self = .plus
 
     /// What the phone and the wrist working together costs. Exactly two things
@@ -77,10 +65,10 @@ public enum SubscriptionTier: Int, Sendable, Comparable, Codable, CaseIterable {
 /// crossgrade arrives as an ordinary transaction. Separate from
 /// [`SubscriptionTier`] because a cadence is not a rung anything gates on.
 public enum SubscriptionPlan: String, Sendable, Equatable, Codable, CaseIterable {
-    /// $1.99 a month.
+    /// $0.99 a month.
     case monthly
 
-    /// $14.99 a year — the one a paywall badges with its saving, computed from
+    /// $9.99 a year — the one a paywall badges with its saving, computed from
     /// the two prices the App Store answers with rather than written down here.
     case yearly
 
@@ -102,7 +90,7 @@ public enum SubscriptionPlan: String, Sendable, Equatable, Codable, CaseIterable
         .plus
     }
 
-    /// The word for one billing period, as "$1.99 a month" and the renewal
+    /// The word for one billing period, as "$0.99 a month" and the renewal
     /// terms both need it. One mapping, because two would eventually disagree
     /// on the same screen.
     public var periodName: String {

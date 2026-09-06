@@ -27,19 +27,11 @@ struct OndApp: App {
     /// practice, and must never write to Health again.
     let recorder: any SessionRecording
 
-    /// Controlled-pause scores, kept beside the sessions and for the same
-    /// reason — Coach reads them with no network at all. Concrete for
-    /// the reason the sessions are: a deletion has to be able to empty it.
     let scores = FileBoltScoreStore(directory: Self.practiceDirectory)
 
     /// Resting rates, beside the pauses and on the same terms. The second
     /// check-in, and the second store a deletion has to empty.
     let rates = FileRestingRateStore(directory: Self.practiceDirectory)
-
-    /// The coach conversations, on this device only — the server keeps no
-    /// transcript. Concrete for the reason the sessions are: a deletion has to
-    /// be able to empty it.
-    let chats = FileConversationStore()
 
     /// Hands the identity above to the watch app, which never mints one of its
     /// own. Composed here because the pairing belongs to the install rather
@@ -87,13 +79,7 @@ struct OndApp: App {
     /// same instance the app reads.
     @State var settings: SessionSettings
 
-    /// Whether this person has önd+. In the environment for the same
-    /// reason `settings` is: the surfaces that offer a subscription — the
-    /// assistant's two strips, and the paywall they open — are nowhere near
-    /// here, and threading a parameter through every screen between would touch
-    /// every one of them.
     @State var plus: SubscriptionStore
-    @State var assistantConsent: AssistantConsentStore
 
     /// Whether the safety terms have been agreed to, and the record of it. Held
     /// here rather than passed into onboarding alone because it is also what
@@ -118,19 +104,7 @@ struct OndApp: App {
     /// here on `stars`' reasoning.
     @State var choice: HomeChoiceStore
 
-    /// The heart-trends opt-in and the summary it unlocks, shared between the
-    /// Settings toggle that flips it and the assistant that asks it per
-    /// request. Constructed here — not file-scoped beside the assistant — so
-    /// the one store holding something personal is built in sight of the
-    /// deletion list below that has to empty it.
     @State var heart: HealthContextModel
-
-    /// The assistant's repository, built here because its health context is
-    /// the store above, which only this root may construct. `@State` like that
-    /// store: the two are joined by a captured reference, and a rebuilt `App`
-    /// value must discard the pair together, not split the kept store from a
-    /// remade assistant reading a copy.
-    @State var assistant: any AssistantReading
 
     /// Holds the onboarding answers and knows whether they have been given.
     @State var profiles: ProfileStore
@@ -195,11 +169,9 @@ struct OndApp: App {
         // every hand-over so the wrist knows what it may do with this phone and
         // whether it still has to ask. Nothing else here needs either this
         // early; the ordering is the dependency.
-        let coach = Self.coach(baseURL: baseURL, identity: identity, health: health)
-        _plus = State(wrappedValue: coach.plus)
-        _assistantConsent = State(wrappedValue: coach.consent)
-        _heart = State(wrappedValue: coach.heart)
-        _assistant = State(wrappedValue: coach.assistant)
+        let connected = Self.connectedPractice(baseURL: baseURL, identity: identity, health: health)
+        _plus = State(wrappedValue: connected.plus)
+        _heart = State(wrappedValue: connected.heart)
 
         let records = Self.firstRunRecords(baseURL: baseURL, identity: identity)
         _profiles = State(wrappedValue: records.profiles)
@@ -207,7 +179,7 @@ struct OndApp: App {
         _firstRun = State(wrappedValue: Self.firstRunGate(for: records))
 
         let (outbox, watch) = Self.pairing(
-            identity: identity, scores: scores, plus: coach.plus, consent: records.consent
+            identity: identity, scores: scores, plus: connected.plus, consent: records.consent
         )
         self.watch = watch
 
@@ -234,7 +206,7 @@ struct OndApp: App {
 
         _onboarding = State(wrappedValue: Self.onboarding(
             records, schedules: schedules,
-            catalogue: reference.catalogue, settings: settings, coach: coach
+            catalogue: reference.catalogue, settings: settings, connected: connected
         ))
 
         let (journey, queue) = Self.journey(
@@ -253,8 +225,9 @@ struct OndApp: App {
             baseURL: baseURL,
             identity: identity,
             emptying: [
-                queue, sessions, scores, rates, chats, records.profiles, records.consent,
-                warnings, schedules, coach.plus, coach.heart, coach.consent, outbox, stars, choice,
+                queue, sessions, scores, rates, LegacyAssistantData(), records.profiles,
+                records.consent,
+                warnings, schedules, connected.plus, connected.heart, outbox, stars, choice,
                 settings,
             ],
             onIdentityChange: Self.identityChange(telling: watch, and: journey, reloading: own)

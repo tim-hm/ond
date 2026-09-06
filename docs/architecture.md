@@ -21,7 +21,6 @@
 │    features/technique/       │  handler → service → repository
 │    features/profile/         │
 │    features/journey/         │
-│    features/assistant/       │
 │    features/entitlement/     │
 │    features/account/         │
 │    features/user_technique/  │
@@ -70,8 +69,7 @@ Each is `crates/api/src/features/<name>/`, laid out handler → service → repo
 | `technique`      | The catalogue: techniques, the stages and phases they play, and the breathing foundations served alongside them.                                  |
 | `profile`        | What onboarding collected, from goals down to the display name a leaderboard prints.                                                              |
 | `journey`        | Sessions, controlled-pause scores, resting-rate readings, streaks, and leaderboards. Histories are append-only; boards use refreshable snapshots. |
-| `assistant`      | A language model reading the profile and the catalogue, and the rules that answer when it cannot. The only feature that spends money.             |
-| `entitlement`    | App Store transactions verified against Apple's chain, stored as the tier and expiry `assistant` gates on.                                        |
+| `entitlement`    | App Store transactions verified against Apple's chain, stored as the tier and expiry used for paid server features.                               |
 | `account`        | Sign in with Apple, verified server-side and bound to `users.apple_user_id`. Plus `DeleteAccount`'s erasure.                                      |
 | `user_technique` | The exercises a person composed for themselves, bounded by the safe ranges the seeded catalogue publishes.                                        |
 
@@ -91,7 +89,7 @@ For an anonymous row, possession of that id remains the whole claim. A verified 
 
 A well-formed id is a claim anybody can make, so `crates/api/src/throttle.rs` rations what one caller may spend: one budget on requests, a far tighter one on creating `users` rows. Its `//!` argues the split and where each number comes from.
 
-**The catalogue is entirely free.** `ListTechniques` takes no identity and returns every technique whole; every seeded row currently sets `requires_subscription` to false. The field remains an advisory client-side gate rather than server authorisation because a session runs entirely on the device and costs the service nothing. What does cost per use is the coach's language model, and `entitlement` guards that against the caller's verified önd+ row. Genuinely withholding catalogue detail would require a different contract rather than treating the existing boolean as security.
+**The catalogue is entirely free.** `ListTechniques` takes no identity and returns every technique whole; every seeded row currently sets `requires_subscription` to false. The field remains an advisory client-side gate rather than server authorisation because a session runs entirely on the device and costs the service nothing. Optional leaderboards require the caller’s verified önd+ entitlement. Genuinely withholding catalogue detail would require a different contract rather than treating the existing boolean as security.
 
 ## Resolving the caller
 
@@ -112,16 +110,6 @@ The rule is _once bound, always prove_, and it applies to `SignInWithApple` like
 The upsert happens on this path rather than in the first handler that needs a user, because "first sight" is literally the first RPC, whichever one that is: an app that onboards offline and only ever lists techniques still has a row waiting when its profile finally syncs.
 
 A well-formed header is a claim anybody can make, though, and a fresh one each time is a `users` row each time. So creating a row is charged against `throttle::Throttle::spend_new_identity`, and a caller over that budget is refused _instead of_ being written. Merely being an identity stays free: an established client's row already exists, so the branch that spends never runs for them.
-
-## What the coach reads from the catalogue
-
-`features/technique/service.rs::catalogue` is the catalogue as `assistant` reads it, through `features/technique/cache.rs`. The assistant puts every technique in front of the model, checks every slug it says back against that list, and clamps the exercise offers the model proposes against each phase's safe range — which is why the playable stages ride along with the descriptions. It is routed through the service rather than handing the caller a `TechniqueRow`: the row is the feature's SQL shape, and a consumer holding it would make every column on `techniques` part of a contract nobody wrote down. `pub(super)` keeps the cache the only way out, so the derivation stays priced as a once-per-process cost rather than a per-request one.
-
-**What it carries.** `safety_note`, because the cached prompt tells the model never to contradict one. `mechanism`, because the prompt tells the model to name the mechanism — an instruction the coach could only obey out of its own general knowledge while the curated copy stayed behind, which is how the coach and the exercise's own screen came to explain the same breath two different ways.
-
-**What stays behind, and why the difference is the point.** `evidence` is not carried. The mechanism is the confident story and paraphrasing it costs nothing; the evidence section is the one piece of curated copy written specifically not to overclaim, and a model handed it would paraphrase that too — the single place a caveat reliably gets softened. The coach is instructed not to promise outcomes instead, and the honest account reaches the person the one way it cannot be reworded: verbatim, on the exercise's own screen. It still crosses the socket, because reading it costs one column on a query the catalogue needs whole, and skipping it costs a second `SELECT` duplicating the first.
-
-`preparation` is the second unread field, and it did not take the query either. It is short setup copy, read once per process behind the cache, and splitting the query to save it would leave two near-identical `SELECT`s to keep in step — the more expensive mistake. It is also the field most likely to stop being unread: the prefix already orders the coach to name the mechanism, what a body does to shape the breath is the same class of fact, and a coach that cannot say "curl your tongue" is describing the cooling breath the way the screen did before `Manner` existed. Feeding it to `catalogue_lines` beside `caution_clause` is the fix, and it is a prompt change rather than a plumbing one.
 
 ## Account lifecycle
 
@@ -147,7 +135,7 @@ Each child table follows from the schema:
 
 - **`sessions`, `bolt_scores`, `resting_rates`** reparent, skipping a row `into` already has. All three are keyed `(user_id, client_<thing>_id)` over a client-minted id, so a key held on both sides is one record that reached the server twice, never two things that happened. It is a `NOT EXISTS` guard because `ON CONFLICT` belongs to `INSERT` and this is an `UPDATE`; the skipped rows stay on `from` and go with the `ON DELETE CASCADE`.
 - **`user_techniques`** reparent outright, with no guard. Their ids are server-minted, so two rows can never be one record that arrived twice, and a composed exercise exists nowhere else. This can leave `into` holding more than `MAX_TECHNIQUES`, deliberately: that ceiling gates composing another, and enforcing it here would mean deleting somebody's work to make a number true.
-- **`assistant_usage`** sums on a shared date. It is a spend limit counted per person per UTC day, so keeping `into`'s count would let signing in launder whatever `from` had already spent — the same fan-out `entitlement::service`'s `TRANSFER_COOLDOWN` exists to stop, reached by another door.
+- **`assistant_usage`** sums on a shared date. This is historical preview data only; the release neither creates model usage nor exposes a model endpoint. The merge remains compatible with existing rows.
 - **Entitlements are not copied.** They are columns on `users` rather than a child table, so deleting `from` releases its `app_store_original_transaction_id` outright, and the client resubmits its StoreKit transaction on every launch; `entitlement::service::claim` then grants it to `into` against no holder at all. Copying them would mean reasoning about `users_app_store_original_transaction_id_key` and the transfer cooldown for an outcome the next launch produces by itself.
 
 Every statement runs in the caller's transaction. Half a merge is a person whose sessions moved and whose breath-test history did not, with nothing left to say it happened.
@@ -237,10 +225,6 @@ The tightening path, once a beta window closes, is to refuse `Sandbox` when `con
 **Visible vertical scale.** `plotRange` uses a minimum span of 10 bpm so a 1 bpm fluctuation occupies one tenth of the height. Wider measured ranges retain their full span. The labels show this drawing range; `range` remains the actual observed minimum and maximum. Horizontal labels mark the first reading and elapsed time to the session endpoint.
 
 **A flat heart draws down the middle.** A heart that held one rate the whole way through has no spread to divide by and comes back level. That is the honest drawing of it: it neither fell nor rose.
-
-## AI sharing permission
-
-The phone composes `AssistantRepository` through `ConsentedAssistant`. Both recommendations and chat require the versioned local `AssistantConsentStore` agreement before calling the repository, including before reading optional Health context. `CoachChatView` presents the shared disclosure before it mounts any automatic opening question or composer. Settings allows withdrawal; account deletion erases the agreement. Health summaries remain controlled by their separate opt-in. Permission is local to the install, and withdrawal prevents subsequent requests; it cannot retract information already sent.
 
 ## What runs where
 

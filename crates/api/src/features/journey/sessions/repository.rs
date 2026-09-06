@@ -8,7 +8,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::super::errors::JourneyError;
-use super::types::{PRACTICE_WINDOW_DAYS, SessionCursor};
+use super::types::SessionCursor;
 use crate::features::technique::types::{DeliverySurface, OccasionSlug, TechniqueSlug};
 use crate::identity::UserId;
 
@@ -245,79 +245,6 @@ pub async fn streaks(
     .await?;
 
     Ok(row)
-}
-
-/// One technique's aggregate over the snapshot window.
-pub struct TechniquePracticeRow {
-    pub technique_slug: TechniqueSlug,
-    pub sessions: i64,
-    /// Summed rather than pre-divided, for the same reason as [`TotalsRow`].
-    pub duration_ms: i64,
-}
-
-/// The caller's last [`PRACTICE_WINDOW_DAYS`] of practice, grouped by technique,
-/// busiest first. Every group, not the top few: the totals must count all of
-/// them, the count is bounded by the caller's own sessions in the window, and
-/// the cap on how many are named is the service's. The slug tie-break keeps
-/// equal counts off heap order, which would name different techniques per read.
-pub async fn recent_practice(
-    pool: &PgPool,
-    user_id: UserId,
-) -> Result<Vec<TechniquePracticeRow>, JourneyError> {
-    let rows = sqlx::query_as!(
-        TechniquePracticeRow,
-        r#"SELECT technique_slug AS "technique_slug: TechniqueSlug",
-                count(*) AS "sessions!",
-                sum(duration_ms)::bigint AS "duration_ms!"
-         FROM sessions
-         WHERE user_id = $1 AND started_at >= now() - make_interval(days => $2)
-         GROUP BY technique_slug
-         ORDER BY count(*) DESC, technique_slug"#,
-        user_id.0,
-        i32::from(PRACTICE_WINDOW_DAYS)
-    )
-    .fetch_all(pool)
-    .await?;
-
-    Ok(rows)
-}
-
-/// Distinct UTC days with at least one session in the snapshot window. UTC
-/// rather than the caller's offset, unlike [`streaks`]: the snapshot feeds
-/// offset-insensitive phrasing, and no offset travels on the requests that read
-/// it — the why lives on
-/// [`PRACTICE_WINDOW_DAYS`](super::types::PRACTICE_WINDOW_DAYS).
-pub async fn active_days(pool: &PgPool, user_id: UserId) -> Result<i64, JourneyError> {
-    let days = sqlx::query_scalar!(
-        r#"SELECT count(DISTINCT (started_at AT TIME ZONE 'UTC')::date) AS "days!"
-         FROM sessions
-         WHERE user_id = $1 AND started_at >= now() - make_interval(days => $2)"#,
-        user_id.0,
-        i32::from(PRACTICE_WINDOW_DAYS)
-    )
-    .fetch_one(pool)
-    .await?;
-
-    Ok(days)
-}
-
-/// When the caller last began a session, or `None` before their first.
-///
-/// Unwindowed, unlike [`active_days`]: the answer to "when did you last
-/// practise" is worth having precisely when it falls outside the window, and a
-/// `max` on the primary ordering is an index read whatever the history.
-pub async fn last_session_at(
-    pool: &PgPool,
-    user_id: UserId,
-) -> Result<Option<DateTime<Utc>>, JourneyError> {
-    let started_at = sqlx::query_scalar!(
-        "SELECT max(started_at) FROM sessions WHERE user_id = $1",
-        user_id.0
-    )
-    .fetch_one(pool)
-    .await?;
-
-    Ok(started_at)
 }
 
 /// One page of the caller's history, newest first. Ordered on both key columns

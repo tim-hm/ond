@@ -19,9 +19,8 @@ struct SubscriptionTierTests {
     /// `.free` gives that feature away silently.
     @Test("The four levers are what önd+ sells")
     func theLeversPriceWhatCostsUsMoney() {
-        #expect(SubscriptionTier.assistant == .plus, "the coach spends on a language model")
         #expect(SubscriptionTier.leaderboards == .plus, "a board is a fold across everybody")
-        #expect(SubscriptionTier.healthTrends == .plus, "trends ride into the coach's briefing")
+        #expect(SubscriptionTier.healthTrends == .plus, "local trends are part of Plus")
         #expect(SubscriptionTier.watchConnected == .plus, "the pairing keeps a server in it")
     }
 

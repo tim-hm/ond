@@ -125,7 +125,10 @@ struct OnboardingAnswersTests {
 
         #expect(answered.goals == [.focus], "what was asked is the newer answer")
         #expect(answered.givenName == "Sam")
-        #expect(answered.experienceLevel == nil, "left unanswered here, so cleared")
+        #expect(
+            answered.experienceLevel == .occasional,
+            "preserve legacy answers the flow no longer asks"
+        )
         #expect(answered.displayName == "puckly-puffin-42")
         #expect(answered.birthYearBand == .eighties)
         #expect(answered.gender == .nonBinary)

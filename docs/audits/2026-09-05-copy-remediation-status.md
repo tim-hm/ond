@@ -1,5 +1,7 @@
 # Copy remediation — 5 September 2026
 
+Historical audit: the 6 September 2026 release decision retires the AI coach and its provider processing. See [the release scope update](2026-09-06-release-scope.md) for the current product and remaining checks.
+
 Implementation follow-up to the [complete source-copy audit](2026-09-05-complete-copy-audit.md). The audit records the starting state; this document records the changes and the remaining acceptance work. Changes are local and have not been deployed or submitted to the App Store.
 
 The [release trust validation](2026-09-05-release-trust-validation.md) supersedes this document's research-link and retention status. It records additional claim corrections, privacy-manifest fixes and live AWS evidence, including previously omitted log archives and volume snapshots.

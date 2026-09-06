@@ -41,9 +41,6 @@ public final class ProfileEditModel {
         draft = store.profile
     }
 
-    /// Adds or removes a goal, keeping the order they were picked in — the order
-    /// the coach's prompt reads them back in, so it is an answer rather than a
-    /// set.
     public func toggle(_ goal: TechniqueGoal) {
         if let index = draft.goals.firstIndex(of: goal) {
             draft.goals.remove(at: index)

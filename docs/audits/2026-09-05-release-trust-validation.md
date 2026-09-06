@@ -1,5 +1,7 @@
 # Release trust and technical validation — 5 September 2026
 
+Historical audit: the 6 September 2026 release decision retires the AI coach and its provider processing. See [the release scope update](2026-09-06-release-scope.md) for the current product and remaining checks.
+
 Follow-up to the [copy remediation](2026-09-05-copy-remediation-status.md). This review covers the remaining technical gate and trust checks. It does not constitute independent clinical approval, an App Store submission or a production deployment.
 
 ## Catalogue claims

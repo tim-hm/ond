@@ -10,6 +10,7 @@ struct BreathVisual: View {
     let motion: AirOrbMotion
     let accent: Color
     let register: CopyRegister
+    let seed: Float
     var availableExtent: CGFloat = Self.extent
 
     static let extent: CGFloat = 300
@@ -79,7 +80,8 @@ struct BreathVisual: View {
         SessionOrb(
             beat: beat,
             frame: motion.frame(at: elapsed, realElapsed: realElapsed, stationary: !travels),
-            extent: extent
+            extent: extent,
+            seed: seed
         )
     }
 

@@ -12,8 +12,7 @@ struct CheckInsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-                Text("Two short measurements taken at rest. They give your coach context "
-                    + "over time.")
+                Text("Two optional measurements taken at rest. Notice your own patterns over time.")
                     .font(.callout)
                     .foregroundStyle(Theme.Ink.secondary)
 
@@ -29,8 +28,6 @@ struct CheckInsView: View {
         .paletteGround()
         .navigationTitle("Check-ins")
         .navigationBarTitleDisplayMode(.inline)
-        // The doors carry the numbers, and a pause taken on the wrist or a
-        // restore can have changed them since the Coach tab was last drawn.
         .task { await model.refresh() }
     }
 

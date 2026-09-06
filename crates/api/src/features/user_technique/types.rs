@@ -59,16 +59,6 @@ pub struct AuthoredTechnique {
     pub stages: Vec<AuthoredStage>,
 }
 
-/// One of somebody's own exercises, as the coach is briefed on it.
-///
-/// The name and the goal only — see [`super::service::saved_summaries`] for
-/// why this is not the playable shape. The name is what they typed, so it
-/// reaches the prompt as data, not as anything the model should act on.
-pub struct SavedSummary {
-    pub name: String,
-    pub goal: TechniqueGoal,
-}
-
 pub struct AuthoredStage {
     /// In cycle order. Never empty.
     pub phases: Vec<AuthoredPhase>,

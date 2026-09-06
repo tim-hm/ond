@@ -32,9 +32,6 @@ public nonisolated enum Ond_V1_EntitlementTier: SwiftProtobuf.Enum, Swift.CaseIt
   /// The whole app as it runs on the device: every exercise and protocol, the
   /// session player, custom exercises, the journey, and the watch app.
   case free // = 1
-
-  /// önd+. Everything with a cost per use behind it — the assistant's language
-  /// model, the leaderboards, and the health trends the coach reads.
   case plus // = 2
   case UNRECOGNIZED(Int)
 

@@ -8,4 +8,3 @@ mod fixtures;
 mod leaderboard;
 mod resting_rate;
 mod sessions;
-mod snapshot;

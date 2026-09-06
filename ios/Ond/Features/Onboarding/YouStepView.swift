@@ -3,10 +3,6 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// Everything the app asks about the person, on one screen: what to call
-/// them, what brought them here, and how much they want explained. None is
-/// required — Skip takes all three unanswered, and every one is editable in
-/// Settings afterwards.
 struct YouStepView: View {
     @Bindable var model: OnboardingModel
 
@@ -17,7 +13,6 @@ struct YouStepView: View {
         ) {
             name
             goals
-            experience
         }
     }
 
@@ -54,16 +49,6 @@ struct YouStepView: View {
                     }
                 }
             }
-        }
-    }
-
-    /// One row rather than three full-width cards: this is the least
-    /// consequential answer on the screen — every exercise is available at
-    /// every level, and all it decides is how much a session explains — so it
-    /// takes the least room.
-    private var experience: some View {
-        OnboardingPickerRow("Done this before?", selection: $model.experienceLevel) {
-            OptionalPickerOptions<ExperienceLevel>()
         }
     }
 

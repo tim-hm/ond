@@ -52,8 +52,3 @@ output "heartbeat_metric" {
   description = "The CloudWatch metric name heartbeat.sh publishes into. Scalar rather than an object with the namespace, so the deploy reads it with `-raw` like every other output instead of parsing JSON."
   value       = local.heartbeat_metric
 }
-
-output "dev_role_arn" {
-  description = "The `role_arn` for the `[profile ond-dev]` stanza `mise run dev` pins — docs/contributing.md shows the stanza."
-  value       = aws_iam_role.dev.arn
-}

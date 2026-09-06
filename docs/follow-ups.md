@@ -34,8 +34,6 @@ Each entry says what is open, why it was left, and what closes it.
 
 **A day header can say "Today" after midnight.** Nothing re-renders Progress at the turn of the day, so an app left open on that screen keeps yesterday's header. _Closes when the view observes the day change._
 
-**`CoachComposer` has no honest preview mode.** The free tier shows the real composer, disabled. A dishonest argument was removed rather than a preview mode added, because the composer belongs to another lane. _Closes when the composer states its own disabled case._
-
 **The app targets have no unit tests, and cannot have them.** `ios/Ond/` declares only a UI-testing bundle and `ios/OndWatch/` declares nothing, so no Swift in either can be reached by a test. `check:mac` now compiles both, which catches a break but says nothing about behaviour. A screen reader regression in the history row went unnoticed for exactly this reason. Rules worth pinning have to move into `OndKit` one at a time. _Closes when the app targets can be tested, or when the pattern of moving rules out is written down as the rule._
 
 **An exercise's preparation is phone-only.** `Technique.preparation` is rendered by the phone's countdown, which the wrist does not have. Four seeded exercises carry one — `pursed-lip-breathing`, `humming-breath`, `cooling-breath`, `alternate-nostril` — so a wrist session starts them without the sentence that says how to sit. `Technique.swift` has called this a gap rather than a decision since it was written; it is here now so it is counted. _Closes when the wrist says it, or when the wrist is exempted in writing._

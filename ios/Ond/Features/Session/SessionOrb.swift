@@ -7,6 +7,7 @@ struct SessionOrb: View {
     let beat: SessionTimeline.Beat?
     let frame: AirOrbMotion.Frame
     let extent: CGFloat
+    let seed: Float
 
     private static let tailReach = 74.0 / 300
     private static let tailFill = LinearGradient(
@@ -17,7 +18,7 @@ struct SessionOrb: View {
 
     var body: some View {
         ZStack {
-            SmokeOrb(scale: frame.scale, swirl: frame.swirl, side: extent)
+            SmokeOrb(scale: frame.scale, swirl: frame.swirl, side: extent, sessionSeed: seed)
             if let side = beat?.passage?.side {
                 tail(towards: side)
             }

@@ -38,13 +38,6 @@ export default {
       // document is not ours to reformat: reflowing the source of truth makes
       // it disagree with the copy design signed off on.
       "design_handoff_ond_visual_refresh/**",
-      // The coach's prompt, whose layout `assistant::prompt::prefix` reads as
-      // structure: a paragraph is a block the model receives and a blank line
-      // is the separator between two. Formatting it is not cosmetic here — it
-      // rewrites the bytes sent to the provider. Left alone, `proseWrap` put a
-      // blank line inside every list and merged a section heading into the
-      // placeholder on the line beneath it.
-      "crates/api/src/features/assistant/prompt/copy/**",
     ],
   },
 };

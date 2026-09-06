@@ -1,5 +1,7 @@
 # ond breathe — release, product, and commercial review
 
+Historical audit: Coach-related findings and pricing were superseded by the 6 September 2026 release decision. Removed source references are marked as retired; the assessment below records the earlier build.
+
 Implementation follow-up: [completed changes and verification status](2026-09-04-release-polish-status.md). The findings below describe the pre-change review.
 
 Reviewed 4 September 2026 against the local workspace at `e5bdd4740`. The workspace was clean at the start. This is an assessment and proposed work, not an implementation or release approval.
@@ -42,7 +44,7 @@ There is a second mismatch in the Health permission description: “Nothing read
 
 Use precise statements about availability and transmission. For example: “Your history is available offline. önd also syncs your practice to its server. Sign in with Apple to recover it on another device.” For Health, distinguish raw readings from optional summaries sent to the coach. Revise the source in `project.yml` as well as any generated property list. Check the final App Store privacy answers separately; a local privacy manifest does not prove the submitted answers.
 
-Evidence: [paywall promise](../../ios/Ond/Features/Subscription/SubscriptionPitch.swift), [Progress copy](../../ios/Packages/OndCore/Sources/OndKit/Journey/LeaderboardLines.swift), [sync implementation](../../ios/Packages/OndCore/Sources/OndKit/Session/SessionSyncQueue.swift), [Health permission text](../../ios/project.yml), [assistant request](../../ios/Packages/OndCore/Sources/OndKit/Assistant/AssistantRepository.swift), [privacy policy source](../../web/privacy.html).
+Evidence: [paywall promise](../../ios/Ond/Features/Subscription/SubscriptionPitch.swift), [Progress copy](../../ios/Packages/OndCore/Sources/OndKit/Journey/LeaderboardLines.swift), [sync implementation](../../ios/Packages/OndCore/Sources/OndKit/Session/SessionSyncQueue.swift), [Health permission text](../../ios/project.yml), `assistant request` (retired source), [privacy policy source](../../web/privacy.html).
 
 ## 2. The coaching path needs explicit AI-sharing consent — resolve before release. Confirmed source gap; App Review risk
 
@@ -52,7 +54,7 @@ Apple's current guideline 5.1.2(i) requires clear disclosure and explicit permis
 
 Before the first AI request, explain that the message and recent conversation, relevant profile and practice context, and any enabled Health summaries go through önd's server to Amazon Bedrock. Offer Continue and Not now. Declining should leave breathing available. Record the consent version, allow withdrawal, and cover automatic opening questions as well as typed sends. Keep the Health-summary choice separate and explain its destination beside the switch.
 
-Evidence: [automatic opening question](../../ios/Ond/Features/Assistant/CoachChatView.swift), [send action](../../ios/Ond/Features/Assistant/CoachChatView.swift), [server context](../../crates/api/src/features/assistant/service.rs), [model configuration](../../crates/api/src/config.rs), [Health switches](../../ios/Ond/Features/Settings/HealthSettingsSection.swift).
+Evidence: `automatic opening question` (retired source), `send action` (retired source), `server context` (retired source), [model configuration](../../crates/api/src/config.rs), [Health switches](../../ios/Ond/Features/Settings/HealthSettingsSection.swift).
 
 ## 3. “Skip” does not decline onboarding permissions — fix the behaviour and copy together. Confirmed
 
@@ -100,7 +102,7 @@ For returning subscribers, test a small review of their recent practice, request
 
 Measure whether a coach visit leads to a breathing session and whether customers return to the coach in later weeks. Message count alone measures use and cost, not value. Keep free breathing generous while making paid guidance easier to understand.
 
-Evidence: [free coach](../../ios/Ond/Features/Assistant/CoachOffer.swift), [paid empty state](../../ios/Ond/Features/Assistant/CoachRootView.swift), [exercise launch from chat](../../ios/Ond/Features/Assistant/CoachChatView.swift).
+Evidence: `free coach` (retired source), `paid empty state` (retired source), `exercise launch from chat` (retired source).
 
 ## 7. The price and AI allowance do not establish a sustainable margin — resolve before promoting Plus. Confirmed configuration; cost scenarios are illustrative
 
@@ -121,7 +123,7 @@ Keep the server-side free-tier gate, token accounting, caching, and circuit brea
 
 Test $2.99/month and $24.99/year as an alternative to the current offer, after improving the paid value demonstration. This is a candidate price, not a recommendation to change it immediately. Compare net contribution per acquired user, refunds, and renewal intention. Avoid an unlimited lifetime AI purchase because it creates ongoing costs without ongoing receipts.
 
-Evidence: [call and token caps](../../crates/api/src/features/assistant/types.rs), [model](../../crates/api/src/config.rs), [token metrics](../../crates/api/src/features/assistant/metrics.rs).
+Evidence: `call and token caps` (retired source), [model](../../crates/api/src/config.rs), `token metrics` (retired source).
 
 ## 8. Retention should reinforce useful practice — reconsider physiological competition. Confirmed incentives; commercial benefit is unproven
 
@@ -157,7 +159,7 @@ The Moments screenshot gives each short item a large rounded card and a substant
 
 History presents pairs such as “8:40 · 5:12” for start time and duration. These are easy to confuse. Use an explicit unit for duration, such as “8:40 · 5 min,” while retaining exact duration in an accessible description or detail view. “The basics” is reachable through Coach even for free users; a novice may assume that tab is paid. Add a relevant link from exercise detail or a brief first-session hint rather than another permanent Home panel.
 
-Evidence: reviewed screenshots (`ios/build/screenshots`), [history row](../../ios/Ond/Features/Progress/SessionHistoryRow.swift), [Coach shortcuts](../../ios/Ond/Features/Assistant/CoachRootView.swift), [tab structure](../../ios/Ond/Chrome/AppChrome.swift).
+Evidence: reviewed screenshots (`ios/build/screenshots`), [history row](../../ios/Ond/Features/Progress/SessionHistoryRow.swift), `Coach shortcuts` (retired source), [tab structure](../../ios/Ond/Chrome/AppChrome.swift).
 
 ## Visual direction to prototype — warmer, more distinctive, easier to scan. Design hypotheses
 

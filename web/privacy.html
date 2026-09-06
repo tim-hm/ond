@@ -15,7 +15,7 @@
       <header class="doc-head">
         <a class="wordmark" href="/">önd</a>
         <h1>Privacy</h1>
-        <p class="doc-meta">Last updated 5 September 2026</p>
+        <p class="doc-meta">Last updated 6 September 2026</p>
       </header>
 
       <section>
@@ -28,12 +28,8 @@
           <li>We do not sell your data.</li>
         </ul>
         <p>
-          With AI sharing enabled, coach requests send relevant profile, practice and conversation context to Amazon Bedrock. Conversations are saved on your iPhone. See
-          <a href="#coach">The coach and the language model</a> for the exact details.
-        </p>
-        <p>
-          önd can record your sessions and mood responses in Apple Health. If you opt in, it can also read four Health measures: three give the coach some context, and one lets your phone draw your
-          heart rate around each session. See <a href="#health">Health</a> for what önd reads and writes.
+          önd can record your sessions and mood responses in Apple Health. If you opt in, it can also read four Health measures: recent breathing, heart-rate and HRV trends, and heart rate around your
+          practice. See <a href="#health">Health</a> for what önd reads and writes.
         </p>
       </section>
 
@@ -74,9 +70,9 @@
           <div>
             <dt>The answers you give us</dt>
             <dd>
-              Onboarding asks four optional questions: your first name, what you want from breathing, your experience, and how often you want reminders. Settings includes four more optional fields: a
-              decade-wide birth-year band, your gender, a leaderboard display name, and a short note about what brought you here. Each field stays blank until you fill it in and becomes blank again if
-              you clear it. Your first name can be included in coach requests when AI sharing is on. Other people see your display name and the value being ranked if you join a leaderboard.
+              Onboarding asks for your optional first name, goals, and reminder preference. Settings also lets you choose a birth-year band and leaderboard display name. Your first name personalises
+              Home. Other people see only your display name and the value being ranked if you join a leaderboard. Experience, notes, and gender provided in preview builds remain in your profile until
+              you delete your account; this release no longer asks for them.
             </dd>
           </div>
           <div>
@@ -104,56 +100,17 @@
             <dt>Exercises you write yourself</dt>
             <dd>
               If you make a breathing exercise, we store its name, your description, the goal, its stages, and its timings. This lets the exercise move to a new phone. It is not shown on leaderboards.
-              With AI sharing on, saved exercise names and goals are included in coach context. Descriptions are not included automatically, but anything you put in a chat message is sent with that
-              conversation.
             </dd>
-          </div>
-          <div>
-            <dt>A daily counter, if you use the coach</dt>
-            <dd>We store one number per day: how many language-model calls you have made. This lets us limit the cost of the model.</dd>
           </div>
           <div>
             <dt>What our server logs</dt>
             <dd>
-              We log one line for each request your app makes. It records the operation, whether it succeeded, how long it took, and your random identifier. For coach calls, it also records the
-              request and reply sizes in tokens, but never the words. We use these logs to investigate faults. The logs have a size limit, so newer entries replace older ones. They are not deleted on
-              a fixed schedule, and deleting your account does not remove them.
+              We log one line for each request your app makes. It records the operation, whether it succeeded, how long it took, and your random identifier. We use these logs to investigate faults.
+              The logs have a size limit, so newer entries replace older ones. They are not deleted on a fixed schedule, and deleting your account does not remove them.
             </dd>
           </div>
         </dl>
         <p>Reminders are off until you choose them. The app asks for notification permission when you enable reminders during onboarding or create a schedule. Your schedules stay on your device.</p>
-      </section>
-
-      <section id="coach">
-        <h2>The coach and the language model</h2>
-        <p>
-          The coach uses a large language model to answer. We do not run that model ourselves. Calls go directly from our server to Amazon Bedrock, Amazon Web Services' model service, with no broker
-          or reseller. The credentials for those calls stay on our server and are never included in the app.
-        </p>
-        <p>Coach requests require the separate AI sharing choice. You can withdraw it in Settings. With sharing enabled, recommendations and chat can include:</p>
-        <ul>
-          <li>Your optional first name, goals and stated experience level</li>
-          <li>Your birth-year band and gender, if you gave them, as personal context</li>
-          <li>Your free-text note, in your own words, if you wrote one</li>
-          <li>Your recent practice, comfortable pauses, and resting breathing rates, if you have recorded any</li>
-          <li>
-            A coarse heart summary, if you turned that setting on — see
-            <a href="#health">Health</a>
-            below
-          </li>
-          <li>Saved exercise names and goals</li>
-          <li>Your question and relevant conversation history, including earlier coach replies</li>
-        </ul>
-        <p>
-          We do not send your leaderboard display name or account identifier as profile fields. Text you provide can still contain identifying details. Your note, exercise names and chat messages can
-          include anything you type, so avoid adding information you do not want processed by the coach.
-        </p>
-        <p>
-          Coach conversations are saved on your iPhone until you delete them or clear your account and app data. Our server does not store prompts, replies or explanations in its database or logs.
-          Only the daily counter and request metadata described above remain on the server. Amazon handles coach requests under our instructions and contract. Your words are not used to train or
-          improve a model, and Amazon does not retain them after the answer returns. The company that built the model does not receive them.
-        </p>
-        <p>The coach gives general wellness guidance about breathing. It is not a doctor. It cannot diagnose, and nothing it says is medical advice.</p>
       </section>
 
       <section id="health">
@@ -182,37 +139,28 @@
             <dt>What we read, only if you turn it on</dt>
             <dd>
               <strong>Settings &rarr; Health &rarr; Heart and sleep data</strong> is off until you switch it on. That action asks Health for access to four measures: sleeping breathing rate, resting
-              heart rate, heart rate variability (HRV), and heart rate around your sessions. önd reads nothing else. Turning the setting off means the next coach request contains no Health summary.
-              The same setting appears under <strong>Coach &rarr; Check-ins</strong>, beside the figures it reads.
+              heart rate, heart rate variability (HRV), and heart rate around your sessions. önd reads nothing else. Turning the setting off stops new Health reads and clears the displayed trends. The
+              same setting appears under <strong>Progress &rarr; Check-ins</strong>, beside the figures it reads.
             </dd>
           </div>
           <div>
             <dt>Your heart rate around a session</dt>
             <dd>
               With the same setting on, Progress shows average heart rates around recent practices. Each average includes the practice and the three minutes afterwards. These values are read from
-              Health for display and are not added to coach requests. Practices without enough heart data are labelled as having no reading. During connected practice, your Watch also sends live
-              heart-rate readings to your paired iPhone.
+              Health for display and are not sent to our server. Practices without enough heart data are labelled as having no reading. During connected practice, your Watch also sends live heart-rate
+              readings to your paired iPhone.
             </dd>
           </div>
           <div>
-            <dt>What actually leaves your phone</dt>
+            <dt>Local Health summaries</dt>
             <dd>
-              Your individual Health readings never leave your phone. The phone reduces the last eight weeks to whole-number summaries: a seven-day average and, when there is enough history, one
-              number showing how it has changed. Only those summaries are attached to the coach request you make. They include no dates or individual readings, and nothing is sent when the setting is
-              off.
-              <strong>Coach &rarr; Check-ins</strong> shows you the same summaries. Opening that screen sends nothing.
+              The phone reduces recent Health readings to weekly averages and changes over time. These summaries are displayed on your device and are never sent to our server or an AI service. During
+              connected practice, live heart rate travels from your Watch to your paired iPhone.
             </dd>
           </div>
         </dl>
-        <p>
-          We do not store Health data. A Health summary exists on our server only for the length of one coach request. It is sent to Bedrock with that request and then dropped. It is never written to
-          our database or logs.
-        </p>
-        <p>
-          We rely on your explicit consent to process this Health data. The Health setting controls reading and including Health summaries; the separate AI sharing choice must also be on before a
-          coach request is sent. Turn either choice off to stop new Health summaries reaching the coach. Turning these settings off does not remove Apple's permission. You can remove that separately
-          in the Health app.
-        </p>
+        <p>We do not store Health readings or summaries in our database or logs. The app reads them from Apple Health for display.</p>
+        <p>The Health setting controls whether the app reads this data. Turning it off does not remove Apple’s permission; you can remove that separately in the Health app.</p>
       </section>
 
       <section>
@@ -245,18 +193,13 @@
           Your stored data lives on one server in Amazon Web Services' London region (eu-west-2), in the United Kingdom. Each night, we make an encrypted database backup in Amazon's storage service in
           the same region. Database backups are scheduled to expire after 30 days. We also retain the seven most recent daily snapshots of the server's data volume.
         </p>
-        <p>
-          Coach requests are the one exception. We send them to Bedrock's London endpoint. When it needs more capacity, Bedrock may process a request in Ireland, Frankfurt, Paris, Stockholm, Milan, or
-          Spain. A coach request may therefore leave the United Kingdom, but it remains within the United Kingdom or the European Economic Area. It stays inside Amazon Web Services and is not stored
-          by our server or Bedrock. Conversation history remains on your iPhone.
-        </p>
       </section>
 
       <section>
         <h2>How long we keep it</h2>
         <p>
-          We keep your profile, practice history, and personal exercises until you erase them. Sessions you delete in the app are deleted from the server during the next sync. Coach conversations
-          remain on your iPhone until you delete them or clear your account and app data.
+          We keep your profile, practice history, and personal exercises until you erase them. Sessions you delete in the app are deleted from the server during the next sync. Conversations from
+          preview builds remain on your iPhone until you clear your account and app data. This release has no AI coach and sends no requests to a model provider.
         </p>
         <p>
           Backups and volume snapshots contain data held when they were created. Database backups expire on a 30-day schedule; previous object versions expire one day after becoming noncurrent. Volume
@@ -274,10 +217,12 @@
         <p>You can delete your account and app data without waiting for us. Go to <strong>Settings &rarr; Delete account &rarr; Delete account and app data</strong>. This action:</p>
         <ul>
           <li>
-            Removes your profile, sessions, comfortable pause measurements, resting breathing rate measurements, personal exercises, coach counter, Apple sign-in link, and account row from our server.
+            Removes your profile, sessions, comfortable pause measurements, resting breathing rate measurements, personal exercises, legacy usage counters, Apple sign-in link, and account row from our
+            server.
           </li>
           <li>
-            Clears app data on your iPhone, including conversation history, reminder schedules and queued notifications. Your paired Watch clears its copy when it receives the update after connecting.
+            Clears app data on your iPhone, including any preview conversation history, reminder schedules and queued notifications. Your paired Watch clears its copy when it receives the update after
+            connecting.
           </li>
         </ul>
         <p>
@@ -309,12 +254,8 @@
             We process your onboarding answers, practice history, personal exercises, and subscription details to provide the app. This is performance of a contract. If you sign in, the same basis
             covers using your Apple account identifier to restore your history.
           </li>
-          <li>We process your optional first name, birth-year band, gender, note, and display name with your consent. You give consent by filling in a field and withdraw it by clearing the field.</li>
-          <li>
-            Health trends are special-category health data under the UK GDPR. We process them with your explicit consent. The Health choice and the separate AI sharing choice control their inclusion
-            in coach requests. Turn either off to stop new summaries being sent.
-          </li>
-          <li>We use our legitimate interest in controlling service costs to process the daily coach counter.</li>
+          <li>We process your optional first name, birth-year band, and display name with your consent. You give consent by filling in a field and withdraw it by clearing the field.</li>
+          <li>Health trends are special-category health data under the UK GDPR. We process them locally with your explicit consent through the Health setting and Apple Health permissions.</li>
           <li>We use our legitimate interest in investigating faults and recovering the service to keep server logs and nightly backups.</li>
         </ul>
       </section>

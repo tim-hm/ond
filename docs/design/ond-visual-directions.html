@@ -166,7 +166,7 @@
   #ond-directions .ond-tabs {
     padding: 8px 9px 13px;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     border-top: 1px solid var(--ond-line);
     background: var(--ond-paper);
   }
@@ -586,32 +586,24 @@
     <section class="ond-screen" data-screen="plus" aria-label="önd Plus offer" hidden>
       <div class="ond-offer-top"><span class="ond-offer-brand">önd+</span><button class="ond-text-button" type="button" data-go="home">Not now</button></div>
       <div class="ond-page ond-offer">
-        <h1>A little guidance.<br />A practice that fits.</h1>
-        <div class="ond-example">
-          <div class="ond-example-label">Example conversation · AI coach</div>
-          <div class="ond-message">I have a few minutes before a meeting.</div>
-          <p class="ond-reply">Try a short, steady rhythm. Keep it comfortable and skip the holds if you need to.</p>
-          <div class="ond-exercise">
-            <span class="ond-exercise-dot" aria-hidden="true"></span><span>Box Breathing <span style="color: var(--ond-muted)">· 3 min</span></span>
-          </div>
-        </div>
-        <div class="ond-benefit"><i data-lucide="check" aria-hidden="true"></i><span>Personal guidance from your AI coach</span></div>
+        <h1>Your phone and Watch.<br />One shared rhythm.</h1>
+        <div class="ond-benefit"><i data-lucide="check" aria-hidden="true"></i><span>Optional practice leaderboards</span></div>
         <div class="ond-benefit"><i data-lucide="check" aria-hidden="true"></i><span>Your phone and Watch, in one session</span></div>
         <div class="ond-benefit"><i data-lucide="check" aria-hidden="true"></i><span>Health trends over time</span></div>
         <div class="ond-plans" aria-label="Subscription plan">
           <button class="ond-plan" type="button" data-plan="yearly" aria-pressed="true">
-            <span class="ond-plan-name">Yearly</span><span class="ond-price">$14.99</span><small>$1.25 / month</small>
+            <span class="ond-plan-name">Yearly</span><span class="ond-price">$9.99</span><small>Billed yearly</small>
           </button>
           <button class="ond-plan" type="button" data-plan="monthly" aria-pressed="false">
-            <span class="ond-plan-name">Monthly</span><span class="ond-price">$1.99</span><small>Billed monthly</small>
+            <span class="ond-plan-name">Monthly</span><span class="ond-price">$0.99</span><small>Billed monthly</small>
           </button>
         </div>
         <button class="ond-primary" type="button" id="ond-trial">Try 7 days free</button>
-        <p class="ond-terms" id="ond-renewal">7 days free, then $14.99 / year. Renews automatically unless cancelled. For eligible new subscribers.</p>
+        <p class="ond-terms" id="ond-renewal">7 days free, then $9.99 / year. Renews automatically unless cancelled. For eligible new subscribers.</p>
         <p class="ond-terms">All offline breathing exercises stay free.</p>
         <div class="ond-links">
           <button type="button" data-info="Restore is a preview here. No App Store account is connected.">Restore</button
-          ><button type="button" data-info="Privacy preview: the coach example is illustrative. No text or health information is sent by this prototype.">Privacy</button
+          ><button type="button" data-info="Privacy preview: no text or health information is sent by this prototype.">Privacy</button
           ><button type="button" data-info="Illustrative US prices. Confirm current App Store pricing and trial eligibility before release.">Terms</button>
         </div>
         <div class="ond-note" id="ond-purchase-note" role="status" hidden></div>
@@ -640,7 +632,6 @@
       <button class="ond-tab" type="button" data-go="moments"><i data-lucide="sun" aria-hidden="true"></i><span>Moments</span></button>
       <button class="ond-tab" type="button" data-go="exercises"><i data-lucide="wind" aria-hidden="true"></i><span>Exercises</span></button>
       <button class="ond-tab" type="button" data-go="progress"><i data-lucide="chart-no-axes-column" aria-hidden="true"></i><span>Progress</span></button>
-      <button class="ond-tab" type="button" data-go="plus"><i data-lucide="message-circle" aria-hidden="true"></i><span>Coach</span></button>
     </nav>
     <div class="ond-handle" aria-hidden="true"></div>
   </div>
@@ -729,7 +720,7 @@
         plan = button.dataset.plan;
         root.querySelectorAll("[data-plan]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
         document.getElementById("ond-renewal").textContent =
-          `7 days free, then ${plan === "yearly" ? "$14.99 / year" : "$1.99 / month"}. Renews automatically unless cancelled. For eligible new subscribers.`;
+          `7 days free, then ${plan === "yearly" ? "$9.99 / year" : "$0.99 / month"}. Renews automatically unless cancelled. For eligible new subscribers.`;
       }
       if (button.id === "ond-pause") {
         paused = !paused;

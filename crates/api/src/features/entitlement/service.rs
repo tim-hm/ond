@@ -22,11 +22,6 @@ use crate::proto::ond::v1 as pb;
 /// caller chooses that size, so this layer chooses the maximum.
 const MAX_SIGNED_TRANSACTION_BYTES: usize = 8 * 1024;
 
-/// How long a transaction stays put once an identity has claimed it. A reinstall
-/// needs the binding to move; there is no account recovery. A rotation needs it
-/// not to move freely: the assistant allowance is per user per UTC day, so a
-/// token handed round self-minted identities would draw a fresh day's spend at
-/// each stop. A day is the allowance's own unit.
 const TRANSFER_COOLDOWN: Duration = Duration::days(1);
 
 /// Verifies a submitted transaction and stores what it grants. Three outcomes,
@@ -193,11 +188,6 @@ pub async fn tier(pool: &PgPool, user_id: UserId) -> Result<Tier, EntitlementErr
     Ok(Entitlement::from_row(&stored, Utc::now()).tier())
 }
 
-/// Refuses a caller who does not hold `required` — the shape every gated RPC
-/// but the assistant's should use (the assistant's decision is a `Claim`, not
-/// a yes or no). Here rather than in each handler so "which tier does this
-/// cost" is asked one way; `refusal` is the calling feature's own sentence,
-/// because the client renders it and only that feature knows the context.
 pub async fn require(
     pool: &PgPool,
     user_id: UserId,

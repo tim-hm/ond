@@ -2,11 +2,6 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The heart rate around the last few practices: who may read it, when it is read
-/// again, and what silence means. Its own suite beside the coach's trends, because
-/// the questions differ — that one is about what a request carries, and this is
-/// about what a card draws — and because both go through the same `isReadable`
-/// gate, which is the one thing worth proving twice.
 @MainActor
 @Suite("The heart around a practice")
 struct PracticeHeartReadTests {
@@ -54,7 +49,7 @@ struct PracticeHeartReadTests {
     func theHeartIsNotReadBelowTheTier() async throws {
         let store = ScriptedHealthStore()
         let model = try model(store: store, defaults: defaults(), tier: .free)
-        model.coachReadsHealthTrends = true
+        model.readsHealthTrends = true
 
         await model.loadPracticeHeart(from: [Self.practice(minutesAgo: 30)])
 
@@ -71,7 +66,7 @@ struct PracticeHeartReadTests {
             HeartFixtures.reading(for: earlier, 64),
         ])
         let model = try model(store: store, defaults: defaults())
-        model.coachReadsHealthTrends = true
+        model.readsHealthTrends = true
 
         await model.loadPracticeHeart(from: [recent, earlier])
 
@@ -85,7 +80,7 @@ struct PracticeHeartReadTests {
         let recent = Self.practice(minutesAgo: 30)
         let store = try ScriptedHealthStore(heartRates: [HeartFixtures.reading(for: recent, 71)])
         let model = try model(store: store, defaults: defaults())
-        model.coachReadsHealthTrends = true
+        model.readsHealthTrends = true
 
         await model.loadPracticeHeart(from: [recent, Self.practice(minutesAgo: 300)])
 
@@ -106,7 +101,7 @@ struct PracticeHeartReadTests {
             HeartFixtures.reading(for: justFinished, 80),
         ])
         let model = try model(store: store, defaults: defaults())
-        model.coachReadsHealthTrends = true
+        model.readsHealthTrends = true
 
         await model.loadPracticeHeart(from: [recent, earlier])
         await model.loadPracticeHeart(from: [recent, earlier])
@@ -128,11 +123,11 @@ struct PracticeHeartReadTests {
             HeartFixtures.reading(for: earlier, 64),
         ])
         let model = try model(store: store, defaults: defaults())
-        model.coachReadsHealthTrends = true
+        model.readsHealthTrends = true
         await model.loadPracticeHeart(from: [recent, earlier])
         #expect(model.practiceHeart != nil)
 
-        model.coachReadsHealthTrends = false
+        model.readsHealthTrends = false
 
         #expect(model.practiceHeart == nil)
     }
